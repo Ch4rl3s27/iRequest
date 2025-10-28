@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iRequest</title>
+  <link rel="icon" href="/static/assets/iRlogo.png" type="image/x-icon">
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Poppins Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- Signup shared styles -->
+  <link rel="stylesheet" href="/static/assets/css/signup.css">
+</head>
+<body>
+
+<div class="container signup-container d-flex align-items-center justify-content-center min-vh-100">
+  <div class="card signup-card">
+    <div class="card-body">
+      <h3 class="signup-title">Student Signup Form</h3>
+      <form id="studentSignupForm" action="/student/signup" method="POST">
+        <!-- Student Number -->
+        <div class="mb-3">
+          <label for="studentNo" class="form-label">Student No. (0000-0000)</label>
+          <input type="text" class="form-control" id="studentNo" name="student_no" placeholder="0000-0000" pattern="\d{4}-\d{4}" required>
+        </div>
+
+        <!-- Name -->
+        <div class="row g-2">
+          <div class="col-md-3">
+            <label class="form-label">First Name</label>
+            <input type="text" class="form-control" name="first_name" required>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Middle Name</label>
+            <input type="text" class="form-control" id="stu_middle_name" name="middle_name">
+            <div class="form-check mt-1">
+              <input class="form-check-input" type="checkbox" id="stu_no_middlename">
+              <label class="form-check-label" for="stu_no_middlename">No Middle Name</label>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Last Name</label>
+            <input type="text" class="form-control" name="last_name" required>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Suffix</label>
+            <select class="form-select" name="suffix">
+              <option selected disabled>Choose...</option>
+              <option>Jr.</option>
+              <option>Sr.</option>
+              <option>I</option>
+              <option>II</option>
+              <option>III</option>
+              <option>IV</option>
+              <option>V</option>
+              <option>None</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Course & Year -->
+        <div class="row g-2 mt-3">
+          <div class="col-md-6">
+            <label class="form-label">Course</label>
+            <select class="form-select" name="course" required>
+              <option selected disabled>Choose...</option>
+              <option>Bachelor of Elementary Education (BEED)</option>
+              <option>Bachelor of Secondary Education (BSED)</option>
+              <option>Bachelor of Science in Hospitality Management (BSHM)</option>
+              <option>Bachelor of Science in Computer Science (BSCS)</option>
+              <option>Associate in Computer Technology (ACT)</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Year Level</label>
+            <select class="form-select" name="year_level" required>
+              <option selected disabled>Choose...</option>
+              <option>First Year (1st)</option>
+              <option>Second Year (2nd)</option>
+              <option>Third Year (3rd)</option>
+              <option>Fourth Year (4th)</option>
+              <option>Graduate</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Email -->
+        <div class="mt-3">
+          <label class="form-label">Email</label>
+          <input type="email" class="form-control" name="email" required>
+        </div>
+
+        <!-- Password -->
+        <div class="row g-2 mt-3">
+          <div class="col-md-6">
+            <label class="form-label">Password</label>
+            <div class="position-relative">
+              <input type="password" class="form-control" id="stu_password" name="password" required style="padding-right: 42px;">
+              <i id="toggleStuPwd" class="fa-solid fa-eye position-absolute" style="right:12px; top:50%; transform: translateY(-50%); cursor:pointer; user-select:none;"></i>
+            </div>
+            <div id="stu_pwd_strength" class="mt-1" style="font-size:13px;">Strength: <span id="stu_pwd_strength_label">Weak</span></div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Confirm Password</label>
+            <div class="position-relative">
+              <input type="password" class="form-control" id="stu_confirm_password" name="confirm_password" required style="padding-right: 42px;">
+              <i id="toggleStuConfirmPwd" class="fa-solid fa-eye position-absolute" style="right:12px; top:50%; transform: translateY(-50%); cursor:pointer; user-select:none;"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mobile -->
+        <div class="mt-3">
+          <label class="form-label">Mobile No.</label>
+          <input type="text" id="mobile" name="mobile" class="form-control" placeholder="09XXXXXXXXX" required>
+          <div id="mobileError">Invalid mobile number. Format: 09XXXXXXXXX</div>
+        </div>
+
+        <!-- Gender -->
+        <div class="mt-3">
+          <label class="form-label">Gender</label><br>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="gender" value="Male" required>
+            <label class="form-check-label">Male</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="gender" value="Female" required>
+            <label class="form-check-label">Female</label>
+          </div>
+        </div>
+
+        <!-- Address -->
+        <div class="mt-3">
+          <label class="form-label">Address</label>
+          <div class="row g-2">
+            <div class="col-md-4">
+              <label class="form-label">Province</label>
+              <select class="form-select" id="province" name="province" required>
+                <option selected disabled>Loading provinces...</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Municipality/City</label>
+              <select class="form-select" id="municipality" name="municipality" required disabled>
+                <option selected disabled>Choose province first</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Barangay</label>
+              <select class="form-select" id="barangay" name="barangay" required disabled>
+                <option selected disabled>Choose city/municipality first</option>
+              </select>
+            </div>
+          </div>
+          <div class="row g-2 mt-2">
+            <div class="col-md-8">
+              <label class="form-label">Street</label>
+              <input type="text" class="form-control" id="street" name="street" placeholder="Street / Subdivision / Purok" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Block/Lot/Unit</label>
+              <input type="text" class="form-control" id="block" name="block" placeholder="e.g., Blk 1 Lot 2">
+            </div>
+          </div>
+          <input type="hidden" id="full_address" name="address">
+        </div>
+
+        <!-- Terms -->
+        <div class="form-check mt-4">
+          <input class="form-check-input" type="checkbox" id="terms" disabled>
+          <label class="form-check-label" for="terms">
+            I agree to the <a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">Terms of Service</a>
+          </label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="privacy" disabled>
+          <label class="form-check-label" for="privacy">
+            I agree to the <a href="#" data-bs-toggle="modal" data-bs-target="#privacyModal">Data Privacy Policy</a>
+          </label>
+        </div>
+
+        <!-- Submit -->
+        <div class="d-grid mt-4">
+          <button type="submit" class="btn btn-primary">Sign Up</button>
+        </div>
+
+        <!-- Already have account -->
+        <div class="login-link">
+          Already have an account? <a href="login.html">Login</a>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Terms Modal -->
+<div class="modal fade" id="termsModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content rounded-4 shadow-lg">
+      <div class="modal-header bg-primary text-white border-0">
+        <div class="d-flex align-items-center">
+          <i class="fas fa-file-contract me-3 fs-4"></i>
+          <h5 class="modal-title mb-0 fw-bold">Terms of Service</h5>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-dark" style="max-height: 60vh; overflow-y: auto;">
+        <div class="mb-4">
+          <h6 class="text-primary fw-bold mb-3">
+            <i class="fas fa-info-circle me-2"></i>Overview
+          </h6>
+          <p class="mb-3">These Terms of Service ("Terms") govern your use of the iRequest Online Document Request Form platform operated by Norzagaray College. By accessing or using our service, you agree to be bound by these Terms.</p>
+        </div>
+
+        <div class="mb-4">
+          <h6 class="text-primary fw-bold mb-3">
+            <i class="fas fa-user-check me-2"></i>Acceptable Use
+          </h6>
+          <ul class="list-unstyled">
+            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Use the platform only for requesting, processing, and managing official documents of Norzagaray College</li>
+            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Provide accurate and truthful information in all requests</li>
+            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Maintain the confidentiality of your account credentials</li>
+            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Comply with all applicable laws and regulations</li>
+          </ul>
+        </div>
+
+        <div class="mb-4">
+          <h6 class="text-primary fw-bold mb-3">
+            <i class="fas fa-ban me-2"></i>Prohibited Activities
+          </h6>
+          <ul class="list-unstyled">
+            <li class="mb-2"><i class="fas fa-times text-danger me-2"></i>Submitting false or misleading information</li>
+            <li class="mb-2"><i class="fas fa-times text-danger me-2"></i>Attempting to gain unauthorized access to the system</li>
+            <li class="mb-2"><i class="fas fa-times text-danger me-2"></i>Using the platform for any illegal or unauthorized purpose</li>
+            <li class="mb-2"><i class="fas fa-times text-danger me-2"></i>Interfering with the proper functioning of the service</li>
+          </ul>
+        </div>
+
+        <div class="mb-4">
+          <h6 class="text-primary fw-bold mb-3">
+            <i class="fas fa-shield-alt me-2"></i>Account Responsibility
+          </h6>
+          <p class="mb-2">You are responsible for:</p>
+          <ul class="list-unstyled">
+            <li class="mb-2"><i class="fas fa-key me-2 text-warning"></i>Maintaining the security of your account</li>
+            <li class="mb-2"><i class="fas fa-key me-2 text-warning"></i>All activities that occur under your account</li>
+            <li class="mb-2"><i class="fas fa-key me-2 text-warning"></i>Notifying us immediately of any unauthorized use</li>
+          </ul>
+        </div>
+
+        <div class="mb-4">
+          <h6 class="text-primary fw-bold mb-3">
+            <i class="fas fa-gavel me-2"></i>Limitation of Liability
+          </h6>
+          <p class="mb-0">Norzagaray College shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your use of the iRequest platform.</p>
+        </div>
+
+        <div class="alert alert-info border-0 bg-light">
+          <i class="fas fa-info-circle me-2"></i>
+          <strong>Note:</strong> These terms may be updated periodically. Continued use of the service constitutes acceptance of any changes.
+      </div>
+      </div>
+      <div class="modal-footer border-0 bg-light">
+        <button type="button" class="btn btn-primary px-4 py-2" id="acceptTerms" data-bs-dismiss="modal">
+          <i class="fas fa-check me-2"></i>I Understand and Accept
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Privacy Modal -->
+<div class="modal fade" id="privacyModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content rounded-4 shadow-lg">
+      <div class="modal-header bg-success text-white border-0">
+        <div class="d-flex align-items-center">
+          <i class="fas fa-shield-alt me-3 fs-4"></i>
+          <h5 class="modal-title mb-0 fw-bold">Data Privacy Policy</h5>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-dark" style="max-height: 60vh; overflow-y: auto;">
+        <div class="mb-4">
+          <h6 class="text-success fw-bold mb-3">
+            <i class="fas fa-info-circle me-2"></i>Introduction
+          </h6>
+          <p class="mb-3">Norzagaray College is committed to protecting your privacy and personal data. This Data Privacy Policy explains how we collect, use, store, and protect your information when you use the iRequest platform, in compliance with the Data Privacy Act of 2012 (Republic Act No. 10173).</p>
+        </div>
+
+        <div class="mb-4">
+          <h6 class="text-success fw-bold mb-3">
+            <i class="fas fa-database me-2"></i>Information We Collect
+          </h6>
+          <div class="row">
+            <div class="col-md-6">
+              <h6 class="text-muted fw-semibold mb-2">Personal Information:</h6>
+              <ul class="list-unstyled small">
+                <li class="mb-1"><i class="fas fa-user me-2 text-primary"></i>Full name</li>
+                <li class="mb-1"><i class="fas fa-id-card me-2 text-primary"></i>Student/Employee ID</li>
+                <li class="mb-1"><i class="fas fa-envelope me-2 text-primary"></i>Email address</li>
+                <li class="mb-1"><i class="fas fa-phone me-2 text-primary"></i>Contact number</li>
+                <li class="mb-1"><i class="fas fa-map-marker-alt me-2 text-primary"></i>Address</li>
+              </ul>
+            </div>
+            <div class="col-md-6">
+              <h6 class="text-muted fw-semibold mb-2">Academic/Professional Information:</h6>
+              <ul class="list-unstyled small">
+                <li class="mb-1"><i class="fas fa-graduation-cap me-2 text-primary"></i>Course/Department</li>
+                <li class="mb-1"><i class="fas fa-calendar me-2 text-primary"></i>Year level/Position</li>
+                <li class="mb-1"><i class="fas fa-file-alt me-2 text-primary"></i>Document requests</li>
+                <li class="mb-1"><i class="fas fa-history me-2 text-primary"></i>Transaction history</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <h6 class="text-success fw-bold mb-3">
+            <i class="fas fa-cogs me-2"></i>How We Use Your Information
+          </h6>
+          <ul class="list-unstyled">
+            <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Verify your identity and eligibility for document requests</li>
+            <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Process and fulfill your document requests</li>
+            <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Communicate with you about your requests and account status</li>
+            <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Maintain records for administrative and audit purposes</li>
+            <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Improve our services and user experience</li>
+          </ul>
+        </div>
+
+        <div class="mb-4">
+          <h6 class="text-success fw-bold mb-3">
+            <i class="fas fa-lock me-2"></i>Data Protection Measures
+          </h6>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="card border-0 bg-light h-100">
+                <div class="card-body p-3">
+                  <h6 class="card-title text-success"><i class="fas fa-shield-alt me-2"></i>Technical Safeguards</h6>
+                  <ul class="list-unstyled small mb-0">
+                    <li class="mb-1">• SSL encryption for data transmission</li>
+                    <li class="mb-1">• Secure database storage</li>
+                    <li class="mb-1">• Regular security updates</li>
+                    <li class="mb-1">• Access controls and authentication</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="card border-0 bg-light h-100">
+                <div class="card-body p-3">
+                  <h6 class="card-title text-success"><i class="fas fa-users me-2"></i>Administrative Safeguards</h6>
+                  <ul class="list-unstyled small mb-0">
+                    <li class="mb-1">• Staff training on data privacy</li>
+                    <li class="mb-1">• Limited access to personal data</li>
+                    <li class="mb-1">• Regular privacy audits</li>
+                    <li class="mb-1">• Incident response procedures</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <h6 class="text-success fw-bold mb-3">
+            <i class="fas fa-share-alt me-2"></i>Data Sharing and Disclosure
+          </h6>
+          <p class="mb-2">We do not sell, trade, or rent your personal information to third parties. We may share your information only in the following circumstances:</p>
+          <ul class="list-unstyled">
+            <li class="mb-2"><i class="fas fa-gavel me-2 text-warning"></i>When required by law or legal process</li>
+            <li class="mb-2"><i class="fas fa-university me-2 text-warning"></i>With authorized college personnel for legitimate purposes</li>
+            <li class="mb-2"><i class="fas fa-handshake me-2 text-warning"></i>With your explicit consent</li>
+          </ul>
+        </div>
+
+        <div class="mb-4">
+          <h6 class="text-success fw-bold mb-3">
+            <i class="fas fa-user-cog me-2"></i>Your Rights
+          </h6>
+          <p class="mb-2">Under the Data Privacy Act, you have the right to:</p>
+          <div class="row">
+            <div class="col-md-6">
+              <ul class="list-unstyled">
+                <li class="mb-2"><i class="fas fa-eye me-2 text-info"></i>Access your personal data</li>
+                <li class="mb-2"><i class="fas fa-edit me-2 text-info"></i>Correct inaccurate information</li>
+                <li class="mb-2"><i class="fas fa-ban me-2 text-info"></i>Object to processing</li>
+              </ul>
+            </div>
+            <div class="col-md-6">
+              <ul class="list-unstyled">
+                <li class="mb-2"><i class="fas fa-trash me-2 text-info"></i>Request data deletion</li>
+                <li class="mb-2"><i class="fas fa-download me-2 text-info"></i>Data portability</li>
+                <li class="mb-2"><i class="fas fa-exclamation-triangle me-2 text-info"></i>File complaints</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="alert alert-success border-0 bg-light">
+          <i class="fas fa-info-circle me-2"></i>
+          <strong>Contact Information:</strong> For privacy concerns or data requests, contact our Data Protection Officer at <strong>dpo@norzagaraycollege.edu.ph</strong> or visit the Registrar's Office.
+        </div>
+
+        <div class="alert alert-warning border-0 bg-light">
+          <i class="fas fa-calendar-alt me-2"></i>
+          <strong>Last Updated:</strong> This policy was last updated on <strong>January 2024</strong> and may be revised to reflect changes in our practices or applicable laws.
+      </div>
+      </div>
+      <div class="modal-footer border-0 bg-light">
+        <button type="button" class="btn btn-success px-4 py-2" id="acceptPrivacy" data-bs-dismiss="modal">
+          <i class="fas fa-shield-alt me-2"></i>I Understand and Accept
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+  const mobileInput = document.getElementById('mobile');
+  const mobileError = document.getElementById('mobileError');
+
+  mobileInput.addEventListener('input', function () {
+    this.value = this.value.replace(/[^0-9]/g, '').slice(0, 11);
+    const pattern = /^09\d{9}$/;
+    if (!pattern.test(this.value) && this.value.length > 0) {
+      mobileError.style.display = 'block';
+    } else {
+      mobileError.style.display = 'none';
+    }
+  });
+
+  // Disable checking until OK is clicked
+  const termsCheckbox = document.getElementById('terms');
+  const privacyCheckbox = document.getElementById('privacy');
+  document.getElementById('acceptTerms').addEventListener('click', () => {
+    termsCheckbox.disabled = false;
+    termsCheckbox.checked = true;
+  });
+  document.getElementById('acceptPrivacy').addEventListener('click', () => {
+    privacyCheckbox.disabled = false;
+    privacyCheckbox.checked = true;
+  });
+  // Show/Hide password toggles
+  function wireToggle(inputId, toggleId){
+    var input = document.getElementById(inputId);
+    var toggle = document.getElementById(toggleId);
+    if(!input || !toggle) return;
+    toggle.addEventListener('click', function(){
+      var isPwd = input.getAttribute('type') === 'password';
+      input.setAttribute('type', isPwd ? 'text' : 'password');
+      toggle.className = isPwd ? 'fa-solid fa-eye position-absolute' : 'fa-solid fa-eye-slash position-absolute';
+    });
+  }
+  wireToggle('stu_password','toggleStuPwd');
+  wireToggle('stu_confirm_password','toggleStuConfirmPwd');
+
+  // Middle name checkbox behavior
+  (function(){
+    var cb = document.getElementById('stu_no_middlename');
+    var input = document.getElementById('stu_middle_name');
+    if(cb && input){
+      cb.addEventListener('change', function(){
+        if(this.checked){
+          input.value = '';
+          input.disabled = true;
+        } else {
+          input.disabled = false;
+        }
+      });
+    }
+  })();
+
+  // Password strength with missing requirements message
+  (function(){
+    var pwd = document.getElementById('stu_password');
+    var label = document.getElementById('stu_pwd_strength_label');
+
+    function calcStrength(pass){
+      var hasLen = pass.length >= 8;
+      var hasUpper = /[A-Z]/.test(pass);
+      var hasLower = /[a-z]/.test(pass);
+      var hasDigit = /\d/.test(pass);
+      var hasSpecial = /[@#$%&*!]/.test(pass);
+      var score = [hasLen, hasUpper, hasLower, hasDigit, hasSpecial].filter(Boolean).length;
+      if(score <= 2) return 'Weak';
+      if(score === 3 || score === 4) return 'Medium';
+      return 'Strong';
+    }
+
+    function buildMissing(pass){
+      var missing = [];
+      if(pass.length < 8) missing.push('minimum length 8');
+      if(!/[A-Z]/.test(pass)) missing.push('uppercase');
+      if(!/[a-z]/.test(pass)) missing.push('lowercase');
+      if(!/\d/.test(pass)) missing.push('number');
+      if(!/[@#$%&*!]/.test(pass)) missing.push('special character');
+      return missing;
+    }
+
+    function update(){
+      if(!pwd || !label) return;
+      var strength = calcStrength(pwd.value);
+      var missing = buildMissing(pwd.value);
+      if(missing.length){
+        label.textContent = strength + ' — missing: ' + missing.join(', ');
+      } else {
+        label.textContent = strength;
+      }
+      label.style.color = strength === 'Strong' ? '#00e676' : (strength === 'Medium' ? '#ffdd57' : '#ff6b6b');
+    }
+
+    if(pwd){
+      pwd.addEventListener('input', update);
+      update();
+    }
+  })();
+
+  // AJAX signup with SweetAlert2
+  (function(){
+    var form = document.getElementById('studentSignupForm');
+    if(!form) return;
+    // Simple dataset of barangays per municipality (expand as needed)
+    var provinceSel = document.getElementById('province');
+    var municipalitySel = document.getElementById('municipality');
+    var barangaySel = document.getElementById('barangay');
+
+    var PSGC_BASE = 'https://psgc.gitlab.io/api';
+
+    async function loadProvinces(){
+      try{
+        provinceSel.innerHTML = '<option selected disabled>Loading provinces...</option>';
+        var res = await fetch(PSGC_BASE + '/provinces');
+        var provinces = await res.json();
+        provinces.sort(function(a,b){ return a.name.localeCompare(b.name); });
+        provinceSel.innerHTML = '<option selected disabled>Choose...</option>' + provinces.map(function(p){
+          return '<option data-code="'+p.code+'">'+p.name+'</option>';
+        }).join('');
+        provinceSel.disabled = false;
+      }catch(err){
+        provinceSel.innerHTML = '<option selected disabled>Failed to load provinces</option>';
+      }
+      municipalitySel.innerHTML = '<option selected disabled>Choose province first</option>';
+      municipalitySel.disabled = true;
+      barangaySel.innerHTML = '<option selected disabled>Choose city/municipality first</option>';
+      barangaySel.disabled = true;
+    }
+
+    async function loadMunicipalities(provinceCode){
+      municipalitySel.innerHTML = '<option selected disabled>Loading cities/municipalities...</option>';
+      municipalitySel.disabled = true;
+      barangaySel.innerHTML = '<option selected disabled>Choose city/municipality first</option>';
+      barangaySel.disabled = true;
+      try{
+        var res = await fetch(PSGC_BASE + '/provinces/' + provinceCode + '/cities-municipalities');
+        var cities = await res.json();
+        cities.sort(function(a,b){ return a.name.localeCompare(b.name); });
+        municipalitySel.innerHTML = '<option selected disabled>Choose...</option>' + cities.map(function(c){
+          return '<option data-code="'+c.code+'">'+c.name+'</option>';
+        }).join('');
+        municipalitySel.disabled = false;
+      }catch(err){
+        municipalitySel.innerHTML = '<option selected disabled>Failed to load cities/municipalities</option>';
+      }
+    }
+
+    async function loadBarangays(cityCode){
+      barangaySel.innerHTML = '<option selected disabled>Loading barangays...</option>';
+      barangaySel.disabled = true;
+      try{
+        var res = await fetch(PSGC_BASE + '/cities-municipalities/' + cityCode + '/barangays');
+        var brgys = await res.json();
+        brgys.sort(function(a,b){ return a.name.localeCompare(b.name); });
+        barangaySel.innerHTML = '<option selected disabled>Choose...</option>' + brgys.map(function(b){
+          return '<option data-code="'+b.code+'">'+b.name+'</option>';
+        }).join('');
+        barangaySel.disabled = false;
+      }catch(err){
+        barangaySel.innerHTML = '<option selected disabled>Failed to load barangays</option>';
+      }
+    }
+
+    if(provinceSel){
+      loadProvinces();
+      provinceSel.addEventListener('change', function(){
+        var opt = this.options[this.selectedIndex];
+        var code = opt && opt.getAttribute('data-code');
+        if(code) loadMunicipalities(code);
+      });
+    }
+
+    if(municipalitySel){
+      municipalitySel.addEventListener('change', function(){
+        var opt = this.options[this.selectedIndex];
+        var code = opt && opt.getAttribute('data-code');
+        if(code) loadBarangays(code);
+      });
+    }
+
+    function buildFullAddress(){
+      var block = (document.getElementById('block')||{}).value || '';
+      var street = (document.getElementById('street')||{}).value || '';
+      var barangaySelEl = document.getElementById('barangay');
+      var municipalitySelEl = document.getElementById('municipality');
+      var provinceSelEl = document.getElementById('province');
+      var barangay = barangaySelEl && barangaySelEl.options[barangaySelEl.selectedIndex] ? barangaySelEl.options[barangaySelEl.selectedIndex].text : '';
+      var municipality = municipalitySelEl && municipalitySelEl.options[municipalitySelEl.selectedIndex] ? municipalitySelEl.options[municipalitySelEl.selectedIndex].text : '';
+      var province = provinceSelEl && provinceSelEl.options[provinceSelEl.selectedIndex] ? provinceSelEl.options[provinceSelEl.selectedIndex].text : '';
+      var parts = [];
+      if(block.trim()) parts.push(block.trim());
+      if(street.trim()) parts.push(street.trim());
+      if(barangay) parts.push('Brgy. ' + barangay);
+      if(municipality && province) parts.push(municipality + ', ' + province);
+      else if(municipality) parts.push(municipality);
+      else if(province) parts.push(province);
+      var full = parts.join(', ');
+      var hidden = document.getElementById('full_address');
+      if(hidden) hidden.value = full;
+    }
+
+    form.addEventListener('submit', async function(e){
+      e.preventDefault();
+
+      // simple checks
+      if(!document.getElementById('terms').checked || !document.getElementById('privacy').checked){
+        Swal.fire({ icon:'warning', title:'Please accept policies', text:'Kindly accept the Terms and the Data Privacy Policy.' });
+        return;
+      }
+      var pwd = document.getElementById('stu_password').value;
+      var cpwd = document.getElementById('stu_confirm_password').value;
+      var ok = pwd.length >= 8 && /[A-Z]/.test(pwd) && /[a-z]/.test(pwd) && /\d/.test(pwd) && /[@#$%&*!]/.test(pwd);
+      if(!ok){
+        Swal.fire({ icon:'error', title:'Weak password', text:'Please meet all password requirements.' });
+        return;
+      }
+      if(pwd !== cpwd){
+        Swal.fire({ icon:'error', title:'Passwords do not match', text:'Please make sure both passwords match.' });
+        return;
+      }
+
+      // Build address before sending
+      buildFullAddress();
+
+      // Show loading
+      Swal.fire({ title:'Submitting...', allowOutsideClick:false, showConfirmButton:false, didOpen:()=>Swal.showLoading() });
+
+      try{
+        var formData = new FormData(form);
+        var res = await fetch(form.action, { method:'POST', body: formData });
+        var data = null;
+        try { data = await res.json(); } catch(_) { /* non-JSON response */ }
+
+        if(res.ok && data && data.ok){
+          Swal.fire({ icon:'success', title:'Signup successful!', text:'We sent a verification code to your email.' })
+            .then(()=>{ window.location.href = (data.redirect || '/otp'); });
+          return;
+        }
+
+        const message = (data && data.message) ? String(data.message) : 'Unable to sign up. Please try again.';
+        // Handle specific DB error 1146 (missing table)
+        if(/1146/.test(message) || /doesn\'t exist/i.test(message)){
+          Swal.fire({
+            icon:'error',
+            title:'System Setup Needed',
+            html:'Database table for students is missing. Please ask the administrator to run the database migrations for the iRequest system.'
+          });
+        } else {
+          Swal.fire({ icon:'error', title:'Signup failed', text: message });
+        }
+      } catch(err){
+        Swal.fire({ icon:'error', title:'Network Error', text:'Unable to connect to server. Please try again.' });
+      }
+    });
+  })();
+</script>
+
+</body>
+</html>

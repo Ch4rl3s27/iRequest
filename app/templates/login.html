@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iRequest</title>
+  <link rel="icon" href="/static/assets/iRlogo.png" type="image/x-icon">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- Professional SweetAlert Styling -->
+  <link rel="stylesheet" href="/static/assets/css/sweetalert-professional.css">
+  <!-- SweetAlert Utilities -->
+  <script src="/static/assets/js/sweetalert-utils.js"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Import Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Background with dark overlay */
+    body::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url("/static/assets/NC_Facade.jpg") no-repeat center center/cover;
+      filter: brightness(0.55);
+      z-index: -1;
+    }
+
+    .login-container {
+      background: rgba(255, 255, 255, 0.15);
+      -webkit-backdrop-filter: blur(15px);
+      backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      padding: 45px 35px;
+      border-radius: 20px;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+      width: 380px;
+      animation: fadeIn 0.8s ease;
+    }
+
+    .login-container h2 {
+      text-align: center;
+      margin-bottom: 28px;
+      color: #fff;
+      font-weight: 600;
+      font-size: 28px;
+      letter-spacing: 1px;
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    .input-group label {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 6px;
+      color: #f1f1f1;
+      font-weight: 500;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 12px 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      background: rgba(255,255,255,0.85);
+      transition: all 0.3s ease;
+    }
+
+    .input-group input:focus {
+      background: #fff;
+      box-shadow: 0 0 8px rgba(0,123,255,0.5);
+      outline: none;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #007bff, #0056b3);
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn:hover {
+      background: linear-gradient(135deg, #0056b3, #004099);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+    }
+
+    .extra-links {
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    .extra-links a {
+      font-size: 14px;
+      color: #ffdd57;
+      text-decoration: none;
+      font-weight: 500;
+      margin: 0 6px;
+      transition: 0.3s;
+    }
+
+    .extra-links a:hover {
+      text-decoration: underline;
+      color: #ffc107;
+    }
+
+    /* Fade-in animation */
+    @keyframes fadeIn {
+      from {opacity: 0; transform: translateY(-20px);}
+      to {opacity: 1; transform: translateY(0);}
+    }
+
+    /* Responsive */
+    @media (max-width: 420px) {
+      .login-container {
+        width: 90%;
+        padding: 35px 25px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <h2>Welcome</h2>
+    <form id="loginForm" action="/login" method="POST">
+      <div class="input-group">
+        <label for="Email">Email</label>
+        <input type="email" id="email" name="email" list="usersList" required>
+        <datalist id="usersList"></datalist>
+      </div>
+      <div class="input-group">
+        <label for="password">Password</label>
+        <div style="position: relative;">
+          <input type="password" id="password" name="password" required style="padding-right: 40px;">
+          <i id="togglePassword" class="fa-solid fa-eye" style="position:absolute; right:10px; top:50%; transform: translateY(-50%); cursor:pointer; user-select:none; color:#333;"></i>
+        </div>
+      </div>
+      <div id="loginAlert" class="alert d-none" role="alert" style="margin-bottom:12px"></div>
+      <button type="submit" class="btn">Login</button>
+      <div class="extra-links">
+        <a href="/forgot_password.html">Forgot Password?</a> | 
+        <a href="Student_Signup.html">Sign Up as Student</a> | 
+        <a href="staff_signup.html">Sign Up as Staff</a>
+      </div>
+    </form>
+  </div>
+  <script>
+    (function(){
+      var input = document.getElementById('password');
+      var toggle = document.getElementById('togglePassword');
+      if(toggle && input){
+        toggle.addEventListener('click', function(){
+          var isPwd = input.getAttribute('type') === 'password';
+          input.setAttribute('type', isPwd ? 'text' : 'password');
+          toggle.className = isPwd ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
+        });
+      }
+    })();
+
+    // AJAX login with SweetAlert
+    (function(){
+      var form = document.getElementById('loginForm');
+      form.addEventListener('submit', async function(e){
+        e.preventDefault();
+        
+        // Show loading
+        Swal.fire({
+          title: 'Logging in...',
+          text: 'Please wait while we verify your credentials',
+          allowOutsideClick: false,
+          showConfirmButton: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+
+        var formData = new FormData(form);
+        console.log('Sending login request to:', form.action);
+        try{
+          var res = await fetch(form.action, { 
+            method: 'POST', 
+            body: formData,
+            headers: {
+              'Accept': 'application/json'
+            }
+          });
+          console.log('Response status:', res.status, res.statusText);
+          
+          // Check if response is ok (status 200-299)
+          if (!res.ok) {
+            // Handle HTTP error responses (400, 401, 500, etc.)
+            try {
+              var errorData = await res.json();
+              Swal.fire({
+                icon: 'error',
+                title: 'Login Failed',
+                text: (errorData && errorData.message) ? errorData.message : 'Invalid credentials. Please try again.',
+                confirmButtonText: 'Try Again'
+              });
+            } catch (parseErr) {
+              Swal.fire({
+                icon: 'error',
+                title: 'Server Error',
+                text: 'Server returned an error. Please try again.',
+                confirmButtonText: 'Try Again'
+              });
+            }
+            return;
+          }
+          
+          var data = await res.json();
+          if(data && data.ok){
+            Swal.fire({
+              icon: 'success',
+              title: 'Login Successful!',
+              text: 'Welcome back!',
+              confirmButtonText: 'OK'
+            }).then(() => {
+              window.location.href = data.redirect || '/';
+            });
+            return;
+          }
+          Swal.fire({
+            icon: 'error',
+            title: 'Login Failed',
+            text: (data && data.message) ? data.message : 'Invalid credentials. Please try again.',
+            confirmButtonText: 'Try Again'
+          });
+        }catch(err){
+          console.error('Network error:', err);
+          Swal.fire({
+            icon: 'error',
+            title: 'Network Error',
+            text: 'Unable to connect to server. Please check your connection and try again.',
+            confirmButtonText: 'OK'
+          });
+        }
+      });
+    })();
+
+    // Fetch users to populate the email suggestions
+    (async function(){
+      try{
+        const res = await fetch('/api/users');
+        const data = await res.json();
+        if(data && (data.ok === true || Array.isArray(data))){
+          const users = Array.isArray(data) ? data : (data.users || []);
+          const list = document.getElementById('usersList');
+          if(list){
+            list.innerHTML = '';
+            users.forEach(u => {
+              const email = u.email || u.username || '';
+              if(!email) return;
+              const opt = document.createElement('option');
+              opt.value = email;
+              opt.label = (u.full_name || u.name || email);
+              list.appendChild(opt);
+            });
+          }
+        }
+      }catch(err){
+        // silent fail; keep login usable
+      }
+    })();
+  </script>
+</body>
+</html>
