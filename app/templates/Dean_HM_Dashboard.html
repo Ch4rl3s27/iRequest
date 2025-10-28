@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>iRequest - Dean of HM Dashboard</title>
+  <link rel="icon" href="/static/assets/iRlogo.png" type="image/x-icon">
+
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Font Awesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- Professional SweetAlert Styling -->
+  <link rel="stylesheet" href="/static/assets/css/sweetalert-professional.css">
+  <!-- SweetAlert Utilities -->
+  <script src="/static/assets/js/sweetalert-utils.js"></script>
+  <script src="/static/assets/js/loading-utils.js"></script>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Custom Dean HM Dashboard CSS -->
+  <link rel="stylesheet" href="/static/assets/css/accounting-dashboard.css?v=2">
+
+</head>
+<body>
+  <!-- Skip Link for Accessibility -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- Sidebar Overlay for Mobile -->
+  <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
+
+  <div class="container-fluid">
+    <div class="row">
+      <!-- Sidebar Navigation -->
+      <div class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
+        <div class="sidebar-header">
+          <button class="sidebar-hamburger" id="sidebarToggle" aria-label="Toggle sidebar">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          <span class="sidebar-title">Dean of HM Panel</span>
+        </div>
+        
+        <div class="sidebar-nav">
+          <a class="nav-link active" onclick="setActive(this); loadContent('dashboard')" 
+             aria-current="page" tabindex="0">
+            <i class="fa-solid fa-chart-simple" aria-hidden="true"></i> 
+            <span class="link-text">Dashboard</span>
+          </a>
+
+          <a class="nav-link" onclick="setActive(this); loadContent('profile')" tabindex="0">
+            <i class="fa-solid fa-id-badge" aria-hidden="true"></i> 
+            <span class="link-text">Profile</span>
+          </a>
+
+          <a class="nav-link" onclick="setActive(this); loadContent('password')" tabindex="0">
+            <i class="fa-solid fa-lock" aria-hidden="true"></i> 
+            <span class="link-text">Change Password</span>
+          </a>
+        </div>
+        
+        <div class="logout">
+          <a onclick="logout()" aria-label="Logout from system">
+            <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> 
+            <span class="link-text">Logout</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Main Content Area -->
+      <main class="main-content" id="main-content" role="main">
+        <!-- Topbar -->
+        <header class="topbar" role="banner">
+          <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle navigation menu" aria-expanded="false">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          <h1 class="topbar-title">Dean of HM Dashboard</h1>
+          <div class="user-info" role="complementary" aria-label="User information">
+            <i class="fa-solid fa-circle-user" aria-hidden="true"></i> 
+            <span id="deanName">Dean of HM</span>
+          </div>
+        </header>
+
+        <!-- Dynamic content mount -->
+        <div id="mainContent" role="region" aria-label="Dashboard content"></div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Dashboard Template (Pending / Approved / Rejected + search + counters) -->
+  <template id="dashboardTemplate">
+    <div id="dashboardContent">
+      <!-- Statistics Cards -->
+      <section class="stats-grid" aria-label="Clearance statistics">
+        <article class="stat-card" data-type="pending" onclick="showTable('pending')" role="button" tabindex="0" aria-label="View pending clearances">
+          <div class="stat-card-header">
+            <div class="stat-card-icon">
+              <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>
+            </div>
+            <h3 class="stat-card-title">Pending Clearances</h3>
+          </div>
+          <p class="stat-card-value" id="pendingCount" aria-label="Number of pending clearances">0</p>
+        </article>
+
+        <article class="stat-card" data-type="approved" onclick="showTable('approved')" role="button" tabindex="0" aria-label="View approved clearances">
+          <div class="stat-card-header">
+            <div class="stat-card-icon">
+              <i class="fa-solid fa-check" aria-hidden="true"></i>
+            </div>
+            <h3 class="stat-card-title">Approved Clearances</h3>
+          </div>
+          <p class="stat-card-value" id="approvedCount" aria-label="Number of approved clearances">0</p>
+        </article>
+
+        <article class="stat-card" data-type="rejected" onclick="showTable('rejected')" role="button" tabindex="0" aria-label="View rejected clearances">
+          <div class="stat-card-header">
+            <div class="stat-card-icon">
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </div>
+            <h3 class="stat-card-title">Rejected Clearances</h3>
+          </div>
+          <p class="stat-card-value" id="rejectedCount" aria-label="Number of rejected clearances">0</p>
+        </article>
+      </section>
+
+      <!-- Search Container -->
+      <div id="searchContainer" class="search-container" role="search" aria-label="Search clearances">
+        <label for="searchInput" class="form-label">Search Students</label>
+        <input id="searchInput" class="search-input" placeholder="Search by student name, course, or year level..." 
+               aria-label="Search clearances" autocomplete="off">
+      </div>
+
+      <!-- Data Tables Container -->
+      <div id="tablesContainer" role="region" aria-label="Clearance data tables">
+        <!-- Pending Clearances Table -->
+        <section id="pendingTable" class="data-table-container" aria-labelledby="pendingTableTitle">
+          <div class="table-header">
+            <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i>
+            <h2 id="pendingTableTitle">Pending Clearances (HM)</h2>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-mobile-cards" role="table" aria-label="Pending clearances">
+              <thead>
+                <tr role="row">
+                  <th scope="col">Student Name</th>
+                  <th scope="col">Course</th>
+                  <th scope="col">Year Level</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Document Type</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="pendingList" role="rowgroup"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Approved Clearances Table -->
+        <section id="approvedTable" class="data-table-container d-none" aria-labelledby="approvedTableTitle">
+          <div class="table-header">
+            <i class="fa-solid fa-check" aria-hidden="true"></i>
+            <h2 id="approvedTableTitle">Approved Clearances (HM)</h2>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-mobile-cards" role="table" aria-label="Approved clearances">
+              <thead>
+                <tr role="row">
+                  <th scope="col">Student Name</th>
+                  <th scope="col">Course</th>
+                  <th scope="col">Year Level</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody id="approvedList" role="rowgroup"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Rejected Clearances Table -->
+        <section id="rejectedTable" class="data-table-container d-none" aria-labelledby="rejectedTableTitle">
+          <div class="table-header">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            <h2 id="rejectedTableTitle">Rejected Clearances (HM)</h2>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-mobile-cards" role="table" aria-label="Rejected clearances">
+              <thead>
+                <tr role="row">
+                  <th scope="col">Student Name</th>
+                  <th scope="col">Course</th>
+                  <th scope="col">Year Level</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Rejection Reason</th>
+                </tr>
+              </thead>
+              <tbody id="rejectedList" role="rowgroup"></tbody>
+            </table>
+          </div>
+        </section>
+      </div> <!-- /tablesContainer -->
+
+    </div> <!-- /dashboardContent -->
+  </template>
+
+  <!-- Approval Modal -->
+  <div class="modal fade" id="signModal" tabindex="-1" aria-labelledby="signModalTitle" aria-hidden="true" role="dialog">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="signModalTitle">
+            <i class="fa-solid fa-check-circle" aria-hidden="true"></i> 
+            Clearance Approval
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" 
+                  aria-label="Close approval modal" onclick="onModalCloseCleanup()"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info">
+            <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
+            <strong>Approval Process Information:</strong><br>
+            By approving this clearance, you are confirming that the student has met all requirements for your department. This action will:
+            <ul class="mt-2 mb-0">
+              <li>Mark the clearance as approved in your department</li>
+              <li>Update the student's clearance status</li>
+              <li>Allow the clearance to proceed to the next stage</li>
+            </ul>
+          </div>
+          <p class="text-center"><strong>Are you sure you want to approve this student's clearance?</strong></p>
+          <div class="text-center">
+            <button class="btn btn-success btn-lg" onclick="approveClearance()" 
+                    aria-label="Confirm approval of student clearance">
+              <i class="fa-solid fa-check" aria-hidden="true"></i> 
+              Approve Clearance
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <script>
+    /* ============================================================
+       Responsive Dashboard JavaScript
+       ============================================================ */
+    let currentRow = null;
+    let isMobile = window.innerWidth < 768;
+    let sidebarOpen = false;
+
+    // Sidebar Toggle Functionality (Matching Student Dashboard)
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const mainContent = document.querySelector('.main-content');
+      const overlay = document.getElementById('sidebarOverlay');
+      
+      if (isMobile) {
+        // Mobile behavior - slide in/out
+        sidebarOpen = !sidebarOpen;
+        sidebar.classList.toggle('open', sidebarOpen);
+        overlay.classList.toggle('show', sidebarOpen);
+      } else {
+        // Desktop behavior - expand/collapse
+        sidebar.classList.toggle('expanded');
+        mainContent.classList.toggle('sidebar-expanded');
+      }
+    }
+
+    // Mobile Detection and Responsive Setup
+    function updateMobileState() {
+      isMobile = window.innerWidth < 768;
+      const sidebar = document.getElementById('sidebar');
+      const mainContent = document.querySelector('.main-content');
+      const mobileToggle = document.getElementById('mobileMenuToggle');
+      
+      if (isMobile) {
+        // Mobile: hide sidebar by default, show mobile toggle
+        sidebar.classList.remove('expanded', 'open');
+        mainContent.classList.remove('sidebar-expanded');
+        mainContent.style.marginLeft = '0';
+        if (mobileToggle) mobileToggle.style.display = 'block';
+      } else {
+        // Desktop: show collapsed sidebar, hide mobile toggle
+        sidebar.classList.remove('open');
+        mainContent.style.marginLeft = '72px';
+        if (mobileToggle) mobileToggle.style.display = 'none';
+      }
+    }
+
+    // Close Sidebar on Mobile
+    function closeSidebar() {
+      if (isMobile && sidebarOpen) {
+        toggleSidebar();
+      }
+    }
+
+    // Touch Gesture Support
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    function handleTouchStart(e) {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }
+
+    function handleTouchEnd(e) {
+      if (!isMobile) return;
+      
+      const touchEndX = e.changedTouches[0].clientX;
+      const touchEndY = e.changedTouches[0].clientY;
+      const deltaX = touchEndX - touchStartX;
+      const deltaY = touchEndY - touchStartY;
+      
+      // Swipe right to open sidebar
+      if (deltaX > 50 && Math.abs(deltaY) < 100 && !sidebarOpen) {
+        toggleSidebar();
+      }
+      // Swipe left to close sidebar
+      else if (deltaX < -50 && Math.abs(deltaY) < 100 && sidebarOpen) {
+        toggleSidebar();
+      }
+    }
+
+    // Keyboard Navigation
+    function handleKeyboardNavigation(e) {
+      if (e.key === 'Escape' && sidebarOpen && isMobile) {
+        closeSidebar();
+      }
+    }
+
+    // Initialize Responsive Features
+    function initResponsiveFeatures() {
+      updateMobileState();
+      
+      // Event Listeners
+      window.addEventListener('resize', updateMobileState);
+      document.addEventListener('touchstart', handleTouchStart, { passive: true });
+      document.addEventListener('touchend', handleTouchEnd, { passive: true });
+      document.addEventListener('keydown', handleKeyboardNavigation);
+      
+      // Sidebar Toggle Button (Hamburger inside sidebar)
+      const sidebarToggle = document.getElementById('sidebarToggle');
+      if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', toggleSidebar);
+      }
+      
+      // Mobile Menu Toggle (Top bar hamburger for mobile)
+      const mobileToggle = document.getElementById('mobileMenuToggle');
+      if (mobileToggle) {
+        mobileToggle.addEventListener('click', toggleSidebar);
+      }
+      
+      // Overlay Click to Close
+      const overlay = document.getElementById('sidebarOverlay');
+      if (overlay) {
+        overlay.addEventListener('click', closeSidebar);
+      }
+      
+      // Sidebar Link Click to Close on Mobile
+      const sidebarLinks = document.querySelectorAll('.sidebar-nav a');
+      sidebarLinks.forEach(link => {
+        link.addEventListener('click', () => {
+          if (isMobile) {
+            setTimeout(closeSidebar, 100);
+          }
+        });
+      });
+    }
+
+    // Helpers to normalize API fields
+    function getCourseDisplay(student) {
+      return (
+        student.course ||
+        student.course_name ||
+        student.program ||
+        student.course_code ||
+        student.course_abbr ||
+        '—'
+      );
+    }
+
+    function getYearLevelDisplay(student) {
+      return (
+        student.year_level_name ||
+        student.year_level ||
+        student.year ||
+        student.level ||
+        '—'
+      );
+    }
+
+
+    /* ============================================================
+       Open modal (also disable reject select for that row while signing)
+       ============================================================ */
+    function openSignModal(btn) {
+      currentRow = btn.closest('tr');
+
+      // disable its reject select (if present) to avoid race
+      const sel = currentRow.querySelector('.reason-dropdown');
+      if(sel) {
+        sel.dataset.disabledBeforeSign = "1";
+        sel.disabled = true;
+      }
+
+      // show bootstrap modal
+      const modalEl = document.getElementById('signModal');
+      const bsModal = new bootstrap.Modal(modalEl);
+      bsModal.show();
+    }
+
+    /* ============================================================
+       Simple approval: move row to approved (like Registrar)
+       ============================================================ */
+    async function approveClearance() {
+      if(!currentRow) return;
+
+      const signatoryId = currentRow.dataset.signatoryId || '';
+
+      // Show loading
+      Swal.fire({
+        title: 'Approving Clearance...',
+        text: 'Please wait while we process your approval',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      try {
+        // Call the approval API
+        const res = await fetch('/api/signatories/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ signatory_id: Number(signatoryId) })
+        });
+        
+        const result = await res.json();
+        
+        if (result.ok) {
+          // Build approved row
+          const approvedList = document.getElementById('approvedList');
+          const newRow = document.createElement('tr');
+          newRow.dataset.studentId = currentRow.dataset.studentId || '';
+          newRow.setAttribute('role', 'row');
+          newRow.innerHTML = `
+            <td>${currentRow.cells[0].textContent}</td>
+            <td>${currentRow.cells[1].textContent}</td>
+            <td>${currentRow.cells[2].textContent}</td>
+            <td class="status-signed">Approved</td>
+          `;
+          approvedList.appendChild(newRow);
+
+          // Remove original pending row
+          currentRow.remove();
+          currentRow = null;
+
+          // Update counts and refresh
+          updateCounters();
+          try { loadApprovedClearances(); } catch (e) {}
+
+          // Switch view to approved
+          showTable('approved');
+
+          // Show success message
+          Swal.fire({
+            icon: 'success',
+            title: 'Clearance Approved!',
+            text: 'Student clearance has been approved.',
+            confirmButtonText: 'OK'
+          });
+        } else {
+          throw new Error(result.message || 'Approval failed');
+        }
+      } catch (err) {
+        console.error('Approval failed:', err);
+        Swal.fire({
+          icon: 'error',
+          title: 'Approval Failed',
+          text: 'Failed to approve clearance. Please try again.',
+          confirmButtonText: 'OK'
+        });
+      }
+    }
+
+    /* Cleanup if modal closed without saving: re-enable select if was disabled */
+    function onModalCloseCleanup() {
+      if(currentRow) {
+        const sel = currentRow.querySelector('.reason-dropdown');
+        if(sel && sel.dataset.disabledBeforeSign) {
+          sel.disabled = false;
+          delete sel.dataset.disabledBeforeSign;
+        }
+        currentRow = null;
+      }
+    }
+
+    /* Reject via dropdown in pending table */
+    async function rejectForm(select) {
+      const reason = select.value;
+      if(!reason) return;
+      const row = select.closest('tr');
+      const signatoryId = row.dataset.signatoryId || '';
+      try {
+        if (signatoryId) {
+          await fetch('/api/signatories/reject', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ signatory_id: Number(signatoryId), reason })
+          });
+        }
+      } catch (_) {}
+      const rejectedList = document.getElementById('rejectedList');
+
+      const newRow = document.createElement('tr');
+      newRow.dataset.studentId = row.dataset.studentId || '';
+      newRow.setAttribute('role', 'row');
+      newRow.innerHTML = `
+        <td>${row.cells[0].textContent}</td>
+        <td>${row.cells[1].textContent}</td>
+        <td>${row.cells[2].textContent}</td>
+        <td class="status-rejected">Rejected</td>
+        <td>${reason}</td>
+      `;
+
+      rejectedList.appendChild(newRow);
+
+      // remove pending row (so sign and dropdown gone)
+      row.remove();
+      updateCounters();
+      showTable('rejected');
+
+      // Show rejection message
+      Swal.fire({
+        icon: 'warning',
+        title: 'Clearance Rejected',
+        text: `Student clearance rejected: ${reason}`,
+        confirmButtonText: 'OK'
+      });
+    }
+
+    function logout() {
+      Swal.fire({
+        title: 'Logout',
+        text: 'Are you sure you want to logout?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Logout',
+        cancelButtonText: 'Cancel'
+      }).then(async (result) => {
+        if (!result.isConfirmed) return;
+        try {
+          await fetch('/api/logout', { method: 'POST' });
+        } catch (_) {}
+        Swal.fire({
+          title: 'Logged Out',
+          text: 'You have been successfully logged out.',
+          icon: 'success',
+          confirmButtonText: 'OK'
+        }).then(() => { window.location.href = 'login.html'; });
+      });
+    }
+
+    /* ============================================================
+       Counters / showTable / search
+       ============================================================ */
+    function updateCounters() {
+      // Count only actual data rows (not empty state rows)
+      const pendingRows = document.querySelectorAll('#pendingList tr[data-student-id]').length;
+      const approvedRows = document.querySelectorAll('#approvedList tr[data-student-id]').length;
+      const rejectedRows = document.querySelectorAll('#rejectedList tr[data-student-id]').length;
+      
+      console.log('Updating counters:', { pendingRows, approvedRows, rejectedRows });
+      
+      document.getElementById('pendingCount').textContent = pendingRows;
+      document.getElementById('approvedCount').textContent = approvedRows;
+      document.getElementById('rejectedCount').textContent = rejectedRows;
+    }
+
+    function showTable(type) {
+      // Show loading state
+      if (window.showFullScreenLoading) {
+        window.showFullScreenLoading(`Loading ${type} clearances...`);
+      }
+      
+      // hide all
+      document.getElementById('pendingTable').classList.add('d-none');
+      document.getElementById('approvedTable').classList.add('d-none');
+      document.getElementById('rejectedTable').classList.add('d-none');
+
+      // show search
+      document.getElementById('searchContainer').classList.remove('d-none');
+
+      // remove active
+      document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+
+      if(type === 'pending') {
+        document.getElementById('pendingTable').classList.remove('d-none');
+        document.querySelector(".stat-card[data-type='pending']").classList.add('active');
+        loadPendingClearances();
+      } else if(type === 'approved') {
+        document.getElementById('approvedTable').classList.remove('d-none');
+        document.querySelector(".stat-card[data-type='approved']").classList.add('active');
+        loadApprovedClearances();
+      } else if(type === 'rejected') {
+        document.getElementById('rejectedTable').classList.remove('d-none');
+        document.querySelector(".stat-card[data-type='rejected']").classList.add('active');
+        loadRejectedClearances();
+      }
+    }
+
+    // search input behavior (delegated)
+    document.addEventListener('keyup', function(e) {
+      if(e.target && e.target.id === 'searchInput') {
+        const q = e.target.value.toLowerCase();
+        const tbody = document.querySelector('#tablesContainer .data-table-container:not(.d-none) tbody');
+        if(!tbody) return;
+        Array.from(tbody.children).forEach(r => {
+          r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+      }
+    });
+
+    /* ============================================================
+       Load clearances based on department (Dean HM)
+       ============================================================ */
+    async function loadPendingClearances() {
+      // Show full-screen loading
+      if (window.showFullScreenLoading) {
+        window.showFullScreenLoading('Loading pending clearances...');
+      }
+      
+      try {
+        const response = await fetch('/api/signatories/pending', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        const tbody = document.getElementById('pendingList');
+        tbody.innerHTML = '';
+        
+        if (data.ok && data.data && data.data.length > 0) {
+          data.data.forEach(student => {
+            const tr = document.createElement('tr');
+            tr.dataset.studentId = student.student_id || student.id || '';
+            tr.dataset.signatoryId = student.signatory_id || '';
+            tr.setAttribute('role', 'row');
+            tr.innerHTML = `
+              <td data-label="Student Name">${student.first_name} ${student.last_name}</td>
+              <td data-label="Course">${getCourseDisplay(student)}</td>
+              <td data-label="Year Level">${getYearLevelDisplay(student)}</td>
+              <td data-label="Status"><span class="status-badge status-pending">Pending</span></td>
+              <td data-label="Document Type">${student.document || student.document_name || student.document_type || '—'}</td>
+              <td data-label="Actions">
+                <div class="action-buttons">
+                  <button class="btn-sign" onclick="openSignModal(this)" 
+                          aria-label="Approve clearance for ${student.first_name} ${student.last_name}">
+                    <i class="fa-solid fa-check" aria-hidden="true"></i> Sign
+                  </button>
+                  <select class="reason-dropdown" onchange="rejectForm(this)" 
+                          aria-label="Select rejection reason for ${student.first_name} ${student.last_name}">
+                  <option value="">Reject Reason</option>
+                    <option value="Incomplete Requirements">Incomplete Requirements</option>
+                    <option value="Academic Issues">Academic Issues</option>
+                    <option value="Disciplinary Issues">Disciplinary Issues</option>
+                    <option value="Other">Other</option>
+                </select>
+                </div>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
+        } else {
+          // Show empty state
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td colspan="6" class="text-center" style="padding: 2rem; color: #6b7280;">
+              <i class="fa-solid fa-inbox" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+              <p>No pending clearances found</p>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        }
+        updateCounters();
+      } catch (error) {
+        console.error('Error loading pending clearances:', error);
+        
+        // Show error message
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error Loading Data',
+            text: 'Failed to load pending clearances. Please check your connection and try again.',
+            confirmButtonText: 'Retry',
+            showCancelButton: true,
+            cancelButtonText: 'Cancel'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              loadPendingClearances();
+            }
+          });
+        }
+      } finally {
+        // Hide full-screen loading
+        if (window.hideFullScreenLoading) {
+          window.hideFullScreenLoading();
+        }
+      }
+    }
+
+    async function loadApprovedClearances() {
+      // Show full-screen loading
+      if (window.showFullScreenLoading) {
+        window.showFullScreenLoading('Loading approved clearances...');
+      }
+      
+      try {
+        const response = await fetch('/api/signatories/approved', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        const tbody = document.getElementById('approvedList');
+        tbody.innerHTML = '';
+        
+        if (data.ok && data.data && data.data.length > 0) {
+          data.data.forEach(student => {
+            const tr = document.createElement('tr');
+            tr.dataset.studentId = student.student_id || student.id || '';
+            tr.setAttribute('role', 'row');
+            tr.innerHTML = `
+              <td data-label="Student Name">${student.first_name} ${student.last_name}</td>
+              <td data-label="Course">${getCourseDisplay(student)}</td>
+              <td data-label="Year Level">${getYearLevelDisplay(student)}</td>
+              <td data-label="Status"><span class="status-badge status-signed">Approved</span></td>
+            `;
+            tbody.appendChild(tr);
+          });
+        } else {
+          // Show empty state
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td colspan="4" class="text-center" style="padding: 2rem; color: #6b7280;">
+              <i class="fa-solid fa-check-circle" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+              <p>No approved clearances found</p>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        }
+        updateCounters();
+      } catch (error) {
+        console.error('Error loading approved clearances:', error);
+        
+        // Show error message
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error Loading Data',
+            text: 'Failed to load approved clearances. Please check your connection and try again.',
+            confirmButtonText: 'Retry',
+            showCancelButton: true,
+            cancelButtonText: 'Cancel'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              loadApprovedClearances();
+            }
+          });
+        }
+      } finally {
+        // Hide full-screen loading
+        if (window.hideFullScreenLoading) {
+          window.hideFullScreenLoading();
+        }
+      }
+    }
+
+    async function loadRejectedClearances() {
+      // Show full-screen loading
+      if (window.showFullScreenLoading) {
+        window.showFullScreenLoading('Loading rejected clearances...');
+      }
+      
+      try {
+        const response = await fetch('/api/signatories/rejected', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        const tbody = document.getElementById('rejectedList');
+        tbody.innerHTML = '';
+        
+        if (data.ok && data.data && data.data.length > 0) {
+          data.data.forEach(student => {
+            const tr = document.createElement('tr');
+            tr.dataset.studentId = student.student_id || student.id || '';
+            tr.setAttribute('role', 'row');
+            tr.innerHTML = `
+              <td data-label="Student Name">${student.first_name} ${student.last_name}</td>
+              <td data-label="Course">${getCourseDisplay(student)}</td>
+              <td data-label="Year Level">${getYearLevelDisplay(student)}</td>
+              <td data-label="Status"><span class="status-badge status-rejected">Rejected</span></td>
+              <td data-label="Rejection Reason">${student.rejection_reason || 'No reason provided'}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        } else {
+          // Show empty state
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td colspan="5" class="text-center" style="padding: 2rem; color: #6b7280;">
+              <i class="fa-solid fa-times-circle" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+              <p>No rejected clearances found</p>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        }
+        updateCounters();
+      } catch (error) {
+        console.error('Error loading rejected clearances:', error);
+        
+        // Show error message
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error Loading Data',
+            text: 'Failed to load rejected clearances. Please check your connection and try again.',
+            confirmButtonText: 'Retry',
+            showCancelButton: true,
+            cancelButtonText: 'Cancel'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              loadRejectedClearances();
+            }
+          });
+        }
+      } finally {
+        // Hide full-screen loading
+        if (window.hideFullScreenLoading) {
+          window.hideFullScreenLoading();
+        }
+      }
+    }
+
+    /* ============================================================
+       Sidebar active & dynamic page loads (profile / password)
+       ============================================================ */
+    function setActive(elem) {
+      document.querySelectorAll('#sidebarMenu .nav-link').forEach(l => l.classList.remove('active'));
+      if(elem) elem.classList.add('active');
+    }
+
+    function loadContent(type) {
+      const container = document.getElementById('mainContent');
+      
+      // Show loading state for panel navigation
+      if (window.showFullScreenLoading) {
+        window.showFullScreenLoading(`Loading ${type} page...`);
+      }
+
+      if(type === 'dashboard') {
+        const template = document.getElementById('dashboardTemplate').content.cloneNode(true);
+        container.innerHTML = '';
+        container.appendChild(template);
+        showTable('pending');
+        updateCounters();
+        
+        // Hide loading after dashboard is loaded
+        if (window.hideFullScreenLoading) {
+          window.hideFullScreenLoading();
+        }
+      }
+
+      if(type === 'profile') {
+        // Load dean profile with real data
+        loadDeanProfile();
+      }
+
+      if(type === 'password') {
+        container.innerHTML = `
+          <div class="card shadow-sm p-4">
+            <h5><i class="fa-solid fa-lock"></i> Change Password</h5>
+            <form id="passwordForm" class="mt-3">
+              <div class="mb-3">
+                <label class="form-label">Current Password</label>
+                <input id="currentPassword" type="password" class="form-control" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">New Password</label>
+                <input id="newPassword" type="password" class="form-control" required minlength="6" />
+                <div class="form-text">Password must be at least 6 characters long</div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Confirm New Password</label>
+                <input id="confirmPassword" type="password" class="form-control" required />
+              </div>
+              <button class="btn btn-primary" type="submit">Update Password</button>
+            </form>
+          </div>
+        `;
+        
+        // Add form submission handler
+        setTimeout(() => {
+          const form = document.getElementById('passwordForm');
+          if(form) {
+            form.addEventListener('submit', handlePasswordChange);
+          }
+        }, 100);
+        
+        // Hide loading after password form is loaded
+        if (window.hideFullScreenLoading) {
+          window.hideFullScreenLoading();
+        }
+      }
+    }
+
+    // Handle password change
+    async function handlePasswordChange(e) {
+      e.preventDefault();
+      
+      const currentPassword = document.getElementById('currentPassword').value;
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      
+      // Client-side validation
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        Swal.fire('Error', 'All fields are required!', 'error');
+        return;
+      }
+      
+      if (newPassword !== confirmPassword) {
+        Swal.fire('Error', 'New Password and Confirm Password do not match!', 'error');
+        return;
+      }
+      
+      if (newPassword.length < 6) {
+        Swal.fire('Error', 'New password must be at least 6 characters long!', 'error');
+        return;
+      }
+      
+      // Show loading
+      Swal.fire({
+        title: 'Updating Password...',
+        text: 'Please wait while we update your password',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+      
+      try {
+        const response = await fetch('/api/dean/change-password', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            current_password: currentPassword,
+            new_password: newPassword,
+            confirm_password: confirmPassword
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.ok) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Password Updated!',
+            text: 'Your password has been successfully updated.',
+            confirmButtonText: 'OK'
+          }).then(() => {
+            // Clear form
+            document.getElementById('currentPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+          });
+        } else {
+          Swal.fire({
+            icon: 'error',
+            title: 'Password Update Failed',
+            text: data.message || 'An error occurred while updating your password.',
+            confirmButtonText: 'Try Again'
+          });
+        }
+      } catch (error) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Network Error',
+          text: 'Unable to connect to server. Please check your connection and try again.',
+          confirmButtonText: 'OK'
+        });
+      }
+    }
+
+    // Load Dean information from database
+    async function loadDeanInfo() {
+      try {
+        // Show loading state
+        if (window.showFullScreenLoading) {
+          window.showFullScreenLoading('Loading dean information...');
+        }
+        
+        const response = await fetch('/api/dean/me');
+        const data = await response.json();
+        
+        if (data.ok && data.dean_info) {
+          const dean = data.dean_info;
+          const nameEl = document.getElementById('deanName');
+          if (nameEl) nameEl.textContent = dean.full_name || dean.first_name + ' ' + dean.last_name;
+          return dean;
+        }
+      } catch (error) {
+        console.error('Error loading dean info:', error);
+        // Show error message
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Failed to load dean information. Please refresh the page.',
+            confirmButtonText: 'OK'
+          });
+        }
+      } finally {
+        // Hide loading state
+        if (window.hideFullScreenLoading) {
+          window.hideFullScreenLoading();
+        }
+      }
+      return null;
+    }
+
+    // Load Dean profile with real data - Professional Design
+    async function loadDeanProfile() {
+      const container = document.getElementById('mainContent');
+      
+      try {
+        const dean = await loadDeanInfo();
+        
+        if (dean) {
+          // Format dates
+          const formatDate = (dateString) => {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            });
+          };
+
+          // Format full name
+          const fullName = `${dean.first_name || ''} ${dean.middle_name || ''} ${dean.last_name || ''} ${dean.suffix || ''}`.replace(/\s+/g, ' ').trim();
+
+          container.innerHTML = `
+            <!-- Professional Profile Header -->
+            <div class="profile-header">
+              <div class="profile-avatar">
+                <div class="avatar-circle">
+                  <i class="fa-solid fa-user"></i>
+                </div>
+                <div class="profile-status">
+                  <span class="status-indicator active"></span>
+                  <span class="status-text">Active</span>
+                </div>
+              </div>
+              <div class="profile-info">
+                <h2 class="profile-name">${fullName}</h2>
+                ${dean.department ? `
+                <p class="profile-title">${dean.department}</p>
+                ` : ''}
+                ${dean.email ? `
+                <p class="profile-email">
+                  <i class="fa-solid fa-envelope"></i>
+                  ${dean.email}
+                </p>
+                ` : ''}
+                ${dean.created_at ? `
+                <p class="profile-joined">
+                  <i class="fa-solid fa-calendar"></i>
+                  Member since ${formatDate(dean.created_at)}
+                </p>
+                ` : ''}
+              </div>
+            </div>
+
+            <!-- Professional Profile Cards -->
+            <div class="profile-cards-grid">
+              <!-- Personal Information Card -->
+              <div class="profile-card">
+                <div class="card-header">
+                  <div class="card-icon personal">
+                    <i class="fa-solid fa-user"></i>
+                  </div>
+                  <h3>Personal Information</h3>
+                </div>
+                <div class="card-content">
+                  <div class="info-grid">
+                    ${dean.first_name ? `
+                    <div class="info-item">
+                      <label>First Name</label>
+                      <span>${dean.first_name}</span>
+                    </div>
+                    ` : ''}
+                    ${dean.last_name ? `
+                    <div class="info-item">
+                      <label>Last Name</label>
+                      <span>${dean.last_name}</span>
+                    </div>
+                    ` : ''}
+                    ${dean.middle_name ? `
+                    <div class="info-item">
+                      <label>Middle Name</label>
+                      <span>${dean.middle_name}</span>
+                    </div>
+                    ` : ''}
+                    ${dean.suffix ? `
+                    <div class="info-item">
+                      <label>Suffix</label>
+                      <span>${dean.suffix}</span>
+                    </div>
+                    ` : ''}
+                    ${dean.gender ? `
+                    <div class="info-item">
+                      <label>Gender</label>
+                      <span>${dean.gender}</span>
+                    </div>
+                    ` : ''}
+                    ${dean.date_of_birth ? `
+                    <div class="info-item">
+                      <label>Date of Birth</label>
+                      <span>${formatDate(dean.date_of_birth)}</span>
+                    </div>
+                    ` : ''}
+                    ${dean.department ? `
+                    <div class="info-item">
+                      <label>Department</label>
+                      <span>${dean.department}</span>
+                    </div>
+                    ` : ''}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Contact Information Card -->
+              <div class="profile-card">
+                <div class="card-header">
+                  <div class="card-icon contact">
+                    <i class="fa-solid fa-phone"></i>
+                  </div>
+                  <h3>Contact Information</h3>
+                </div>
+                <div class="card-content">
+                  <div class="info-grid">
+                    ${dean.email ? `
+                    <div class="info-item full-width">
+                      <label>Email Address</label>
+                      <span class="email-link">
+                        <i class="fa-solid fa-envelope"></i>
+                        ${dean.email}
+                      </span>
+                    </div>
+                    ` : ''}
+                    ${dean.contact_no ? `
+                    <div class="info-item">
+                      <label>Contact Number</label>
+                      <span>
+                        <i class="fa-solid fa-phone"></i>
+                        ${dean.contact_no}
+                      </span>
+                    </div>
+                    ` : ''}
+                    ${dean.alternative_contact ? `
+                    <div class="info-item">
+                      <label>Alternative Contact</label>
+                      <span>
+                        <i class="fa-solid fa-mobile"></i>
+                        ${dean.alternative_contact}
+                      </span>
+                    </div>
+                    ` : ''}
+                    ${dean.address ? `
+                    <div class="info-item full-width">
+                      <label>Address</label>
+                      <span class="address-text">
+                        <i class="fa-solid fa-map-marker-alt"></i>
+                        ${dean.address}
+                      </span>
+                    </div>
+                    ` : ''}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Profile Actions -->
+            <div class="profile-actions">
+              <div class="action-buttons">
+                <button class="btn btn-primary" onclick="loadContent('password')">
+                  <i class="fa-solid fa-key"></i> Change Password
+                </button>
+              </div>
+            </div>
+
+            <!-- Information Notice -->
+            <div class="profile-notice">
+              <div class="notice-content">
+                <i class="fa-solid fa-info-circle"></i>
+                <div>
+                  <strong>Profile Information Notice:</strong>
+                  <p>Your profile information is read-only and managed by the system administrator. To update your information, please contact your HR department or system administrator.</p>
+                </div>
+              </div>
+            </div>
+          `;
+        } else {
+          container.innerHTML = `
+            <div class="profile-error">
+              <div class="error-icon">
+                <i class="fa-solid fa-exclamation-triangle"></i>
+              </div>
+              <h3>Unable to Load Profile</h3>
+              <p>We couldn't load your profile information. This might be due to a network issue or server problem.</p>
+              <button class="btn btn-primary" onclick="loadDeanProfile()">
+                <i class="fa-solid fa-refresh"></i> Try Again
+              </button>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+        container.innerHTML = `
+          <div class="profile-error">
+            <div class="error-icon">
+              <i class="fa-solid fa-times-circle"></i>
+            </div>
+            <h3>Error Loading Profile</h3>
+            <p>An error occurred while loading your profile information. Please refresh the page and try again.</p>
+            <button class="btn btn-primary" onclick="loadDeanProfile()">
+              <i class="fa-solid fa-refresh"></i> Retry
+            </button>
+          </div>
+        `;
+      } finally {
+        // Hide loading after profile is loaded
+        if (window.hideFullScreenLoading) {
+          window.hideFullScreenLoading();
+        }
+      }
+    }
+
+    // On page load, show dashboard
+    window.onload = function() {
+      // Initialize responsive features first
+      initResponsiveFeatures();
+      
+      // Load dashboard content
+      loadContent('dashboard');
+      loadDeanInfo(); // Load dean name in topbar
+      
+      // Force reset counters to 0 immediately
+      setTimeout(() => {
+        document.getElementById('pendingCount').textContent = '0';
+        document.getElementById('approvedCount').textContent = '0';
+        document.getElementById('rejectedCount').textContent = '0';
+      }, 100);
+      
+      // Auto-load all data to populate counters
+      loadPendingClearances();
+      loadApprovedClearances();
+      loadRejectedClearances();
+      
+      // Ensure settings collapsed initially
+      const settings = document.getElementById('settingsMenu');
+      if(settings) settings.classList.remove('show');
+
+      // Listen modal hidden event to cleanup (covers clicking outside or close)
+      const modalEl = document.getElementById('signModal');
+      modalEl.addEventListener('hidden.bs.modal', function() {
+        onModalCloseCleanup();
+      });
+      
+      // Initialize search functionality
+      const searchInput = document.getElementById('searchInput');
+      if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+          const query = e.target.value.toLowerCase();
+          const activeTable = document.querySelector('#tablesContainer .data-table-container:not(.d-none) tbody');
+          if (activeTable) {
+            const rows = activeTable.querySelectorAll('tr[role="row"]');
+            rows.forEach(row => {
+              const text = row.textContent.toLowerCase();
+              row.style.display = text.includes(query) ? '' : 'none';
+            });
+          }
+        });
+      }
+    };
+  </script>
+</body>
+</html>
