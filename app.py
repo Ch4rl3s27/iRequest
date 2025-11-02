@@ -15,6 +15,25 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from typing import Any, cast, Optional, Tuple, Union
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    # Try loading .env first, then aws_config.env as fallback
+    load_dotenv()  # Load .env file
+    if not os.getenv('AWS_ACCESS_KEY_ID'):
+        # If AWS credentials not in .env, try aws_config.env
+        load_dotenv('aws_config.env')
+except ImportError:
+    # dotenv not installed, try to load aws_config.env manually
+    if os.path.exists('aws_config.env'):
+        with open('aws_config.env', 'r') as f:
+            for line in f:
+                if '=' in line and not line.strip().startswith('#'):
+                    key, value = line.strip().split('=', 1)
+                    os.environ[key] = value
+except Exception:
+    pass
+
 # AWS S3 Configuration
 # AWS S3 Configuration - Read from environment (no hardcoded secrets)
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
@@ -547,6 +566,210 @@ def _check_duplicate_request(cur, student_id, documents, purposes, document_type
   except Exception as e:
     print(f"Error checking duplicate request: {e}")
     return False, None
+
+def _create_clearance_notification_email_template(signatory_name: str, student_name: str, documents: list, purposes: list, deadline_date: str) -> str:
+  """
+  Creates a beautiful HTML email template for clearance request notifications.
+  Similar to OTP email but for clearance requests.
+  """
+  # Format documents and purposes
+  documents_text = ", ".join(documents) if documents else "Clearance Documents"
+  purposes_text = ", ".join(purposes) if purposes else "General Purpose"
+  
+  return f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Clearance Request Notification</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f4f6fa; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f6fa;">
+        <tr>
+            <td align="center" style="padding: 20px 0;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden;">
+                    <tr>
+                        <td align="center" style="padding: 30px 20px 20px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <img src="cid:nclogo" alt="Norzagaray College Logo" width="100" height="100" style="display: block; border: 0; border-radius: 50%; background-color: white; padding: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 30px 40px;">
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                <tr>
+                                    <td style="padding-bottom: 20px;">
+                                        <h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #2c3e50; text-align: center; line-height: 1.3;">
+                                            Hello, {signatory_name}!
+                                        </h1>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-bottom: 25px;">
+                                        <p style="margin: 0; font-size: 16px; color: #555555; text-align: center; line-height: 1.5;">
+                                            You have received a new clearance request that requires your approval.
+                                        </p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-bottom: 20px;">
+                                        <div style="background-color: #f8f9fa; border-left: 4px solid #667eea; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
+                                            <p style="margin: 0 0 10px 0; font-size: 14px; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                                                📋 Request Details
+                                            </p>
+                                            <p style="margin: 5px 0; font-size: 15px; color: #2c3e50;">
+                                                <strong>Requested by:</strong> <span style="color: #667eea;">{student_name}</span>
+                                            </p>
+                                            <p style="margin: 5px 0; font-size: 15px; color: #2c3e50;">
+                                                <strong>Documents:</strong> {documents_text}
+                                            </p>
+                                            <p style="margin: 5px 0; font-size: 15px; color: #2c3e50;">
+                                                <strong>Purpose:</strong> {purposes_text}
+                                            </p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="padding-bottom: 25px;">
+                                        <div style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);">
+                                            <p style="margin: 0 0 10px 0; font-size: 13px; color: #ffffff; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
+                                                ⏰ Deadline for Approval
+                                            </p>
+                                            <p style="margin: 0; font-size: 24px; font-weight: bold; color: #ffffff; letter-spacing: 2px;">
+                                                {deadline_date}
+                                            </p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-bottom: 20px;">
+                                        <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 5px;">
+                                            <p style="margin: 0; font-size: 13px; color: #856404; line-height: 1.4;">
+                                                <strong>Action Required:</strong> Please log in to your dashboard to review and approve this clearance request before the deadline.
+                                            </p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 20px 40px 30px 40px; background-color: #f8f9fa; border-top: 1px solid #e9ecef;">
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        <p style="margin: 0 0 10px 0; font-size: 16px; color: #2c3e50; font-weight: 600;">
+                                            Best regards,<br>
+                                            <span style="color: #667eea;">iRequest Team</span>
+                                        </p>
+                                        <p style="margin: 0; font-size: 12px; color: #6c757d;">
+                                            © 2025 iRequest - Norzagaray College<br>
+                                            This is an automated message, please do not reply.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+def _send_clearance_notification_emails(mysql, request_id: int, student_name: str, documents: list, purposes: list):
+  """
+  Send email notifications to all signatories when a clearance request is submitted.
+  """
+  try:
+    cur, conn = mysql.cursor()
+    
+    # Get all signatories for this request (only pending ones need notification)
+    cur.execute("""
+      SELECT office 
+      FROM clearance_signatories 
+      WHERE request_id = %s AND status = 'Pending'
+      ORDER BY id ASC
+    """, (request_id,))
+    signatories = cur.fetchall() or []
+    
+    # Calculate deadline (7 days from now)
+    deadline = datetime.now() + timedelta(days=7)
+    deadline_str = deadline.strftime("%B %d, %Y")
+    
+    # Map office names to department names (for staff lookup)
+    office_to_department_map = {
+      'Computer Laboratory': 'Computer Laboratory',
+      'Guidance Office': 'Guidance Office',
+      'Student Affairs': 'Student Affairs',
+      'Library': 'Library',
+      'Dean CS': 'Dean CS',
+      'Dean CoEd': 'Dean CoEd',
+      'Dean HM': 'Dean HM',
+      'Dean': 'Dean',
+      'Accounting': 'Accounting',
+      'Property Custodian': 'Property Custodian',
+      'Registrar': 'Registrar'
+    }
+    
+    emails_sent = 0
+    for sig in signatories:
+      office = sig.get('office', '')
+      department = office_to_department_map.get(office, office)
+      
+      # Get staff email for this department
+      # Get the first approved staff member from this department
+      cur.execute("""
+        SELECT email, CONCAT(first_name, ' ', last_name) as full_name
+        FROM staff 
+        WHERE department = %s AND status = 'Approved'
+        LIMIT 1
+      """, (department,))
+      staff = cur.fetchone()
+      
+      if staff and staff.get('email'):
+        signatory_email = staff['email']
+        signatory_name = staff.get('full_name', office)
+        
+        # Create and send email
+        html_content = _create_clearance_notification_email_template(
+          signatory_name,
+          student_name,
+          documents,
+          purposes,
+          deadline_str
+        )
+        
+        subject = f"New Clearance Request from {student_name}"
+        _send_email_html(signatory_email, subject, html_content)
+        emails_sent += 1
+        print(f"✅ Sent clearance notification email to {signatory_email} ({office})")
+      else:
+        print(f"⚠️ No staff email found for office: {office} (department: {department})")
+    
+    cur.close()
+    conn.close()
+    
+    print(f"📧 Sent {emails_sent} clearance notification email(s)")
+    return emails_sent
+    
+  except Exception as e:
+    import traceback
+    print(f"❌ Error sending clearance notification emails: {e}")
+    traceback.print_exc()
+    return 0
 
 def _send_email_html(to_email: str, subject: str, html_content: str) -> None:
   try:
@@ -3813,8 +4036,8 @@ def create_app() -> Flask:
       if not student_email:
         return jsonify({"ok": False, "message": "No student session found (HTTP 401)"}), 401
       cur, conn = mysql.cursor()
-      # Get student id and course
-      cur.execute("SELECT id, course_code FROM students WHERE email = %s", (student_email,))
+      # Get student id, course, and name for email notifications
+      cur.execute("SELECT id, course_code, first_name, middle_name, last_name FROM students WHERE email = %s", (student_email,))
       stu = cur.fetchone()
       if not stu:
         cur.close()
@@ -3822,6 +4045,8 @@ def create_app() -> Flask:
         return jsonify({"ok": False, "message": "Student not found"}), 404
       student_id = stu['id']
       dean_office = _derive_dean_office(stu.get('course_code'))
+      # Get student name for email notifications
+      student_name = f"{stu.get('first_name', '')} {stu.get('middle_name', '')} {stu.get('last_name', '')}".strip()
       
       if request.is_json:
         print(f"🔍 CLEARANCE REQUEST: Processing JSON request")
@@ -3963,10 +4188,22 @@ def create_app() -> Flask:
       # Mark student flag
       cur.execute("UPDATE students SET has_clearance_request = 1, status = 'Pending' WHERE id = %s", (student_id,))
       
-      
       # No need to commit with autocommit=True
       cur.close()
       conn.close()
+      
+      # Send email notifications to all signatories
+      try:
+        # Ensure documents and purposes are lists for email function
+        parsed_documents = documents if isinstance(documents, list) else json.loads(documents) if documents else []
+        parsed_purposes = purposes if isinstance(purposes, list) else json.loads(purposes) if purposes else []
+        _send_clearance_notification_emails(mysql, request_id, student_name, parsed_documents, parsed_purposes)
+      except Exception as email_err:
+        print(f"⚠️ Warning: Failed to send notification emails: {email_err}")
+        # Don't fail the request if email fails
+        import traceback
+        traceback.print_exc()
+      
       return jsonify({
         "ok": True, 
         "request_id": request_id

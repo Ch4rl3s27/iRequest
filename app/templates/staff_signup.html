@@ -539,7 +539,16 @@
         async function loadProvinces(){
           try{
             provSel.innerHTML = '<option selected disabled>Loading provinces...</option>';
-            var res = await fetch(PSGC_BASE + '/provinces');
+            var controller = new AbortController();
+            var timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            var res = await fetch(PSGC_BASE + '/provinces', {
+              signal: controller.signal,
+              mode: 'cors'
+            }).catch(() => null);
+            clearTimeout(timeoutId);
+            if (!res || !res.ok) {
+              throw new Error('Failed to fetch');
+            }
             var provinces = await res.json();
             provinces.sort(function(a,b){ return a.name.localeCompare(b.name); });
             provSel.innerHTML = '<option selected disabled>Choose...</option>' + provinces.map(function(p){
@@ -547,7 +556,8 @@
             }).join('');
             provSel.disabled = false;
           }catch(err){
-            provSel.innerHTML = '<option selected disabled>Failed to load provinces</option>';
+            provSel.innerHTML = '<option selected disabled>Manual entry (API unavailable)</option>';
+            provSel.disabled = false;
           }
           muniSel.innerHTML = '<option selected disabled>Choose province first</option>';
           muniSel.disabled = true;
@@ -561,7 +571,16 @@
           brgySel.innerHTML = '<option selected disabled>Choose city/municipality first</option>';
           brgySel.disabled = true;
           try{
-            var res = await fetch(PSGC_BASE + '/provinces/' + provinceCode + '/cities-municipalities');
+            var controller = new AbortController();
+            var timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            var res = await fetch(PSGC_BASE + '/provinces/' + provinceCode + '/cities-municipalities', {
+              signal: controller.signal,
+              mode: 'cors'
+            }).catch(() => null);
+            clearTimeout(timeoutId);
+            if (!res || !res.ok) {
+              throw new Error('Failed to fetch');
+            }
             var cities = await res.json();
             cities.sort(function(a,b){ return a.name.localeCompare(b.name); });
             muniSel.innerHTML = '<option selected disabled>Choose...</option>' + cities.map(function(c){
@@ -569,7 +588,8 @@
             }).join('');
             muniSel.disabled = false;
           }catch(err){
-            muniSel.innerHTML = '<option selected disabled>Failed to load cities/municipalities</option>';
+            muniSel.innerHTML = '<option selected disabled>Manual entry (API unavailable)</option>';
+            muniSel.disabled = false;
           }
         }
 
@@ -577,7 +597,16 @@
           brgySel.innerHTML = '<option selected disabled>Loading barangays...</option>';
           brgySel.disabled = true;
           try{
-            var res = await fetch(PSGC_BASE + '/cities-municipalities/' + cityCode + '/barangays');
+            var controller = new AbortController();
+            var timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            var res = await fetch(PSGC_BASE + '/cities-municipalities/' + cityCode + '/barangays', {
+              signal: controller.signal,
+              mode: 'cors'
+            }).catch(() => null);
+            clearTimeout(timeoutId);
+            if (!res || !res.ok) {
+              throw new Error('Failed to fetch');
+            }
             var brgys = await res.json();
             brgys.sort(function(a,b){ return a.name.localeCompare(b.name); });
             brgySel.innerHTML = '<option selected disabled>Choose...</option>' + brgys.map(function(b){
@@ -585,7 +614,8 @@
             }).join('');
             brgySel.disabled = false;
           }catch(err){
-            brgySel.innerHTML = '<option selected disabled>Failed to load barangays</option>';
+            brgySel.innerHTML = '<option selected disabled>Manual entry (API unavailable)</option>';
+            brgySel.disabled = false;
           }
         }
 
@@ -675,7 +705,16 @@
     async function loadProvinces(){
       try{
         provSel.innerHTML = '<option selected disabled>Loading provinces...</option>';
-        var res = await fetch(PSGC_BASE + '/provinces');
+        var controller = new AbortController();
+        var timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        var res = await fetch(PSGC_BASE + '/provinces', {
+          signal: controller.signal,
+          mode: 'cors'
+        }).catch(() => null);
+        clearTimeout(timeoutId);
+        if (!res || !res.ok) {
+          throw new Error('Failed to fetch');
+        }
         var provinces = await res.json();
         provinces.sort(function(a,b){ return a.name.localeCompare(b.name); });
         provSel.innerHTML = '<option selected disabled>Choose...</option>' + provinces.map(function(p){
@@ -683,7 +722,8 @@
         }).join('');
         provSel.disabled = false;
       }catch(err){
-        provSel.innerHTML = '<option selected disabled>Failed to load provinces</option>';
+        provSel.innerHTML = '<option selected disabled>Manual entry (API unavailable)</option>';
+        provSel.disabled = false;
       }
       muniSel.innerHTML = '<option selected disabled>Choose province first</option>';
       muniSel.disabled = true;
@@ -696,7 +736,16 @@
       brgySel.innerHTML = '<option selected disabled>Choose city/municipality first</option>';
       brgySel.disabled = true;
       try{
-        var res = await fetch(PSGC_BASE + '/provinces/' + provinceCode + '/cities-municipalities');
+        var controller = new AbortController();
+        var timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        var res = await fetch(PSGC_BASE + '/provinces/' + provinceCode + '/cities-municipalities', {
+          signal: controller.signal,
+          mode: 'cors'
+        }).catch(() => null);
+        clearTimeout(timeoutId);
+        if (!res || !res.ok) {
+          throw new Error('Failed to fetch');
+        }
         var cities = await res.json();
         cities.sort(function(a,b){ return a.name.localeCompare(b.name); });
         muniSel.innerHTML = '<option selected disabled>Choose...</option>' + cities.map(function(c){
@@ -704,14 +753,24 @@
         }).join('');
         muniSel.disabled = false;
       }catch(err){
-        muniSel.innerHTML = '<option selected disabled>Failed to load cities/municipalities</option>';
+        muniSel.innerHTML = '<option selected disabled>Manual entry (API unavailable)</option>';
+        muniSel.disabled = false;
       }
     }
     async function loadBarangays(cityCode){
       brgySel.innerHTML = '<option selected disabled>Loading barangays...</option>';
       brgySel.disabled = true;
       try{
-        var res = await fetch(PSGC_BASE + '/cities-municipalities/' + cityCode + '/barangays');
+        var controller = new AbortController();
+        var timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        var res = await fetch(PSGC_BASE + '/cities-municipalities/' + cityCode + '/barangays', {
+          signal: controller.signal,
+          mode: 'cors'
+        }).catch(() => null);
+        clearTimeout(timeoutId);
+        if (!res || !res.ok) {
+          throw new Error('Failed to fetch');
+        }
         var brgys = await res.json();
         brgys.sort(function(a,b){ return a.name.localeCompare(b.name); });
         brgySel.innerHTML = '<option selected disabled>Choose...</option>' + brgys.map(function(b){
@@ -719,7 +778,8 @@
         }).join('');
         brgySel.disabled = false;
       }catch(err){
-        brgySel.innerHTML = '<option selected disabled>Failed to load barangays</option>';
+        brgySel.innerHTML = '<option selected disabled>Manual entry (API unavailable)</option>';
+        brgySel.disabled = false;
       }
     }
     loadProvinces();
