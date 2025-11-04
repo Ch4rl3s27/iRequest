@@ -28,6 +28,9 @@
 
   <!-- Google Font -->
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
   <style>
     /* Import Modern Design System */
@@ -401,6 +404,7 @@
       cursor: pointer;
       min-height: 48px;
       font-size: var(--text-sm);
+      position: relative;
     }
     
     /* Center icons and remove side padding when collapsed */
@@ -434,6 +438,39 @@
       color: white;
       font-weight: var(--font-semibold);
       box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+    }
+    
+    /* Notification Badge for Nav Items */
+    .nav-badge {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--error-500);
+      color: white;
+      font-size: 10px;
+      font-weight: var(--font-bold);
+      padding: 2px 6px;
+      border-radius: 10px;
+      min-width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      z-index: 1;
+    }
+    
+    .sidebar:not(.expanded) .nav-badge {
+      right: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    
+    .sidebar.expanded .nav-badge {
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
     }
     
     .logout {
@@ -1402,6 +1439,32 @@
     /* Search */
     #searchContainer { margin-bottom:14px; }
 
+    /* Analytics Section */
+    .analytics-section {
+      margin-top: var(--space-6);
+    }
+
+    .analytics-section .card {
+      border: none;
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+    }
+
+    .analytics-section .card-header {
+      border-bottom: none;
+      padding: var(--space-4) var(--space-6);
+      font-weight: var(--font-semibold);
+    }
+
+    .analytics-section .card-body {
+      padding: var(--space-6);
+      min-height: 200px;
+    }
+
+    .analytics-section canvas {
+      max-height: 300px;
+    }
+
     /* Modal canvas */
     .modal-content canvas { border:1px solid #ddd; border-radius:6px; cursor:crosshair; }
 
@@ -1638,11 +1701,18 @@
              aria-current="page" tabindex="0">
             <i class="fa-solid fa-chart-simple" aria-hidden="true"></i> 
             <span class="link-text">Dashboard</span>
+            <span class="nav-badge" id="dashboardBadge" style="display: none;">0</span>
+          </a>
+
+          <a class="nav-link" onclick="setActive(this); loadContent('analytics')" tabindex="0">
+            <i class="fa-solid fa-chart-line" aria-hidden="true"></i> 
+            <span class="link-text">Analytics</span>
           </a>
 
           <a class="nav-link" onclick="setActive(this); loadContent('clearance')" tabindex="0">
             <i class="fa-solid fa-file-signature" aria-hidden="true"></i> 
             <span class="link-text">Clearance</span>
+            <span class="nav-badge" id="clearanceBadge" style="display: none;">0</span>
           </a>
 
           <a class="nav-link" onclick="setActive(this); loadContent('profile')" tabindex="0">
@@ -1926,6 +1996,26 @@
               </thead>
               <tbody id="clRejectedList"></tbody>
             </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Analytics Template -->
+  <template id="analyticsTemplate">
+    <div id="analyticsContent">
+      <div class="analytics-section mb-5">
+        <div class="row">
+          <div class="col-12">
+            <div class="card shadow-sm">
+              <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Document Requests by Month and Type</h5>
+              </div>
+              <div class="card-body">
+                <canvas id="analyticsChart" height="80"></canvas>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -3018,6 +3108,58 @@
         unclaimedEl.innerHTML = `<h3>${unclaimedCount}</h3>`;
         unclaimedEl.className = '';
       }
+      
+      // Update nav badge for dashboard
+      updateDashboardBadge(pendingCount);
+    }
+    
+    /* ============================================================
+       Update Navigation Badges
+       ============================================================ */
+    async function updateNavBadges() {
+      try {
+        // Fetch pending documents count for Dashboard badge
+        const dashboardRes = await fetch('/api/registrar/document-requests?status=pending');
+        if (dashboardRes.ok) {
+          const dashboardData = await dashboardRes.json();
+          const dashboardCount = dashboardData.ok && dashboardData.data ? dashboardData.data.length : 0;
+          updateDashboardBadge(dashboardCount);
+        }
+        
+        // Fetch pending clearances count for Clearance badge
+        const clearanceRes = await fetch('/api/signatories/pending?office=Registrar');
+        if (clearanceRes.ok) {
+          const clearanceData = await clearanceRes.json();
+          const clearanceCount = clearanceData.ok && clearanceData.data ? clearanceData.data.length : 0;
+          updateClearanceBadge(clearanceCount);
+        }
+      } catch (error) {
+        console.error('Error updating nav badges:', error);
+      }
+    }
+    
+    function updateDashboardBadge(count) {
+      const dashboardBadge = document.getElementById('dashboardBadge');
+      if (dashboardBadge) {
+        if (count > 0) {
+          dashboardBadge.textContent = count;
+          dashboardBadge.style.display = 'flex';
+        } else {
+          dashboardBadge.style.display = 'none';
+        }
+      }
+    }
+    
+    function updateClearanceBadge(count) {
+      const clearanceBadge = document.getElementById('clearanceBadge');
+      if (clearanceBadge) {
+        if (count > 0) {
+          clearanceBadge.textContent = count;
+          clearanceBadge.style.display = 'flex';
+        } else {
+          clearanceBadge.style.display = 'none';
+        }
+      }
     }
 
     async function showTable(type, showFullScreenLoading = true) {
@@ -3260,34 +3402,47 @@
             
             // Determine document type based on documents field
             let documentType = '—';
-            // First check document_type (most reliable for document_requests)
-            if (doc.document_type) {
-              documentType = doc.document_type;
-            } 
-            // Then check document field (set by backend)
-            else if (doc.document) {
-              documentType = doc.document;
-            }
-            // Then check documents array (for clearance_requests)
-            else if (doc.documents) {
-              // Check if documents is already an array (from backend parsing)
-              if (Array.isArray(doc.documents) && doc.documents.length > 0) {
-                documentType = doc.documents.join(', ');
+            // For clearance_requests, prioritize documents/document field over document_type
+            // For document_requests, document_type is the primary field
+            if (doc.request_type === 'clearance') {
+              // First check document field (set by backend from documents column)
+              if (doc.document && doc.document !== doc.document_type) {
+                documentType = doc.document;
               }
-              // Otherwise try to parse as JSON string
-              else if (typeof doc.documents === 'string') {
-                try {
-                  const documents = JSON.parse(doc.documents);
-                  if (Array.isArray(documents) && documents.length > 0) {
-                    documentType = documents.join(', ');
-                  } else {
-                    // If not array after parsing, use as is
+              // Then check documents array (for clearance_requests)
+              else if (doc.documents) {
+                // Check if documents is already an array (from backend parsing)
+                if (Array.isArray(doc.documents) && doc.documents.length > 0) {
+                  documentType = doc.documents.join(', ');
+                }
+                // Otherwise try to parse as JSON string
+                else if (typeof doc.documents === 'string') {
+                  try {
+                    const documents = JSON.parse(doc.documents);
+                    if (Array.isArray(documents) && documents.length > 0) {
+                      documentType = documents.join(', ');
+                    } else {
+                      // If not array after parsing, use as is
+                      documentType = doc.documents;
+                    }
+                  } catch (e) {
+                    // If JSON parse fails, use as string
                     documentType = doc.documents;
                   }
-                } catch (e) {
-                  // If JSON parse fails, use as string
-                  documentType = doc.documents;
                 }
+              }
+              // Fallback to document_type only if documents/document not available
+              else if (doc.document_type) {
+                documentType = doc.document_type;
+              }
+            } else {
+              // For document_requests, use document_type first
+              if (doc.document_type) {
+                documentType = doc.document_type;
+              } 
+              // Then check document field (set by backend)
+              else if (doc.document) {
+                documentType = doc.document;
               }
             }
 
@@ -4148,6 +4303,130 @@
       }
     }
 
+    /* ============================================================
+       Load Analytics Data and Display Charts
+       ============================================================ */
+    let analyticsChart = null;
+
+    async function loadAnalytics() {
+      try {
+        const response = await fetch('/api/registrar/analytics');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        if (!data.ok) {
+          console.error('Error loading analytics:', data.message || 'Unknown error');
+          return;
+        }
+
+        const analyticsData = data.data;
+        
+        // Destroy existing chart if it exists
+        if (analyticsChart) {
+          analyticsChart.destroy();
+        }
+
+        // Create grouped bar chart
+        const ctx = document.getElementById('analyticsChart');
+        if (!ctx) {
+          console.warn('analyticsChart canvas not found');
+          return;
+        }
+
+        // Months are on x-axis (bottom), percentage on y-axis (side)
+        const months = analyticsData.months || [];
+        const datasets = analyticsData.datasets || [];
+
+        analyticsChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: months, // Months at the bottom (x-axis)
+            datasets: datasets // Document types as separate series
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: {
+                display: true,
+                position: 'top',
+                labels: {
+                  boxWidth: 12,
+                  padding: 10,
+                  font: {
+                    size: 11
+                  }
+                }
+              },
+              tooltip: {
+                mode: 'index',
+                intersect: false,
+                callbacks: {
+                  label: function(context) {
+                    const label = context.dataset.label || '';
+                    const value = context.parsed.y || 0;
+                    return `${label}: ${value}%`;
+                  }
+                }
+              },
+              title: {
+                display: false
+              }
+            },
+            scales: {
+              x: {
+                stacked: false,
+                title: {
+                  display: true,
+                  text: 'Months',
+                  font: {
+                    size: 12,
+                    weight: 'bold'
+                  }
+                },
+                ticks: {
+                  font: {
+                    size: 10
+                  }
+                }
+              },
+              y: {
+                beginAtZero: true,
+                max: 100,
+                title: {
+                  display: true,
+                  text: 'Percentage (%)',
+                  font: {
+                    size: 12,
+                    weight: 'bold'
+                  }
+                },
+                ticks: {
+                  callback: function(value) {
+                    return value + '%';
+                  },
+                  font: {
+                    size: 10
+                  },
+                  stepSize: 10
+                }
+              }
+            },
+            interaction: {
+              mode: 'index',
+              intersect: false
+            }
+          }
+        });
+
+      } catch (error) {
+        console.error('Error loading analytics:', error);
+        // Don't show error alert for analytics as it's not critical
+      }
+    }
+
     // Add sample data for demo purposes
     function addSampleData() {
       const sampleDocs = [
@@ -4183,6 +4462,11 @@
         const template = document.getElementById('dashboardTemplate').content.cloneNode(true);
         container.innerHTML = '';
         container.appendChild(template);
+        // Update topbar title
+        const topbarTitle = document.querySelector('.topbar-title');
+        if (topbarTitle) {
+          topbarTitle.textContent = 'Registrar Dashboard';
+        }
         // Small delay to ensure DOM is ready
         setTimeout(async () => {
           // Only load documents if the dashboard template is active
@@ -4197,6 +4481,26 @@
             ]);
             // Show pending table by default (without full-screen loading)
             showTable('pending', false);
+            // Update nav badges after loading data
+            updateNavBadges();
+          }
+        }, 10);
+      }
+
+      if(type === 'analytics') {
+        const template = document.getElementById('analyticsTemplate').content.cloneNode(true);
+        container.innerHTML = '';
+        container.appendChild(template);
+        // Update topbar title
+        const topbarTitle = document.querySelector('.topbar-title');
+        if (topbarTitle) {
+          topbarTitle.textContent = 'Registrar Analytics';
+        }
+        // Small delay to ensure DOM is ready
+        setTimeout(async () => {
+          // Load analytics chart
+          if (document.getElementById('analyticsChart')) {
+            await loadAnalytics();
           }
         }, 10);
       }
@@ -4206,13 +4510,17 @@
         container.innerHTML = '';
         container.appendChild(template);
         // Small delay to ensure DOM is ready
-        setTimeout(() => {
+        setTimeout(async () => {
           showClearanceTable('pending');
-          updateClearanceCounters();
           // Load clearance data after template is loaded
-          loadRegistrarPendingClearances();
-          loadRegistrarApprovedClearances();
-          loadRegistrarRejectedClearances();
+          await Promise.all([
+            loadRegistrarPendingClearances(),
+            loadRegistrarApprovedClearances(),
+            loadRegistrarRejectedClearances()
+          ]);
+          updateClearanceCounters();
+          // Update nav badges after loading clearance data
+          updateNavBadges();
           // init canvas listeners after DOM available
         }, 10);
       }
@@ -4696,6 +5004,9 @@
         modalEl.addEventListener('hidden.bs.modal', function() { onClModalClose(); });
       }
       
+      // Update nav badges on page load
+      updateNavBadges();
+      
       // Auto-fix disabled - use manual "Move to Pending Documents" button instead
       
       // Disable auto-transfer monitoring to avoid unnecessary requests
@@ -4945,7 +5256,15 @@
     /* ============================================================
        Clearance: Loaders and table switching
        ============================================================ */
-    function updateClearanceCounters(){ document.getElementById('clPendingCount').textContent = document.querySelectorAll('#clPendingList tr').length; document.getElementById('clApprovedCount').textContent = document.querySelectorAll('#clApprovedList tr').length; document.getElementById('clRejectedCount').textContent = document.querySelectorAll('#clRejectedList tr').length; }
+    function updateClearanceCounters(){ 
+      const pendingCount = document.querySelectorAll('#clPendingList tr').length;
+      document.getElementById('clPendingCount').textContent = pendingCount; 
+      document.getElementById('clApprovedCount').textContent = document.querySelectorAll('#clApprovedList tr').length; 
+      document.getElementById('clRejectedCount').textContent = document.querySelectorAll('#clRejectedList tr').length; 
+      
+      // Update nav badge for clearance
+      updateClearanceBadge(pendingCount);
+    }
     async function showClearanceTable(type){ 
       // Show full-screen loading overlay
       if (window.buttonLoadingManager) {
