@@ -5931,6 +5931,175 @@ def create_app() -> Flask:
     except Exception as err:
       return jsonify({"ok": False, "message": f"Error: {err}"}), 500
 
+  @app.route('/api/registrar/analytics')
+  def api_registrar_analytics():
+    """Get analytics data grouped by month and document type:
+    - Document requests by month and document type
+    - Includes data from both clearance_requests and document_requests tables
+    - Percentage calculations
+    """
+    try:
+      cur, conn = mysql.cursor()
+      
+      # Get document requests from document_requests table (last 12 months)
+      cur.execute("""
+        SELECT 
+          DATE_FORMAT(created_at, '%Y-%m') as month,
+          DATE_FORMAT(created_at, '%b %Y') as month_label,
+          document_type,
+          COUNT(*) as count
+        FROM document_requests
+        WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)
+          AND document_type IS NOT NULL
+          AND document_type != ''
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m'), DATE_FORMAT(created_at, '%b %Y'), document_type
+        ORDER BY month ASC, count DESC
+      """)
+      
+      document_requests_data = cur.fetchall()
+      
+      # Get data from clearance_requests table (last 12 months)
+      # Only use documents JSON column, not document_type field
+      cur.execute("""
+        SELECT 
+          DATE_FORMAT(created_at, '%Y-%m') as month,
+          DATE_FORMAT(created_at, '%b %Y') as month_label,
+          documents
+        FROM clearance_requests
+        WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)
+          AND documents IS NOT NULL
+          AND documents != ''
+      """)
+      
+      clearance_requests_data = cur.fetchall()
+      
+      # Process document_requests data
+      monthly_totals = {}
+      data_by_month = {}
+      
+      for row in document_requests_data:
+        month = row['month']
+        month_label = row['month_label']
+        doc_type = row['document_type']
+        count = row['count']
+        
+        if month not in monthly_totals:
+          monthly_totals[month] = 0
+          data_by_month[month] = {
+            'label': month_label,
+            'documents': {}
+          }
+        
+        monthly_totals[month] += count
+        if doc_type not in data_by_month[month]['documents']:
+          data_by_month[month]['documents'][doc_type] = 0
+        data_by_month[month]['documents'][doc_type] += count
+      
+      # Process clearance_requests data - extract individual documents from JSON column only
+      import json
+      for row in clearance_requests_data:
+        month = row['month']
+        month_label = row['month_label']
+        documents_json = row['documents']
+        
+        if month not in monthly_totals:
+          monthly_totals[month] = 0
+          data_by_month[month] = {
+            'label': month_label,
+            'documents': {}
+          }
+        
+        # Only use documents JSON column, ignore document_type field
+        document_list = []
+        if documents_json:
+          try:
+            parsed_docs = json.loads(documents_json)
+            if isinstance(parsed_docs, list):
+              document_list = parsed_docs
+            elif isinstance(parsed_docs, str):
+              document_list = [parsed_docs]
+          except:
+            # If not JSON, treat as single document string
+            if documents_json:
+              document_list = [documents_json]
+        
+        # Count each document type from documents JSON only
+        for doc_type in document_list:
+          if doc_type and doc_type.strip():
+            monthly_totals[month] += 1
+            if doc_type not in data_by_month[month]['documents']:
+              data_by_month[month]['documents'][doc_type] = 0
+            data_by_month[month]['documents'][doc_type] += 1
+      
+      # Calculate percentages and format data
+      months = []
+      document_types_set = set()
+      
+      for month, data in sorted(data_by_month.items()):
+        months.append(data['label'])
+        for doc_type in data['documents'].keys():
+          document_types_set.add(doc_type)
+      
+      document_types = sorted(list(document_types_set))
+      
+      # Build datasets for each document type
+      datasets = []
+      # Extended color palette for all document types
+      colors = [
+        'rgba(59, 130, 246, 0.8)',   # Blue
+        'rgba(34, 197, 94, 0.8)',    # Green
+        'rgba(251, 191, 36, 0.8)',   # Yellow
+        'rgba(239, 68, 68, 0.8)',    # Red
+        'rgba(168, 85, 247, 0.8)',   # Purple
+        'rgba(236, 72, 153, 0.8)',   # Pink
+        'rgba(14, 165, 233, 0.8)',   # Cyan
+        'rgba(20, 184, 166, 0.8)',   # Teal
+        'rgba(245, 158, 11, 0.8)',   # Amber
+        'rgba(249, 115, 22, 0.8)',   # Orange
+        'rgba(139, 92, 246, 0.8)',  # Indigo
+        'rgba(6, 182, 212, 0.8)',   # Sky
+        'rgba(16, 185, 129, 0.8)',  # Emerald
+        'rgba(251, 146, 60, 0.8)',  # Orange (darker)
+        'rgba(220, 38, 127, 0.8)',  # Fuchsia
+        'rgba(217, 70, 239, 0.8)',  # Violet
+        'rgba(192, 132, 252, 0.8)', # Lavender
+        'rgba(74, 222, 128, 0.8)',  # Lime Green
+        'rgba(34, 211, 238, 0.8)',  # Light Cyan
+        'rgba(99, 102, 241, 0.8)'   # Indigo Blue
+      ]
+      
+      for idx, doc_type in enumerate(document_types):
+        data = []
+        for month in sorted(data_by_month.keys()):
+          month_data = data_by_month[month]
+          count = month_data['documents'].get(doc_type, 0)
+          total = monthly_totals[month]
+          percentage = (count / total * 100) if total > 0 else 0
+          data.append(round(percentage, 1))
+        
+        datasets.append({
+          'label': doc_type,
+          'data': data,
+          'backgroundColor': colors[idx % len(colors)],
+          'borderColor': colors[idx % len(colors)].replace('0.8', '1'),
+          'borderWidth': 1
+        })
+      
+      cur.close()
+      conn.close()
+      
+      return jsonify({
+        'ok': True,
+        'data': {
+          'months': months,
+          'document_types': document_types,
+          'datasets': datasets,
+          'monthly_totals': {k: v for k, v in monthly_totals.items()}
+        }
+      })
+    except Exception as err:
+      return jsonify({"ok": False, "message": f"Error: {err}"}), 500
+
   @app.route('/api/registrar/document-requests/mark-processing', methods=['POST'])
   def api_registrar_document_mark_processing():
     data = request.get_json(silent=True) or {}
