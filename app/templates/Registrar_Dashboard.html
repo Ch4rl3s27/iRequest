@@ -3260,20 +3260,35 @@
             
             // Determine document type based on documents field
             let documentType = '—';
-            if (doc.documents) {
-              try {
-                const documents = JSON.parse(doc.documents);
-                if (Array.isArray(documents) && documents.length > 0) {
-                  documentType = documents.join(', ');
-                }
-              } catch (e) {
-                documentType = doc.documents || '—';
-              }
-            } else if (doc.document_type) {
-              // Fallback to document_type if documents is empty
+            // First check document_type (most reliable for document_requests)
+            if (doc.document_type) {
               documentType = doc.document_type;
-            } else {
-              documentType = '—';
+            } 
+            // Then check document field (set by backend)
+            else if (doc.document) {
+              documentType = doc.document;
+            }
+            // Then check documents array (for clearance_requests)
+            else if (doc.documents) {
+              // Check if documents is already an array (from backend parsing)
+              if (Array.isArray(doc.documents) && doc.documents.length > 0) {
+                documentType = doc.documents.join(', ');
+              }
+              // Otherwise try to parse as JSON string
+              else if (typeof doc.documents === 'string') {
+                try {
+                  const documents = JSON.parse(doc.documents);
+                  if (Array.isArray(documents) && documents.length > 0) {
+                    documentType = documents.join(', ');
+                  } else {
+                    // If not array after parsing, use as is
+                    documentType = doc.documents;
+                  }
+                } catch (e) {
+                  // If JSON parse fails, use as string
+                  documentType = doc.documents;
+                }
+              }
             }
 
             // Determine clearance status

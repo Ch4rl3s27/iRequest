@@ -1552,6 +1552,19 @@ def create_app() -> Flask:
       cur.execute("ALTER TABLE document_requests ADD UNIQUE INDEX idx_unique_reference_number (reference_number)")
     except Exception:
       pass
+    # Add receipt columns for document requests (similar to clearance_requests)
+    try:
+      cur.execute("ALTER TABLE document_requests ADD COLUMN payment_receipt LONGTEXT NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE document_requests ADD COLUMN payment_receipt_s3_url VARCHAR(500) NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE document_requests ADD COLUMN payment_receipt_s3_key VARCHAR(255) NULL")
+    except Exception:
+      pass
     # Try to extend ENUM to include Released/Unclaimed for older deployments
     try:
       cur.execute("ALTER TABLE document_requests MODIFY status ENUM('Pending','Processing','Completed','Released','Unclaimed','Rejected') NOT NULL DEFAULT 'Pending'")
@@ -2642,9 +2655,9 @@ def create_app() -> Flask:
   # --- Receipt Image API ---
   @app.route('/api/receipt/<int:request_id>', methods=['GET'])
   def api_get_receipt_image(request_id):
-    """Get receipt image for a clearance request - SIMPLIFIED to use only clearance_requests table"""
+    """Get receipt image for a clearance request or document request"""
     try:
-      print(f"🔍 Receipt API: Fetching receipt for clearance_request_id: {request_id}")
+      print(f"🔍 Receipt API: Fetching receipt for request_id: {request_id}")
       
       # Check if mysql connection is available
       if not mysql:
@@ -2653,158 +2666,224 @@ def create_app() -> Flask:
       
       cur, conn = mysql.cursor()
       
-      # SIMPLIFIED: Only query clearance_requests table with student info
+      # Try clearance_requests first, then document_requests
+      result = None
+      request_type = None
+      
+      # First, try clearance_requests table
       try:
-        # First, let's check what columns exist in clearance_requests table
-        print(f"🔍 Receipt API: Checking clearance_requests table structure...")
+        print(f"🔍 Receipt API: Checking clearance_requests table...")
         cur.execute("SHOW COLUMNS FROM clearance_requests")
         columns_result = cur.fetchall()
-        # When using DictCursor, results are dictionaries, not tuples
-        columns = [row['Field'] for row in columns_result] if columns_result else []
-        print(f"🔍 Receipt API: Available columns in clearance_requests: {columns}")
+        # Handle both dict and tuple results from SHOW COLUMNS
+        columns = []
+        if columns_result:
+          for row in columns_result:
+            if isinstance(row, dict):
+              # Try both 'Field' and 'field' keys (case may vary)
+              col_name = row.get('Field') or row.get('field') or row.get('Field') or (list(row.values())[0] if row else None)
+            else:
+              # If it's a tuple, use the first element
+              col_name = row[0] if len(row) > 0 else None
+            if col_name:
+              columns.append(col_name)
         
-        if not columns:
-          print(f"🔍 Receipt API: No columns found - table might not exist")
-          return jsonify({"ok": False, "message": "clearance_requests table not found"}), 404
-        
-        # Build query based on available columns
-        base_columns = ["cr.id", "cr.student_id", "cr.created_at"]
-        if "payment_receipt" in columns:
-          base_columns.append("cr.payment_receipt")
-        if "payment_receipt_s3_url" in columns:
-          base_columns.append("cr.payment_receipt_s3_url")
-        if "payment_receipt_s3_key" in columns:
-          base_columns.append("cr.payment_receipt_s3_key")
-        if "payment_method" in columns:
-          base_columns.append("cr.payment_method")
-        if "payment_amount" in columns:
-          base_columns.append("cr.payment_amount")
-        if "reference_number" in columns:
-          base_columns.append("cr.reference_number")
-        
-        student_columns = [
-          "s.first_name", "s.last_name", "s.middle_name", "s.student_no", 
-          "s.course_name", "s.course_code", "s.year_level", "s.year_level_name", "s.email"
-        ]
-        
-        all_columns = base_columns + student_columns
-        query = f"""
-          SELECT {', '.join(all_columns)}
-          FROM clearance_requests cr
-          JOIN students s ON s.id = cr.student_id
-          WHERE cr.id = %s
-        """
-        
-        print(f"🔍 Receipt API: Executing query: {query}")
-        print(f"🔍 Receipt API: Query parameters: request_id={request_id}")
-        cur.execute(query, (request_id,))
-        
-        result = cur.fetchone()
-        print(f"🔍 Receipt API: Query result: {result}")
-        cur.close()
-        conn.close()
-        
-        if not result:
-          print(f"🔍 Receipt API: No clearance request found with ID: {request_id}")
-          return jsonify({"ok": False, "message": "Clearance request not found"}), 404
-        
-        # Build student information
+        if columns:
+          base_columns = ["cr.id", "cr.student_id", "cr.created_at"]
+          if "payment_receipt" in columns:
+            base_columns.append("cr.payment_receipt")
+          if "payment_receipt_s3_url" in columns:
+            base_columns.append("cr.payment_receipt_s3_url")
+          if "payment_receipt_s3_key" in columns:
+            base_columns.append("cr.payment_receipt_s3_key")
+          if "payment_method" in columns:
+            base_columns.append("cr.payment_method")
+          if "payment_amount" in columns:
+            base_columns.append("cr.payment_amount")
+          if "reference_number" in columns:
+            base_columns.append("cr.reference_number")
+          
+          student_columns = [
+            "s.first_name", "s.last_name", "s.middle_name", "s.student_no", 
+            "s.course_name", "s.course_code", "s.year_level", "s.year_level_name", "s.email"
+          ]
+          
+          all_columns = base_columns + student_columns
+          query = f"""
+            SELECT {', '.join(all_columns)}
+            FROM clearance_requests cr
+            JOIN students s ON s.id = cr.student_id
+            WHERE cr.id = %s
+          """
+          
+          cur.execute(query, (request_id,))
+          result = cur.fetchone()
+          if result:
+            request_type = "clearance"
+            print(f"🔍 Receipt API: Found in clearance_requests table")
+      except Exception as e:
+        print(f"🔍 Receipt API: Error checking clearance_requests: {e}")
+      
+      # If not found in clearance_requests, try document_requests
+      if not result:
         try:
-          print(f"🔍 Receipt API: Building student info from result: {result}")
-          student_info = _build_student_info(result)
-          print(f"🔍 Receipt API: Student info built successfully: {student_info}")
-        except Exception as student_error:
-          print(f"🔍 Receipt API: Error building student info: {student_error}")
-          print(f"🔍 Receipt API: Student error type: {type(student_error)}")
-          print(f"🔍 Receipt API: Student error str: '{str(student_error)}'")
-          import traceback
-          traceback.print_exc()
-          student_info = None
-        
-        # Check for receipt image - prioritize S3, fallback to database
-        s3_url = result.get('payment_receipt_s3_url')
-        s3_key = result.get('payment_receipt_s3_key')
-        receipt_data = result.get('payment_receipt')
-        
-        print(f"🔍 Receipt API: S3 URL exists: {s3_url is not None}")
-        print(f"🔍 Receipt API: S3 Key exists: {s3_key is not None}")
-        print(f"🔍 Receipt API: Database receipt exists: {receipt_data is not None}, length: {len(receipt_data) if receipt_data else 0}")
-        
-        # Try S3 first
-        if s3_url and s3_key:
-          try:
-            # Use the direct public URL from S3
-            print(f"🔍 Receipt API: Using S3 public URL: {s3_url[:100]}...")
-            return jsonify({
-              "ok": True,
-              "image_url": s3_url,
-              "source": "s3",
-              "student_info": student_info
-            })
-          except Exception as s3_error:
-            print(f"🔍 Receipt API: S3 error: {s3_error}")
-            # Fall back to database if S3 fails
-        
-        # Fallback to database storage
-        if receipt_data:
-          print(f"🔍 Receipt API: Using database storage (length: {len(receipt_data)})")
+          print(f"🔍 Receipt API: Checking document_requests table...")
+          cur.execute("SHOW COLUMNS FROM document_requests")
+          columns_result = cur.fetchall()
+          # Handle both dict and tuple results from SHOW COLUMNS
+          columns = []
+          if columns_result:
+            for row in columns_result:
+              if isinstance(row, dict):
+                # Try both 'Field' and 'field' keys (case may vary with PyMySQL DictCursor)
+                col_name = row.get('Field') or row.get('field') or (list(row.values())[0] if row else None)
+              else:
+                # If it's a tuple, use the first element
+                col_name = row[0] if len(row) > 0 else None
+              if col_name:
+                columns.append(col_name)
+          
+            if columns:
+              base_columns = ["dr.id", "dr.student_id", "dr.created_at"]
+              if "payment_receipt" in columns:
+                base_columns.append("dr.payment_receipt")
+              if "payment_receipt_s3_url" in columns:
+                base_columns.append("dr.payment_receipt_s3_url")
+              if "payment_receipt_s3_key" in columns:
+                base_columns.append("dr.payment_receipt_s3_key")
+              if "payment_method" in columns:
+                base_columns.append("dr.payment_method")
+              if "payment_amount" in columns:
+                base_columns.append("dr.payment_amount")
+              if "reference_number" in columns:
+                base_columns.append("dr.reference_number")
+              if "payment_details" in columns:
+                base_columns.append("dr.payment_details")
+              
+              student_columns = [
+                "s.first_name", "s.last_name", "s.middle_name", "s.student_no", 
+                "s.course_name", "s.course_code", "s.year_level", "s.year_level_name", "s.email"
+              ]
+              
+              all_columns = base_columns + student_columns
+              query = f"""
+                SELECT {', '.join(all_columns)}
+                FROM document_requests dr
+                JOIN students s ON s.id = dr.student_id
+                WHERE dr.id = %s
+              """
+              
+              cur.execute(query, (request_id,))
+              result = cur.fetchone()
+              if result:
+                request_type = "document"
+                print(f"🔍 Receipt API: Found in document_requests table")
+        except Exception as e:
+          print(f"🔍 Receipt API: Error checking document_requests: {e}")
+      
+      cur.close()
+      conn.close()
+      
+      if not result:
+        print(f"🔍 Receipt API: No request found with ID: {request_id} (checked both clearance_requests and document_requests)")
+        return jsonify({"ok": False, "message": "Request not found"}), 404
+      
+      # Build student information
+      try:
+        print(f"🔍 Receipt API: Building student info from result: {result}")
+        student_info = _build_student_info(result)
+        print(f"🔍 Receipt API: Student info built successfully: {student_info}")
+      except Exception as student_error:
+        print(f"🔍 Receipt API: Error building student info: {student_error}")
+        print(f"🔍 Receipt API: Student error type: {type(student_error)}")
+        print(f"🔍 Receipt API: Student error str: '{str(student_error)}'")
+        import traceback
+        traceback.print_exc()
+        student_info = None
+      
+      # Check for receipt image - prioritize S3, fallback to database
+      s3_url = result.get('payment_receipt_s3_url')
+      s3_key = result.get('payment_receipt_s3_key')
+      receipt_data = result.get('payment_receipt')
+      payment_details = result.get('payment_details')
+      
+      # If new columns are NULL but payment_details exists, try to extract from JSON (backward compatibility)
+      if not s3_url and payment_details:
+        try:
+          import json
+          payment_details_json = json.loads(payment_details) if isinstance(payment_details, str) else payment_details
+          if isinstance(payment_details_json, dict):
+            s3_url = payment_details_json.get('s3_url') or payment_details_json.get('receipt_s3_url')
+            s3_key = payment_details_json.get('s3_key') or payment_details_json.get('receipt_s3_key')
+            if payment_details_json.get('has_receipt') and not receipt_data:
+              receipt_data = payment_details_json.get('receipt_data')  # Fallback if stored in JSON
+            print(f"🔍 Receipt API: Extracted from payment_details JSON - s3_url: {s3_url is not None}, s3_key: {s3_key is not None}")
+        except Exception as json_err:
+          print(f"🔍 Receipt API: Error parsing payment_details JSON: {json_err}")
+      
+      print(f"🔍 Receipt API: S3 URL exists: {s3_url is not None}")
+      print(f"🔍 Receipt API: S3 Key exists: {s3_key is not None}")
+      print(f"🔍 Receipt API: Database receipt exists: {receipt_data is not None}, length: {len(receipt_data) if receipt_data else 0}")
+      
+      # Try S3 first
+      if s3_url and s3_key:
+        try:
+          # Use the direct public URL from S3
+          print(f"🔍 Receipt API: Using S3 public URL: {s3_url[:100]}...")
           return jsonify({
             "ok": True,
-            "image_data": receipt_data,
-            "source": "database",
+            "image_url": s3_url,
+            "source": "s3",
             "student_info": student_info
           })
-        
-        # If no receipt image, return payment information
-        payment_method = result.get('payment_method')
-        payment_amount = result.get('payment_amount')
-        reference_number = result.get('reference_number')
-        
-        if payment_method or payment_amount or reference_number:
-          print(f"🔍 Receipt API: No receipt image, but payment info available")
-          return jsonify({
-            "ok": True,
-            "no_receipt": True,
-            "payment_info": {
-              "method": payment_method or "Not specified",
-              "amount": payment_amount or "Not specified",
-              "reference_number": reference_number or "Not provided"
-            },
-            "message": "No receipt image uploaded, but payment information is available.",
-            "student_info": student_info
-          })
-        
-        print(f"🔍 Receipt API: No receipt image or payment information found")
+        except Exception as s3_error:
+          print(f"🔍 Receipt API: S3 error: {s3_error}")
+          # Fall back to database if S3 fails
+      
+      # Fallback to database storage
+      if receipt_data:
+        print(f"🔍 Receipt API: Using database storage (length: {len(receipt_data)})")
         return jsonify({
+          "ok": True,
+          "image_data": receipt_data,
+          "source": "database",
+          "student_info": student_info
+        })
+      
+      # If no receipt image, return payment information
+      payment_method = result.get('payment_method')
+      payment_amount = result.get('payment_amount')
+      reference_number = result.get('reference_number')
+      
+      if payment_method or payment_amount or reference_number:
+        print(f"🔍 Receipt API: No receipt image, but payment info available")
+        return jsonify({
+          "ok": True,
+          "no_receipt": True,
+          "payment_info": {
+            "method": payment_method or "Not specified",
+            "amount": payment_amount or "Not specified",
+            "reference_number": reference_number or "Not provided"
+          },
+          "message": "No receipt image uploaded, but payment information is available.",
+          "student_info": student_info
+        })
+      
+      print(f"🔍 Receipt API: No receipt image or payment information found")
+      return jsonify({
           "ok": False, 
           "message": "No receipt image or payment information found for this clearance request"
         }), 404
-        
-      except pymysql.Error as query_error:
-        cur.close()
-        conn.close()
-        print(f"🔍 Receipt API: PyMySQL Error: {query_error}")
-        print(f"🔍 Receipt API: Error Code: {query_error.args[0]}")
-        print(f"🔍 Receipt API: Error Message: {query_error.args[1]}")
-        return jsonify({
-          "ok": False, 
-          "message": f"Database query error - PyMySQL Error {query_error.args[0]}: {query_error.args[1]}"
-        }), 500
-      except Exception as query_error:
-        cur.close()
-        conn.close()
-        print(f"🔍 Receipt API: Database query error: {query_error}")
-        print(f"🔍 Receipt API: Error type: {type(query_error)}")
-        print(f"🔍 Receipt API: Error str: '{str(query_error)}'")
-        print(f"🔍 Receipt API: Error repr: {repr(query_error)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-          "ok": False, 
-          "message": f"Database query error: {str(query_error)}"
-        }), 500
       
     except pymysql.Error as e:
+      # Safely close connection if it was opened
+      try:
+        if 'cur' in locals() and cur:
+          cur.close()
+        if 'conn' in locals() and conn:
+          conn.close()
+      except:
+        pass
       print(f"🔍 Receipt API: PyMySQL Error: {e}")
       print(f"🔍 Receipt API: Error Code: {e.args[0]}")
       print(f"🔍 Receipt API: Error Message: {e.args[1]}")
@@ -2815,6 +2894,14 @@ def create_app() -> Flask:
         "message": f"Error fetching receipt - PyMySQL Error {e.args[0]}: {e.args[1]}"
       }), 500
     except Exception as e:
+      # Safely close connection if it was opened
+      try:
+        if 'cur' in locals() and cur:
+          cur.close()
+        if 'conn' in locals() and conn:
+          conn.close()
+      except:
+        pass
       print(f"🔍 Receipt API: General error: {e}")
       import traceback
       traceback.print_exc()
@@ -3098,8 +3185,9 @@ def create_app() -> Flask:
         # Show processing documents from document_requests table (hybrid approach)
         cur.execute("""
           SELECT dr.id, dr.student_id, dr.status, 'Processing' as fulfillment_status, dr.document_type, dr.purpose as documents, dr.purpose as purposes, 
-                 dr.created_at, dr.updated_at, dr.pickup_date, NULL as payment_receipt, NULL as payment_method, 
-                 NULL as payment_amount, NULL as reference_number, NULL as receipt_status,
+                 dr.created_at, dr.updated_at, dr.pickup_date, dr.payment_receipt, dr.payment_receipt_s3_url, dr.payment_receipt_s3_key,
+                 dr.payment_method, dr.payment_amount, dr.reference_number, dr.payment_details,
+                 CASE WHEN dr.payment_receipt IS NOT NULL OR dr.payment_receipt_s3_url IS NOT NULL THEN 'has_receipt' ELSE NULL END as receipt_status,
                  s.first_name, s.last_name, s.student_no, dr.clearance_request_id
           FROM document_requests dr
           JOIN students s ON s.id = dr.student_id
@@ -3108,8 +3196,8 @@ def create_app() -> Flask:
           UNION ALL
           
           SELECT cr.id, cr.student_id, cr.status, cr.fulfillment_status, cr.document_type, cr.documents, cr.purposes, 
-                 cr.created_at, cr.updated_at, cr.pickup_date, cr.payment_receipt, cr.payment_method, 
-                 cr.payment_amount, cr.reference_number, cr.receipt_status,
+                 cr.created_at, cr.updated_at, cr.pickup_date, cr.payment_receipt, cr.payment_receipt_s3_url, cr.payment_receipt_s3_key,
+                 cr.payment_method, cr.payment_amount, cr.reference_number, cr.receipt_status,
                  s.first_name, s.last_name, s.student_no, NULL as clearance_request_id
           FROM clearance_requests cr
           JOIN students s ON s.id = cr.student_id
@@ -3133,8 +3221,9 @@ def create_app() -> Flask:
         # Show completed documents from document_requests table (hybrid approach)
         cur.execute("""
           SELECT dr.id, dr.student_id, dr.status, 'Released' as fulfillment_status, dr.document_type, dr.purpose as documents, dr.purpose as purposes, 
-                 dr.created_at, dr.updated_at, dr.pickup_date, NULL as payment_receipt, NULL as payment_method, 
-                 NULL as payment_amount, NULL as reference_number, NULL as receipt_status,
+                 dr.created_at, dr.updated_at, dr.pickup_date, dr.payment_receipt, dr.payment_receipt_s3_url, dr.payment_receipt_s3_key,
+                 dr.payment_method, dr.payment_amount, dr.reference_number, dr.payment_details,
+                 CASE WHEN dr.payment_receipt IS NOT NULL OR dr.payment_receipt_s3_url IS NOT NULL THEN 'has_receipt' ELSE NULL END as receipt_status,
                  s.first_name, s.last_name, s.student_no, dr.clearance_request_id
           FROM document_requests dr
           JOIN students s ON s.id = dr.student_id
@@ -3143,8 +3232,8 @@ def create_app() -> Flask:
           UNION ALL
           
           SELECT cr.id, cr.student_id, cr.status, cr.fulfillment_status, cr.document_type, cr.documents, cr.purposes, 
-                 cr.created_at, cr.updated_at, cr.pickup_date, cr.payment_receipt, cr.payment_method, 
-                 cr.payment_amount, cr.reference_number, cr.receipt_status,
+                 cr.created_at, cr.updated_at, cr.pickup_date, cr.payment_receipt, cr.payment_receipt_s3_url, cr.payment_receipt_s3_key,
+                 cr.payment_method, cr.payment_amount, cr.reference_number, cr.receipt_status,
                  s.first_name, s.last_name, s.student_no, NULL as clearance_request_id
           FROM clearance_requests cr
           JOIN students s ON s.id = cr.student_id
@@ -3157,8 +3246,9 @@ def create_app() -> Flask:
         # Show processing documents from document_requests table
         cur.execute("""
           SELECT dr.id, dr.student_id, dr.status, 'Processing' as fulfillment_status, dr.document_type, dr.purpose as documents, dr.purpose as purposes, 
-                 dr.created_at, dr.updated_at, dr.pickup_date, NULL as payment_receipt, NULL as payment_method, 
-                 NULL as payment_amount, NULL as reference_number, NULL as receipt_status,
+                 dr.created_at, dr.updated_at, dr.pickup_date, dr.payment_receipt, dr.payment_receipt_s3_url, dr.payment_receipt_s3_key,
+                 dr.payment_method, dr.payment_amount, dr.reference_number, dr.payment_details,
+                 CASE WHEN dr.payment_receipt IS NOT NULL OR dr.payment_receipt_s3_url IS NOT NULL THEN 'has_receipt' ELSE NULL END as receipt_status,
                  s.first_name, s.last_name, s.student_no, dr.clearance_request_id
           FROM document_requests dr
           JOIN students s ON s.id = dr.student_id
@@ -3185,6 +3275,30 @@ def create_app() -> Flask:
       # Format the data for the frontend
       formatted_requests = []
       for req in requests:
+        # Extract receipt info from payment_details JSON if new columns are NULL (backward compatibility)
+        payment_details = req.get('payment_details')
+        receipt_s3_url = req.get('payment_receipt_s3_url')
+        receipt_s3_key = req.get('payment_receipt_s3_key')
+        receipt_data = req.get('payment_receipt')
+        
+        # If new columns are NULL but payment_details exists, try to extract from JSON
+        if not receipt_s3_url and payment_details:
+          try:
+            import json
+            payment_details_json = json.loads(payment_details) if isinstance(payment_details, str) else payment_details
+            if isinstance(payment_details_json, dict):
+              receipt_s3_url = payment_details_json.get('s3_url') or payment_details_json.get('receipt_s3_url')
+              receipt_s3_key = payment_details_json.get('s3_key') or payment_details_json.get('receipt_s3_key')
+              if payment_details_json.get('has_receipt') and not receipt_data:
+                receipt_data = payment_details_json.get('receipt_data')  # Fallback if stored in JSON
+          except Exception:
+            pass
+        
+        # Determine receipt_status
+        receipt_status = req.get('receipt_status')
+        if not receipt_status and (receipt_s3_url or receipt_data):
+          receipt_status = 'has_receipt'
+        
         formatted_requests.append({
           'id': req['id'],
           'request_id': req['id'],
@@ -3198,11 +3312,14 @@ def create_app() -> Flask:
           'created_at': req['created_at'].isoformat() if req['created_at'] else None,
           'updated_at': req['updated_at'].isoformat() if req['updated_at'] else None,
           'pickup_date': req['pickup_date'].isoformat() if req['pickup_date'] else None,
-          'payment_receipt': req['payment_receipt'],
-          'payment_method': req['payment_method'],
-          'payment_amount': float(req['payment_amount']) if req['payment_amount'] else None,
-          'reference_number': req['reference_number'],
-          'receipt_status': req['receipt_status']
+          'payment_receipt': receipt_data,
+          'payment_receipt_s3_url': receipt_s3_url,
+          'payment_receipt_s3_key': receipt_s3_key,
+          'payment_method': req.get('payment_method'),
+          'payment_amount': float(req['payment_amount']) if req.get('payment_amount') else None,
+          'reference_number': req.get('reference_number'),
+          'receipt_status': receipt_status,
+          'clearance_request_id': req.get('clearance_request_id')
         })
       
       return jsonify({"ok": True, "data": formatted_requests})
@@ -3494,6 +3611,30 @@ def create_app() -> Flask:
               year_level_name = str(yl)
           else:
             year_level_name = ''
+        # Extract receipt info from payment_details JSON if new columns are NULL (backward compatibility)
+        payment_details = d.get('payment_details')
+        receipt_s3_url = d.get('payment_receipt_s3_url')
+        receipt_s3_key = d.get('payment_receipt_s3_key')
+        receipt_data = d.get('payment_receipt')
+        
+        # If new columns are NULL but payment_details exists, try to extract from JSON
+        if not receipt_s3_url and payment_details:
+          try:
+            import json
+            payment_details_json = json.loads(payment_details) if isinstance(payment_details, str) else payment_details
+            if isinstance(payment_details_json, dict):
+              receipt_s3_url = payment_details_json.get('s3_url') or payment_details_json.get('receipt_s3_url')
+              receipt_s3_key = payment_details_json.get('s3_key') or payment_details_json.get('receipt_s3_key')
+              if payment_details_json.get('has_receipt') and not receipt_data:
+                receipt_data = payment_details_json.get('receipt_data')  # Fallback if stored in JSON
+          except Exception:
+            pass
+        
+        # Determine receipt_status
+        receipt_status = None
+        if receipt_s3_url or receipt_data:
+          receipt_status = 'has_receipt'
+        
         payload = {
           "id": d['id'],
           "status": d.get('status'),  # Already represents Pending/Processing/Completed
@@ -3509,6 +3650,15 @@ def create_app() -> Flask:
           "request_type": "document",  # Mark this as a document request
           "clearance_request_id": d.get('clearance_request_id'),  # Link to original clearance request
           "reference_number": d.get('reference_number'),
+          # Payment details
+          "payment_method": d.get('payment_method'),
+          "payment_amount": _num(d.get('payment_amount')),
+          "payment_verified": d.get('payment_verified'),
+          "payment_details": _normalize_json(d.get('payment_details')),
+          "payment_receipt": receipt_data,  # Include the actual receipt image data
+          "payment_receipt_s3_url": receipt_s3_url,  # S3 URL for receipt image
+          "payment_receipt_s3_key": receipt_s3_key,  # S3 key for receipt image
+          "receipt_status": receipt_status,  # Indicates if receipt exists without loading the actual data
           # Student details
           "student_name": f"{d.get('first_name', '')} {d.get('last_name', '')}".strip(),
           "first_name": d.get('first_name'),
@@ -5575,7 +5725,7 @@ def create_app() -> Flask:
             """
             SELECT dr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name, 
                    s.course_code, s.course_name, s.year_level, s.year_level_name,
-                   dr.document_type, dr.purpose as documents, dr.purpose as purposes, dr.status, 
+                   dr.document_type, dr.document_type as documents, dr.purpose as purposes, dr.purpose, dr.status, 
                    'Pending' as fulfillment_status,
                    dr.created_at, dr.updated_at, dr.pickup_date,
                    'document' as request_type, dr.clearance_request_id, 'Approved' as clearance_status
@@ -5587,7 +5737,7 @@ def create_app() -> Flask:
             
             SELECT cr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name, 
                    s.course_code, s.course_name, s.year_level, s.year_level_name,
-                   cr.document_type, cr.documents, cr.purposes, cr.status, 
+                   cr.document_type, cr.documents, cr.purposes, NULL as purpose, cr.status, 
                    COALESCE(cr.fulfillment_status, 'Pending') as fulfillment_status,
                    cr.created_at, cr.updated_at, cr.pickup_date,
                    'clearance' as request_type, NULL as clearance_request_id, NULL as clearance_status
@@ -5606,7 +5756,7 @@ def create_app() -> Flask:
             """
             SELECT dr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name, 
                    s.course_code, s.course_name, s.year_level, s.year_level_name,
-                   dr.document_type, dr.purpose as documents, dr.purpose as purposes, dr.status, 
+                   dr.document_type, dr.document_type as documents, dr.purpose as purposes, dr.purpose, dr.status, 
                    'Pending' as fulfillment_status,
                    dr.created_at, dr.updated_at, dr.pickup_date,
                    'document' as request_type, dr.clearance_request_id, 'Approved' as clearance_status
@@ -5618,7 +5768,7 @@ def create_app() -> Flask:
             
             SELECT cr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name, 
                    s.course_code, s.course_name, s.year_level, s.year_level_name,
-                   cr.document_type, cr.documents, cr.purposes, cr.status, 
+                   cr.document_type, cr.documents, cr.purposes, NULL as purpose, cr.status, 
                    'Pending' as fulfillment_status,
                    cr.created_at, cr.updated_at, cr.pickup_date,
                    'clearance' as request_type, NULL as clearance_request_id, NULL as clearance_status
@@ -5708,7 +5858,22 @@ def create_app() -> Flask:
         documents = []
         if row.get('documents'):
           try:
-            documents = json.loads(row['documents']) if row['documents'] else []
+            # For document_requests, documents might be document_type as string (not JSON)
+            # For clearance_requests, documents is a JSON array
+            if isinstance(row['documents'], str):
+              # Try to parse as JSON first
+              try:
+                documents = json.loads(row['documents']) if row['documents'] else []
+              except:
+                # If JSON parse fails, it might be a document_type string (for document_requests)
+                # Check if documents value matches document_type (indicates it's from document_requests)
+                if row.get('document_type') and row['documents'] == row['document_type']:
+                  documents = [row['document_type']]
+                else:
+                  # If it's a string but not JSON, use it as a single document
+                  documents = [row['documents']] if row['documents'].strip() else []
+            else:
+              documents = []
           except:
             documents = []
         
@@ -5716,12 +5881,25 @@ def create_app() -> Flask:
         purposes = []
         if row.get('purposes'):
           try:
+            # Try to parse as JSON (for clearance_requests)
             purposes = json.loads(row['purposes']) if row['purposes'] else []
           except:
-            purposes = []
+            # If parsing fails, check if it's a string (for document_requests)
+            if isinstance(row.get('purposes'), str):
+              # For document_requests, purpose is stored as a string, not JSON
+              purposes = [row['purposes']] if row['purposes'].strip() else []
+            else:
+              purposes = []
         
         # For completed documents, use the pickup_date if available, otherwise completed_at
         display_timestamp = row.get('pickup_date') or row.get('completed_at') or row.get('updated_at') or row.get('created_at')
+        
+        # Get purpose - for document_requests it's a string, for clearance_requests it's JSON array
+        purpose_value = row.get('purpose') or row.get('purposes') or ''
+        if purpose_value and not purposes:
+          # If we have a purpose string but no parsed purposes, use the string
+          if isinstance(purpose_value, str):
+            purposes = [purpose_value] if purpose_value.strip() else []
         
         data.append({
           "request_id": row['request_id'],
@@ -5737,7 +5915,7 @@ def create_app() -> Flask:
           "document": ", ".join(documents) if documents else row['document_type'],
           "documents": documents,
           "purposes": purposes,
-          "purpose": ", ".join(purposes) if purposes else (row.get('purpose') or 'Document Processing'),
+          "purpose": ", ".join(purposes) if purposes else (purpose_value if purpose_value else 'Document Processing'),
           "status": row['status'],
           "fulfillment_status": row.get('fulfillment_status'),
           "created_at": row['created_at'],
@@ -6303,24 +6481,98 @@ def create_app() -> Flask:
       
       student_id = stu['id']
       
-      # Read request details from JSON body
-      try:
-        payload = request.get_json(silent=True) or {}
-      except Exception:
-        payload = {}
+      # Check if request is JSON or FormData
+      is_json = request.content_type and 'application/json' in request.content_type
       
-      document_type = (payload.get('document_type') or '').strip()
-      purpose = (payload.get('purpose') or '').strip()
+      if is_json:
+        # Read request details from JSON body (legacy support)
+        try:
+          payload = request.get_json(silent=True) or {}
+        except Exception:
+          payload = {}
+        
+        document_type = (payload.get('document_type') or '').strip()
+        purpose = (payload.get('purpose') or '').strip()
+        payment_method = payload.get('payment_method', 'cash')
+        payment_amount = payload.get('payment_amount', '0.00')
+        reference_number = (payload.get('reference_number') or '').strip() or None
+      else:
+        # Read from FormData (supports payment receipt upload)
+        document_type = (request.form.get('document_type') or '').strip()
+        purpose = (request.form.get('purpose') or '').strip()
+        payment_method = request.form.get('payment_method', 'cash')
+        payment_amount = request.form.get('payment_amount', '0.00')
+        reference_number = (request.form.get('reference_number') or '').strip() or None
       
       if not document_type:
         cur.close()
         conn.close()
         return jsonify({"ok": False, "message": "Document type is required"}), 400
       
-      # Create new document request
+      # Validate reference number format and check for duplicates if provided
+      if reference_number:
+        import re
+        if not re.fullmatch(r'\d{7,16}', reference_number):
+          cur.close()
+          conn.close()
+          return jsonify({"ok": False, "message": "Reference number must be 7-16 digits only"}), 400
+        
+        # Check for duplicate reference number
+        cur.execute("SELECT id FROM document_requests WHERE reference_number = %s", (reference_number,))
+        existing_request = cur.fetchone()
+        if existing_request:
+          cur.close()
+          conn.close()
+          return jsonify({"ok": False, "message": f"Reference number '{reference_number}' has already been used. Please use a different reference number."}), 400
+      
+      # Handle payment receipt upload (FormData only) - similar to clearance requests
+      receipt_data = None
+      receipt_s3_url = None
+      receipt_s3_key = None
+      
+      if not is_json and 'payment_receipt' in request.files:
+        receipt_file = request.files['payment_receipt']
+        print(f"🔍 DEBUG: Document request - Receipt file found: {receipt_file.filename if receipt_file else 'None'}")
+        if receipt_file and receipt_file.filename:
+          # Validate the image first
+          is_valid, validation_message = _validate_image(receipt_file)
+          if not is_valid:
+            cur.close()
+            conn.close()
+            return jsonify({"ok": False, "message": f"Invalid receipt image: {validation_message}"}), 400
+          
+          # Compress the image
+          compressed_data = _compress_image(receipt_file)
+          print(f"🔍 DEBUG: Document request - Image compressed, size: {len(compressed_data)} bytes")
+          
+          # Try to upload to S3 first (same format as clearance requests)
+          bucket_name = os.getenv('AWS_S3_BUCKET', 'irequest-receipts')
+          timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+          s3_key = f"receipts/request_{student_id}_{timestamp}.jpg"
+          
+          print(f"🔍 DEBUG: Document request - Attempting S3 upload for student_id={student_id}, bucket={bucket_name}, key={s3_key}")
+          s3_url, s3_error = _upload_to_s3(compressed_data, bucket_name, s3_key)
+          print(f"🔍 DEBUG: Document request - S3 upload result - URL: {s3_url}, Error: {s3_error}")
+          if s3_url and not s3_error:
+            # S3 upload successful
+            receipt_s3_url = s3_url
+            receipt_s3_key = s3_key
+            receipt_data = None  # Don't store in database when S3 succeeds
+            print(f"✅ Document request - Receipt uploaded to S3: {s3_url}")
+          else:
+            # Fallback to database storage
+            print(f"⚠️ Document request - S3 upload failed: {s3_error}, falling back to database storage")
+            receipt_data = base64.b64encode(compressed_data).decode('utf-8')
+            receipt_s3_url = None
+            receipt_s3_key = None
+      
+      # Create new document request with payment information and receipt
+      print(f"🔍 DEBUG: Document request - Storing in database - receipt_data: {'Yes' if receipt_data else 'No'}, receipt_s3_url: {receipt_s3_url}, receipt_s3_key: {receipt_s3_key}")
       cur.execute(
-        "INSERT INTO document_requests (student_id, document_type, purpose, status) VALUES (%s, %s, %s, 'Pending')",
-        (student_id, document_type, purpose)
+        """INSERT INTO document_requests 
+           (student_id, document_type, purpose, status, payment_method, payment_amount, reference_number, payment_receipt, payment_receipt_s3_url, payment_receipt_s3_key) 
+           VALUES (%s, %s, %s, 'Pending', %s, %s, %s, %s, %s, %s)""",
+        (student_id, document_type, purpose, payment_method, payment_amount, reference_number, receipt_data, receipt_s3_url, receipt_s3_key)
       )
       
       # No need to commit with autocommit=True
@@ -6329,6 +6581,8 @@ def create_app() -> Flask:
       return jsonify({"ok": True, "message": "Document request submitted successfully"})
       
     except Exception as err:
+      import traceback
+      traceback.print_exc()
       return jsonify({"ok": False, "message": f"Error: {err}"}), 500
 
   @app.route('/api/registrar/set-pickup-date', methods=['POST'])

@@ -1061,6 +1061,15 @@
     .completed i {
       background: linear-gradient(135deg, var(--success-500), var(--success-600));
     }
+    .rejected i {
+      background: linear-gradient(135deg, var(--error-500), var(--error-600));
+    }
+    .unclaimed i {
+      background: linear-gradient(135deg, var(--gray-500), var(--gray-600));
+    }
+    .claimed i {
+      background: linear-gradient(135deg, var(--success-500), var(--success-600));
+    }
 
     /* Status Badge */
     .status-badge {
@@ -3282,6 +3291,30 @@
               <p>Download files from your completed document requests.</p>
             </div>
           </button>
+          <button type="button" class="card rejected btn" id="rejectedBtn">
+            <span class="status-badge" id="rejectedBadge">0</span>
+            <i class="fas fa-times-circle"></i>
+            <div>
+              <h3>Rejected</h3>
+              <p>View your rejected document requests and reasons.</p>
+            </div>
+          </button>
+          <button type="button" class="card unclaimed btn" id="unclaimedBtn">
+            <span class="status-badge" id="unclaimedBadge">0</span>
+            <i class="fas fa-box-archive"></i>
+            <div>
+              <h3>Unclaimed</h3>
+              <p>View your unclaimed document requests.</p>
+            </div>
+          </button>
+          <button type="button" class="card claimed btn" id="claimedBtn">
+            <span class="status-badge" id="claimedBadge">0</span>
+            <i class="fas fa-check-square"></i>
+            <div>
+              <h3>Claimed</h3>
+              <p>View your claimed document requests.</p>
+            </div>
+          </button>
         </div>
 
 
@@ -3694,6 +3727,9 @@
         const pendingBadge = document.getElementById('pendingBadge');
         const processingBadge = document.getElementById('processingBadge');
         const completedBadge = document.getElementById('completedBadge');
+        const rejectedBadge = document.getElementById('rejectedBadge');
+        const unclaimedBadge = document.getElementById('unclaimedBadge');
+        const claimedBadge = document.getElementById('claimedBadge');
         
         // Add skeleton loading to badges
         if (pendingBadge) {
@@ -3708,8 +3744,20 @@
           completedBadge.innerHTML = '<div class="skeleton-badge"><div class="skeleton-text-small"></div></div>';
           completedBadge.style.display = 'flex';
         }
+        if (rejectedBadge) {
+          rejectedBadge.innerHTML = '<div class="skeleton-badge"><div class="skeleton-text-small"></div></div>';
+          rejectedBadge.style.display = 'flex';
+        }
+        if (unclaimedBadge) {
+          unclaimedBadge.innerHTML = '<div class="skeleton-badge"><div class="skeleton-text-small"></div></div>';
+          unclaimedBadge.style.display = 'flex';
+        }
+        if (claimedBadge) {
+          claimedBadge.innerHTML = '<div class="skeleton-badge"><div class="skeleton-text-small"></div></div>';
+          claimedBadge.style.display = 'flex';
+        }
         
-        let pending = 0, processing = 0, completed = 0;
+        let pending = 0, processing = 0, completed = 0, rejected = 0, unclaimed = 0, claimed = 0;
         try {
           // Use cached data if available, otherwise fetch fresh data
           await loadAllRequests();
@@ -3718,6 +3766,9 @@
             if (eff === 'pending') pending++;
             else if (eff === 'processing') processing++;
             else if (eff === 'released' || eff === 'completed') completed++;
+            else if (eff === 'rejected') rejected++;
+            else if (eff === 'unclaimed') unclaimed++;
+            else if (eff === 'claimed') claimed++;
           });
         } catch (_) {}
         
@@ -3735,6 +3786,21 @@
         if (completedBadge) {
           completedBadge.textContent = completed;
           completedBadge.style.display = 'flex';
+        }
+        
+        if (rejectedBadge) {
+          rejectedBadge.textContent = rejected;
+          rejectedBadge.style.display = 'flex';
+        }
+        
+        if (unclaimedBadge) {
+          unclaimedBadge.textContent = unclaimed;
+          unclaimedBadge.style.display = 'flex';
+        }
+        
+        if (claimedBadge) {
+          claimedBadge.textContent = claimed;
+          claimedBadge.style.display = 'flex';
         }
       }
       // Initial badge update
@@ -4247,30 +4313,54 @@
         'CAV': 50
       };
 
-      // Function to calculate total price
+      // Define which documents require clearance
+      const CLEARANCE_REQUIRED_DOCS = ['Diploma', 'Transcript of Record'];
+      
+      // Function to calculate total price (includes all documents - both clearance and certificates)
       function calculateTotalPrice() {
         const selectedDocuments = [];
         const documentCheckboxes = document.querySelectorAll('input[name="requestedDocument"]:checked');
         documentCheckboxes.forEach(cb => selectedDocuments.push(cb.value));
         
+        // Split documents into clearance-required and non-clearance
+        const clearanceDocs = selectedDocuments.filter(doc => 
+          CLEARANCE_REQUIRED_DOCS.includes(doc)
+        );
+        const nonClearanceDocs = selectedDocuments.filter(doc => 
+          !CLEARANCE_REQUIRED_DOCS.includes(doc)
+        );
+        
         let total = 0;
         const pricingDetails = [];
         
-        selectedDocuments.forEach(doc => {
-          const price = documentPricing[doc] || 50; // Default to 50 if not found
+        // Calculate price for clearance-required documents
+        clearanceDocs.forEach(doc => {
+          const price = documentPricing[doc] || 0;
           total += price;
           pricingDetails.push({
             name: doc,
-            price: price
+            price: price,
+            requiresClearance: true
           });
         });
         
-        return { total, pricingDetails };
+        // Calculate price for non-clearance docs (certificates) - they also need payment
+        nonClearanceDocs.forEach(doc => {
+          const price = documentPricing[doc] || 0;
+          total += price; // Add to total since certificates also need payment
+          pricingDetails.push({
+            name: doc,
+            price: price,
+            requiresClearance: false
+          });
+        });
+        
+        return { total, pricingDetails, clearanceDocs, nonClearanceDocs };
       }
 
       // Function to update pricing display
       function updatePricingDisplay() {
-        const { total, pricingDetails } = calculateTotalPrice();
+        const { total, pricingDetails, clearanceDocs, nonClearanceDocs } = calculateTotalPrice();
         
         const pricingDetailsElement = document.getElementById('pricingDetails');
         const totalAmountElement = document.getElementById('totalAmount');
@@ -4284,18 +4374,40 @@
           pricingDetailsElement.innerHTML = '<p style="color: #6b7280; font-style: italic;">Select documents above to see pricing details</p>';
         } else {
           let pricingHTML = '';
-          pricingDetails.forEach(item => {
-            pricingHTML += `
-              <div class="pricing-item">
-                <span class="document-name">${item.name}</span>
-                <span class="document-price">₱${item.price.toFixed(2)}</span>
-              </div>
-            `;
-          });
+          
+          // Show clearance-required documents first
+          if (clearanceDocs.length > 0) {
+            pricingHTML += '<div style="margin-bottom: 10px;"><strong style="color: #3b82f6;">📋 Requires Clearance:</strong></div>';
+            pricingDetails.filter(item => item.requiresClearance).forEach(item => {
+              pricingHTML += `
+                <div class="pricing-item">
+                  <span class="document-name">${item.name} <span style="color: #3b82f6; font-size: 0.85em;">(Clearance)</span></span>
+                  <span class="document-price">₱${item.price.toFixed(2)}</span>
+                </div>
+              `;
+            });
+          }
+          
+          // Show non-clearance documents (direct processing)
+          if (nonClearanceDocs.length > 0) {
+            if (clearanceDocs.length > 0) {
+              pricingHTML += '<div style="margin-top: 15px; margin-bottom: 10px;"><strong style="color: #10b981;">⚡ Direct Processing:</strong></div>';
+            }
+            pricingDetails.filter(item => !item.requiresClearance).forEach(item => {
+              pricingHTML += `
+                <div class="pricing-item">
+                  <span class="document-name">${item.name} <span style="color: #10b981; font-size: 0.85em;">(Direct)</span></span>
+                  <span class="document-price">₱${item.price.toFixed(2)}</span>
+                </div>
+              `;
+            });
+          }
+          
           pricingDetailsElement.innerHTML = pricingHTML;
         }
         
         if (totalAmountElement) {
+          // Show total for all documents (clearance + certificates)
           totalAmountElement.textContent = total.toFixed(2);
         }
       }
@@ -4601,68 +4713,82 @@
           return;
         }
 
-        if (selectedPurposes.length === 0) {
+        // Split documents into clearance-required and non-clearance
+        const CLEARANCE_REQUIRED_DOCS = ['Diploma', 'Transcript of Record'];
+        const clearanceDocs = selectedDocuments.filter(doc => 
+          CLEARANCE_REQUIRED_DOCS.includes(doc)
+        );
+        const nonClearanceDocs = selectedDocuments.filter(doc => 
+          !CLEARANCE_REQUIRED_DOCS.includes(doc)
+        );
+
+        // Only require purposes if clearance documents are selected
+        if (clearanceDocs.length > 0 && selectedPurposes.length === 0) {
           Swal.fire({
             icon: 'warning',
             title: 'Select purpose',
-            text: 'Please select at least one purpose for clearance.'
+            text: 'Please select at least one purpose for clearance documents (Diploma/Transcript of Record).'
           });
           return;
         }
 
-        // Check for duplicates BEFORE submission
-        try {
-          if (window.buttonLoadingManager) {
-            window.buttonLoadingManager.showFullScreenLoading('Checking for existing requests...');
-          }
-          
-          const duplicateCheck = await checkForDuplicateRequest(selectedDocuments, selectedPurposes);
-          
-          if (duplicateCheck.is_duplicate) {
-            // Hide loading first
+        // Check for duplicates BEFORE submission (only for clearance documents)
+        if (clearanceDocs.length > 0) {
+          try {
+            if (window.buttonLoadingManager) {
+              window.buttonLoadingManager.showFullScreenLoading('Checking for existing requests...');
+            }
+            
+            const duplicateCheck = await checkForDuplicateRequest(clearanceDocs, selectedPurposes);
+            
+            if (duplicateCheck.is_duplicate) {
+              // Hide loading first
+              if (window.buttonLoadingManager) {
+                window.buttonLoadingManager.hideFullScreenLoading();
+              }
+              
+              // Show duplicate warning
+              await Swal.fire({
+                icon: 'warning',
+                title: 'Duplicate Request Detected',
+                html: `
+                  <div class="text-start">
+                    <p><strong>You already have a pending/approved request for the same clearance documents.</strong></p>
+                    <p><strong>Request Details:</strong></p>
+                    <ul>
+                      <li>Request ID: #${duplicateCheck.existing_request.id}</li>
+                      <li>Status: ${duplicateCheck.existing_request.status}</li>
+                      <li>Submitted: ${new Date(duplicateCheck.existing_request.created_at).toLocaleDateString()}</li>
+                    </ul>
+                    <p class="text-muted">Please wait for your current request to be processed before submitting a new one.</p>
+                  </div>
+                `,
+                confirmButtonText: 'Understood',
+                confirmButtonColor: '#3b82f6',
+                allowOutsideClick: false
+              });
+              
+              return; // Stop submission
+            }
+            
             if (window.buttonLoadingManager) {
               window.buttonLoadingManager.hideFullScreenLoading();
             }
-            
-            // Show duplicate warning
-            await Swal.fire({
-              icon: 'warning',
-              title: 'Duplicate Request Detected',
-              html: `
-                <div class="text-start">
-                  <p><strong>You already have a pending/approved request for the same documents.</strong></p>
-                  <p><strong>Request Details:</strong></p>
-                  <ul>
-                    <li>Request ID: #${duplicateCheck.existing_request.id}</li>
-                    <li>Status: ${duplicateCheck.existing_request.status}</li>
-                    <li>Submitted: ${new Date(duplicateCheck.existing_request.created_at).toLocaleDateString()}</li>
-                  </ul>
-                  <p class="text-muted">Please wait for your current request to be processed before submitting a new one.</p>
-                </div>
-              `,
-              confirmButtonText: 'Understood',
-              confirmButtonColor: '#3b82f6',
-              allowOutsideClick: false
-            });
-            
-            return; // Stop submission
-          }
-          
-          if (window.buttonLoadingManager) {
-            window.buttonLoadingManager.hideFullScreenLoading();
-          }
-        } catch (error) {
-          console.error('Duplicate check error:', error);
-          if (window.buttonLoadingManager) {
-            window.buttonLoadingManager.hideFullScreenLoading();
+          } catch (error) {
+            console.error('Duplicate check error:', error);
+            if (window.buttonLoadingManager) {
+              window.buttonLoadingManager.hideFullScreenLoading();
+            }
           }
         }
 
         // Validate reference number if both receipt and reference number are provided
+        // Required for both clearance documents AND certificates (they all need payment)
         const referenceNumber = document.getElementById('referenceNumber').value.trim();
         const paymentReceiptFile = document.getElementById('paymentReceipt').files[0];
         
-        if (referenceNumber && paymentReceiptFile) {
+        // Validate reference number if any documents are selected (both clearance and certificates need payment)
+        if (selectedDocuments.length > 0 && referenceNumber && paymentReceiptFile) {
           // Show full-screen loading and disable submit button
           if (window.buttonLoadingManager) {
             window.buttonLoadingManager.showFullScreenLoading('Verifying reference number with receipt...');
@@ -4982,59 +5108,215 @@
               window.buttonLoadingManager.showFullScreenLoading('Submitting Request...');
             }
             
-            // Calculate total price
-            const { total, pricingDetails } = calculateTotalPrice();
+            const results = [];
+            const errors = [];
             
-            // Prepare form data for submission
-            const formData = new FormData();
-            formData.append('document_type', 'Clearance Documents');
-            formData.append('documents', JSON.stringify(selectedDocuments));
-            formData.append('purposes', JSON.stringify(selectedPurposes));
-            formData.append('reason', (document.getElementById('clearanceReason') || {}).value || '');
-            formData.append('payment_amount', total.toString());
-            formData.append('payment_method', 'cash'); // Default payment method
-            formData.append('reference_number', referenceNumber); // Add reference number
-
-            // Add valid ID file
-            const validIDFile = document.getElementById('validID').files[0];
-            if (validIDFile) {
-              formData.append('valid_id', validIDFile);
+            // 1. Submit certificates/non-clearance docs directly to document request endpoint (with payment)
+            if (nonClearanceDocs.length > 0) {
+              const purposeText = selectedPurposes.length > 0 ? selectedPurposes.join(', ') : 'General Request';
+              
+              // Calculate total price for certificates
+              const certPricing = {
+                'Transfer Credential': 150,
+                'Certificate - Enrollment': 50,
+                'Certificate - Cross Enroll': 50,
+                'Certificate - Candidacy / Completion of Academic Requirements': 50,
+                'Certificate - Graduation': 50,
+                'Certificate - Weighted Average': 50,
+                'CAV': 50
+              };
+              
+              // Get payment receipt and reference number
+              const paymentReceiptFile = document.getElementById('paymentReceipt').files[0];
+              const referenceNumber = document.getElementById('referenceNumber').value.trim();
+              
+              for (const certDoc of nonClearanceDocs) {
+                try {
+                  // Create FormData for certificate requests with payment
+                  const certFormData = new FormData();
+                  certFormData.append('document_type', certDoc);
+                  certFormData.append('purpose', purposeText);
+                  
+                  // Calculate price for this certificate
+                  const certPrice = certPricing[certDoc] || 50;
+                  certFormData.append('payment_amount', certPrice.toString());
+                  certFormData.append('payment_method', 'cash');
+                  
+                  // Add payment receipt if available
+                  if (paymentReceiptFile) {
+                    certFormData.append('payment_receipt', paymentReceiptFile);
+                  }
+                  
+                  // Add reference number if available
+                  if (referenceNumber) {
+                    certFormData.append('reference_number', referenceNumber);
+                  }
+                  
+                  const certResponse = await fetch('/api/document/request', {
+                    method: 'POST',
+                    body: certFormData
+                  });
+                  const certResult = await certResponse.json();
+                  if (certResult.ok) {
+                    results.push({ type: 'certificate', doc: certDoc, success: true });
+                  } else {
+                    errors.push({ type: 'certificate', doc: certDoc, error: certResult.message || 'Unknown error' });
+                  }
+                } catch (error) {
+                  errors.push({ type: 'certificate', doc: certDoc, error: error.message || 'Network error' });
+                }
+              }
             }
+            
+            // 2. Submit Diploma/Transcript to clearance endpoint (if any)
+            if (clearanceDocs.length > 0) {
+              // Calculate total price only for clearance docs
+              const clearancePricing = {
+                'Transcript of Record': 300,
+                'Diploma': 200
+              };
+              let total = 0;
+              clearanceDocs.forEach(doc => {
+                total += clearancePricing[doc] || 0;
+              });
+              
+              // Prepare form data for clearance submission
+              const formData = new FormData();
+              formData.append('document_type', 'Clearance Documents');
+              formData.append('documents', JSON.stringify(clearanceDocs)); // Only clearance docs
+              formData.append('purposes', JSON.stringify(selectedPurposes));
+              formData.append('reason', (document.getElementById('clearanceReason') || {}).value || '');
+              formData.append('payment_amount', total.toString());
+              formData.append('payment_method', 'cash');
+              formData.append('reference_number', referenceNumber || '');
 
-            // Add payment receipt file
-            const paymentReceiptFile = document.getElementById('paymentReceipt').files[0];
-            if (paymentReceiptFile) {
-              formData.append('payment_receipt', paymentReceiptFile);
+              // Add valid ID file
+              const validIDFile = document.getElementById('validID').files[0];
+              if (validIDFile) {
+                formData.append('valid_id', validIDFile);
+              }
+
+              // Add payment receipt file
+              const paymentReceiptFile = document.getElementById('paymentReceipt').files[0];
+              if (paymentReceiptFile) {
+                formData.append('payment_receipt', paymentReceiptFile);
+              }
+
+              try {
+                const resp = await fetch('/api/clearance/request', { 
+                  method: 'POST', 
+                  body: formData
+                });
+                const resj = await resp.json();
+                
+                if (resj && resj.ok) {
+                  results.push({ type: 'clearance', docs: clearanceDocs, success: true });
+                  
+                  // Reload signatories and status badges
+                  try{
+                    const cRes = await fetch('/api/student/clearance');
+                    const cData = await cRes.json();
+                    if(cData.ok && cData.data && cData.data.has_request){
+                      renderSignatories(cData.data.signatories || []);
+                      showPendingState();
+                    }
+                  }catch(_){ }
+                } else {
+                  errors.push({ type: 'clearance', docs: clearanceDocs, error: resj.message || 'Unknown error' });
+                }
+              } catch (error) {
+                errors.push({ type: 'clearance', docs: clearanceDocs, error: error.message || 'Network error' });
+              }
             }
-
-            const resp = await fetch('/api/clearance/request', { 
-              method: 'POST', 
-              body: formData
-            });
-            const resj = await resp.json();
-            if(resj && resj.ok){
+            
+            // Show results
+            if (errors.length === 0) {
+              // All successful
+              let successMessage = '';
+              
+              // Calculate totals
+              const clearanceTotal = clearanceDocs.reduce((sum, doc) => {
+                const clearancePricing = { 'Transcript of Record': 300, 'Diploma': 200 };
+                return sum + (clearancePricing[doc] || 0);
+              }, 0);
+              
+              const certTotal = nonClearanceDocs.reduce((sum, doc) => {
+                const certPricing = {
+                  'Transfer Credential': 150,
+                  'Certificate - Enrollment': 50,
+                  'Certificate - Cross Enroll': 50,
+                  'Certificate - Candidacy / Completion of Academic Requirements': 50,
+                  'Certificate - Graduation': 50,
+                  'Certificate - Weighted Average': 50,
+                  'CAV': 50
+                };
+                return sum + (certPricing[doc] || 50);
+              }, 0);
+              
+              const grandTotal = clearanceTotal + certTotal;
+              
+              if (clearanceDocs.length > 0) {
+                successMessage += `<b>Clearance Documents:</b> ${clearanceDocs.join(', ')}<br/>`;
+                if (clearanceTotal > 0) {
+                  successMessage += `<b>Clearance Amount:</b> ₱${clearanceTotal.toFixed(2)}<br/>`;
+                }
+              }
+              if (nonClearanceDocs.length > 0) {
+                successMessage += `<b>Certificates (Direct Processing):</b> ${nonClearanceDocs.join(', ')}<br/>`;
+                if (certTotal > 0) {
+                  successMessage += `<b>Certificates Amount:</b> ₱${certTotal.toFixed(2)}<br/>`;
+                }
+              }
+              if (selectedPurposes.length > 0) {
+                successMessage += `<b>Purpose:</b> ${selectedPurposes.join(', ')}<br/>`;
+              }
+              if (grandTotal > 0) {
+                successMessage += `<b>Total Amount:</b> ₱${grandTotal.toFixed(2)}<br/>`;
+              }
+              
               Swal.fire({
                 icon: 'success',
-                title: 'Clearance submitted',
-                html: 'Documents: <b>' + selectedDocuments.join(', ') + '</b><br/>' +
-                      'Purpose: <b>' + selectedPurposes.join(', ') + '</b><br/>' +
-                      'Total Amount: <b>₱' + total.toFixed(2) + '</b><br/>' +
-                      (paymentReceiptFile ? 'Receipt: <b>Uploaded</b><br/>' : '') +
-                      '<br/>Your request has been forwarded to the signatories.'
+                title: 'Request Submitted',
+                html: successMessage + '<br/>' + 
+                      (clearanceDocs.length > 0 ? 'Your clearance request has been forwarded to signatories.<br/>' : '') +
+                      (nonClearanceDocs.length > 0 ? 'Your certificate requests have been submitted and will be processed directly.<br/>' : '')
               });
-              // Reload signatories and status badges
-              try{
-                const cRes = await fetch('/api/student/clearance');
-                const cData = await cRes.json();
-                if(cData.ok && cData.data && cData.data.has_request){
-                  renderSignatories(cData.data.signatories || []);
-                  showPendingState();
-                }
-              }catch(_){ }
+              
               // Refresh status badges immediately
               updateStatusBadges();
+              
+              // Reload dashboard to show new requests
+              try {
+                await loadAllRequests();
+              } catch(_) {}
             } else {
-              Swal.fire({ icon:'error', title:'Failed', text: (resj && resj.message) || 'Unable to submit request' });
+              // Some failed
+              let errorMessage = '<strong>Some requests failed:</strong><br/>';
+              errors.forEach(e => {
+                const docName = e.doc || (e.docs ? e.docs.join(', ') : 'Unknown');
+                errorMessage += `• ${docName}: ${e.error}<br/>`;
+              });
+              
+              // Show successful ones too
+              if (results.length > 0) {
+                errorMessage += '<br/><strong>Successfully submitted:</strong><br/>';
+                results.forEach(r => {
+                  const docName = r.doc || (r.docs ? r.docs.join(', ') : 'Unknown');
+                  errorMessage += `• ${docName}<br/>`;
+                });
+              }
+              
+              Swal.fire({
+                icon: 'warning',
+                title: 'Partial Success',
+                html: errorMessage
+              });
+              
+              // Still refresh status badges
+              updateStatusBadges();
+              try {
+                await loadAllRequests();
+              } catch(_) {}
             }
           }catch(err){
             Swal.fire({ icon:'error', title:'Error', text: String(err) });
@@ -5210,6 +5492,14 @@
             console.log(`🔍 getEffectiveStatus returning: 'released' (consolidated)`);
             return 'released';
           }
+          if (raw === 'unclaimed') {
+            console.log(`🔍 getEffectiveStatus returning: 'unclaimed' (consolidated)`);
+            return 'unclaimed';
+          }
+          if (raw === 'claimed') {
+            console.log(`🔍 getEffectiveStatus returning: 'claimed' (consolidated)`);
+            return 'claimed';
+          }
           console.log(`🔍 getEffectiveStatus returning: 'pending' (consolidated default)`);
           return 'pending';
         }
@@ -5221,7 +5511,8 @@
           if (raw === 'released') return 'released';
           if (raw === 'processing') return 'processing';
           if (raw === 'rejected') return 'rejected';
-          if (raw === 'unclaimed') return 'released';
+          if (raw === 'unclaimed') return 'unclaimed';
+          if (raw === 'claimed') return 'claimed';
           return 'pending';
         }
         
@@ -5233,6 +5524,8 @@
           if (raw === 'released') return 'released';
           if (raw === 'processing') return 'processing';
           if (raw === 'rejected') return 'rejected';
+          if (raw === 'unclaimed') return 'unclaimed';
+          if (raw === 'claimed') return 'claimed';
           return 'pending';
         }
         
@@ -5274,6 +5567,14 @@
           console.log(`🔍 getEffectiveStatus returning: 'released' (clearance)`);
           return 'released';
         }
+        if (raw === 'unclaimed') {
+          console.log(`🔍 getEffectiveStatus returning: 'unclaimed' (clearance)`);
+          return 'unclaimed';
+        }
+        if (raw === 'claimed') {
+          console.log(`🔍 getEffectiveStatus returning: 'claimed' (clearance)`);
+          return 'claimed';
+        }
 
         // Default when Registrar has not started (e.g., fulfillment_status Pending or unknown)
         console.log(`🔍 getEffectiveStatus returning: 'pending' (default)`);
@@ -5287,14 +5588,21 @@
         if (s === 'approved') return { cls: 'chip-approved', text: 'Approved' };
         if (s === 'processing') return { cls: 'chip-pending', text: 'Processing' };
         if (s === 'rejected') return { cls: 'chip-rejected', text: 'Rejected' };
+        if (s === 'unclaimed') return { cls: 'chip-pending', text: 'Unclaimed' };
+        if (s === 'claimed') return { cls: 'chip-approved', text: 'Claimed' };
         return { cls: 'chip-pending', text: 'Pending' };
       }
 
       function formatPurpose(p){
         try {
-          // Use the same logic as Registrar dashboard modal
-          const purpose = Array.isArray(p) ? p : [];
-          return purpose.join(', ') || '—';
+          // Handle both array (clearance_requests) and string (document_requests)
+          if (Array.isArray(p)) {
+            return p.join(', ') || '—';
+          } else if (typeof p === 'string' && p.trim()) {
+            return p.trim();
+          } else {
+            return '—';
+          }
         } catch(e) {
           console.error('❌ Error in formatPurpose:', e);
           return '—';
@@ -6242,6 +6550,18 @@
               // Re-render completed view
               const list = allRequestsCache.filter(function(r){ return getEffectiveStatus(r) === 'completed'; });
               renderPending(list);
+            } else if (currentTitle.includes('Rejected')) {
+              // Re-render rejected view
+              const list = allRequestsCache.filter(function(r){ return getEffectiveStatus(r) === 'rejected'; });
+              renderPending(list);
+            } else if (currentTitle.includes('Unclaimed')) {
+              // Re-render unclaimed view
+              const list = allRequestsCache.filter(function(r){ return getEffectiveStatus(r) === 'unclaimed'; });
+              renderPending(list);
+            } else if (currentTitle.includes('Claimed')) {
+              // Re-render claimed view
+              const list = allRequestsCache.filter(function(r){ return getEffectiveStatus(r) === 'claimed'; });
+              renderPending(list);
             } else {
               // Re-render pending view
               renderPendingPage(1);
@@ -6409,6 +6729,99 @@
           if (pendingPageInfo) pendingPageInfo.textContent = 'Page 1 of 1';
           if (prevPendingBtn) prevPendingBtn.disabled = true;
           if (nextPendingBtn) nextPendingBtn.disabled = true;
+          } finally {
+            // Hide full-screen loading
+            if (window.hideFullScreenLoading) {
+              window.hideFullScreenLoading();
+            }
+          }
+        });
+      }
+      const rejectedBtn = document.getElementById('rejectedBtn');
+      if (rejectedBtn){
+        rejectedBtn.addEventListener('click', async function(){
+          try {
+            // Show full-screen loading
+            if (window.showFullScreenLoading) {
+              window.showFullScreenLoading('Loading Rejected Requests...');
+            }
+            
+            setActive(dashboardLink);
+            pageTitle.textContent = 'Dashboard';
+            hideAllSections();
+            dashboardSection.style.display = 'block';
+            if (pendingRequestsPanel) pendingRequestsPanel.style.display = 'block';
+            const titleEl = document.getElementById('requestsHeaderTitle');
+            if (titleEl) titleEl.innerHTML = '<i class="fas fa-times-circle"></i> Rejected Requests';
+            // Load and render only rejected
+            await loadAllRequests();
+            const list = allRequestsCache.filter(function(r){ return getEffectiveStatus(r) === 'rejected'; });
+            renderPending(list);
+            if (pendingPageInfo) pendingPageInfo.textContent = 'Page 1 of 1';
+            if (prevPendingBtn) prevPendingBtn.disabled = true;
+            if (nextPendingBtn) nextPendingBtn.disabled = true;
+          } finally {
+            // Hide full-screen loading
+            if (window.hideFullScreenLoading) {
+              window.hideFullScreenLoading();
+            }
+          }
+        });
+      }
+      const unclaimedBtn = document.getElementById('unclaimedBtn');
+      if (unclaimedBtn){
+        unclaimedBtn.addEventListener('click', async function(){
+          try {
+            // Show full-screen loading
+            if (window.showFullScreenLoading) {
+              window.showFullScreenLoading('Loading Unclaimed Requests...');
+            }
+            
+            setActive(dashboardLink);
+            pageTitle.textContent = 'Dashboard';
+            hideAllSections();
+            dashboardSection.style.display = 'block';
+            if (pendingRequestsPanel) pendingRequestsPanel.style.display = 'block';
+            const titleEl = document.getElementById('requestsHeaderTitle');
+            if (titleEl) titleEl.innerHTML = '<i class="fas fa-box-archive"></i> Unclaimed Requests';
+            // Load and render only unclaimed
+            await loadAllRequests();
+            const list = allRequestsCache.filter(function(r){ return getEffectiveStatus(r) === 'unclaimed'; });
+            renderPending(list);
+            if (pendingPageInfo) pendingPageInfo.textContent = 'Page 1 of 1';
+            if (prevPendingBtn) prevPendingBtn.disabled = true;
+            if (nextPendingBtn) nextPendingBtn.disabled = true;
+          } finally {
+            // Hide full-screen loading
+            if (window.hideFullScreenLoading) {
+              window.hideFullScreenLoading();
+            }
+          }
+        });
+      }
+      const claimedBtn = document.getElementById('claimedBtn');
+      if (claimedBtn){
+        claimedBtn.addEventListener('click', async function(){
+          try {
+            // Show full-screen loading
+            if (window.showFullScreenLoading) {
+              window.showFullScreenLoading('Loading Claimed Requests...');
+            }
+            
+            setActive(dashboardLink);
+            pageTitle.textContent = 'Dashboard';
+            hideAllSections();
+            dashboardSection.style.display = 'block';
+            if (pendingRequestsPanel) pendingRequestsPanel.style.display = 'block';
+            const titleEl = document.getElementById('requestsHeaderTitle');
+            if (titleEl) titleEl.innerHTML = '<i class="fas fa-check-square"></i> Claimed Requests';
+            // Load and render only claimed
+            await loadAllRequests();
+            const list = allRequestsCache.filter(function(r){ return getEffectiveStatus(r) === 'claimed'; });
+            renderPending(list);
+            if (pendingPageInfo) pendingPageInfo.textContent = 'Page 1 of 1';
+            if (prevPendingBtn) prevPendingBtn.disabled = true;
+            if (nextPendingBtn) nextPendingBtn.disabled = true;
           } finally {
             // Hide full-screen loading
             if (window.hideFullScreenLoading) {
