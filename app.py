@@ -82,15 +82,15 @@ def _test_ai_connectivity():
     
     # Test DNS resolution
     try:
-      socket.gethostbyname('generativelanguage.googleapis.com')
+      socket.gethostbyname('api.groq.com')
     except socket.gaierror:
       return False, "Cannot resolve AI service domain name"
     
     # Test HTTPS connection
     try:
       context = ssl.create_default_context()
-      with socket.create_connection(('generativelanguage.googleapis.com', 443), timeout=10) as sock:
-        with context.wrap_socket(sock, server_hostname='generativelanguage.googleapis.com') as ssock:
+      with socket.create_connection(('api.groq.com', 443), timeout=10) as sock:
+        with context.wrap_socket(sock, server_hostname='api.groq.com') as ssock:
           return True, "AI service is reachable"
     except (socket.timeout, ssl.SSLError, ConnectionRefusedError) as e:
       return False, f"Cannot connect to AI service: {str(e)}"
@@ -146,8 +146,8 @@ def _manual_extract_from_text(text: str):
     print(f"DEBUG: Manual extraction failed: {e}")
     return None
 
-# Gemini-powered extractor (accurate reference number and amount)
-def _extract_ref_amount_from_gemini_text(json_text: str):
+# AI-powered extractor (accurate reference number and amount)
+def _extract_ref_amount_from_ai_text(json_text: str):
   import json as _json
   try:
     text = json_text.strip()
@@ -237,15 +237,21 @@ def _extract_ref_amount_from_gemini_text(json_text: str):
   except Exception:
     return None
 
-def _gemini_extract(image_b64: str, retry_count=0):
+def _groq_extract(image_b64: str, retry_count=0, model_name=None):
+  """Extract receipt information using Groq AI API with Llama 4 Scout vision model"""
   try:
     # Get API key from Flask app config
     from flask import current_app
-    api_key = current_app.config.get('GEMINI_API_KEY')
+    api_key = current_app.config.get('GROQ_API_KEY')
     
     if not api_key:
-      return {'ok': False, 'message': 'GEMINI_API_KEY not configured. Please set your Gemini API key in the app configuration.'}
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+      return {'ok': False, 'message': 'GROQ_API_KEY not configured. Please set your Groq API key in the app configuration.'}
+    
+    # Try different model names if first attempt fails
+    if model_name is None:
+      model_name = "llama-4-scout-17b-16e-instruct"  # Default model name
+    
+    url = "https://api.groq.com/openai/v1/chat/completions"
     prompt = (
       "You are an expert at analyzing Philippine payment receipts, especially GCash and government receipts. Return ONLY valid JSON with these fields:\n"
       "{\n"
@@ -274,26 +280,46 @@ def _gemini_extract(image_b64: str, retry_count=0):
       "- If the image is blurry or unclear, set confidence_score to 0.0\n"
       "Respond with JSON only."
     )
+    
+    # Use Llama 4 Scout - Groq's vision model for image analysis
     payload = {
-      "contents": [{
-        "parts": [
-          {"text": prompt},
-          {"inline_data": {"mime_type": "image/jpeg", "data": image_b64}}
-        ]
-      }],
-      "generationConfig": {"temperature": 0.1, "topK": 1, "topP": 0.8, "maxOutputTokens": 512}
+      "model": model_name,  # Groq vision model from VISION section
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {"type": "text", "text": prompt},
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": f"data:image/jpeg;base64,{image_b64}"
+              }
+            }
+          ]
+        }
+      ],
+      "temperature": 0.1,
+      "max_tokens": 512
     }
+    
+    headers = {
+      "Authorization": f"Bearer {api_key}",
+      "Content-Type": "application/json"
+    }
+    
     try:
-      resp = requests.post(f"{url}?key={api_key}", json=payload, timeout=30)
+      print(f"DEBUG: Sending request to Groq API with model: {model_name}")
+      print(f"DEBUG: Request URL: {url}")
+      resp = requests.post(url, json=payload, headers=headers, timeout=30)
+      print(f"DEBUG: Response status: {resp.status_code}")
     except requests.exceptions.ConnectionError as e:
-      print(f"DEBUG: Connection error to Gemini API: {e}")
+      print(f"DEBUG: Connection error to Groq API: {e}")
       if retry_count < 2:
         print(f"DEBUG: Connection failed, retrying in 3 seconds... (attempt {retry_count + 1}/3)")
         import time
         time.sleep(3)
-        return _gemini_extract(image_b64, retry_count + 1)
+        return _groq_extract(image_b64, retry_count + 1, model_name)
       else:
-        # Provide more specific error message based on the type of connection error
         error_msg = str(e).lower()
         if 'name resolution' in error_msg or 'getaddrinfo failed' in error_msg:
           return {'ok': False, 'message': 'AI service connection failed: Cannot resolve domain name. Please check your internet connection and DNS settings.'}
@@ -302,52 +328,72 @@ def _gemini_extract(image_b64: str, retry_count=0):
         else:
           return {'ok': False, 'message': 'AI service connection failed. Please check your internet connection and try again.'}
     except requests.exceptions.Timeout as e:
-      print(f"DEBUG: Timeout error to Gemini API: {e}")
+      print(f"DEBUG: Timeout error to Groq API: {e}")
       if retry_count < 2:
         print(f"DEBUG: Request timeout, retrying in 3 seconds... (attempt {retry_count + 1}/3)")
         import time
         time.sleep(3)
-        return _gemini_extract(image_b64, retry_count + 1)
+        return _groq_extract(image_b64, retry_count + 1, model_name)
       else:
         return {'ok': False, 'message': 'AI service request timed out. Please try again.'}
     except requests.exceptions.RequestException as e:
-      print(f"DEBUG: Request error to Gemini API: {e}")
+      print(f"DEBUG: Request error to Groq API: {e}")
       return {'ok': False, 'message': f'AI service request failed: {str(e)}. Please check your internet connection.'}
     
     if resp.status_code != 200:
-      print(f"DEBUG: Gemini API error {resp.status_code}: {resp.text}")
+      error_detail = resp.text
+      print(f"DEBUG: Groq API error {resp.status_code}: {error_detail}")
       
-      # Handle specific error cases with retry logic
-      if resp.status_code == 503 and retry_count < 2:
+      if resp.status_code == 404:
+        # Model not found - try alternative model name with prefix
+        print(f"DEBUG: Model not found (404) with model '{model_name}', trying alternative...")
+        if retry_count == 0 and model_name == "llama-4-scout-17b-16e-instruct":
+          # Try with meta-llama/ prefix
+          print(f"DEBUG: Retrying with meta-llama/ prefix...")
+          import time
+          time.sleep(1)
+          return _groq_extract(image_b64, retry_count + 1, "meta-llama/llama-4-scout-17b-16e-instruct")
+        else:
+          # Both attempts failed or already tried both
+          return {'ok': False, 'message': f'AI model not found (404). Tried model: {model_name}. Error: {error_detail[:300]}. Please check Groq console for available vision models.'}
+      elif resp.status_code == 503 and retry_count < 2:
         print(f"DEBUG: API overloaded, retrying in 2 seconds... (attempt {retry_count + 1}/3)")
         import time
         time.sleep(2)
-        return _gemini_extract(image_b64, retry_count + 1)
+        return _groq_extract(image_b64, retry_count + 1, model_name)
       elif resp.status_code == 503:
         return {'ok': False, 'message': 'AI service is temporarily overloaded. Please try again in a few minutes.'}
       elif resp.status_code == 429:
         return {'ok': False, 'message': 'Too many requests. Please wait a moment and try again.'}
       elif resp.status_code == 400:
-        return {'ok': False, 'message': 'Invalid request. Please check your receipt image.'}
+        return {'ok': False, 'message': f'Invalid request. Error: {error_detail[:200]}'}
+      elif resp.status_code == 401:
+        return {'ok': False, 'message': 'Invalid API key. Please check your Groq API key.'}
       else:
-        return {'ok': False, 'message': f'AI service error ({resp.status_code}). Please try again.'}
+        return {'ok': False, 'message': f'AI service error ({resp.status_code}): {error_detail[:200]}'}
+    
     j = resp.json()
     try:
-      ai_text = j['candidates'][0]['content']['parts'][0]['text']
+      ai_text = j['choices'][0]['message']['content']
       print(f"DEBUG: Raw AI response text: {ai_text[:500]}...")
     except Exception as e:
       print(f"DEBUG: Error parsing AI response: {e}")
-      return {'ok': False, 'message': f'No candidates in AI response: {str(e)}'}
+      return {'ok': False, 'message': f'No response content in AI response: {str(e)}'}
     
-    parsed = _extract_ref_amount_from_gemini_text(ai_text)
+    parsed = _extract_ref_amount_from_ai_text(ai_text)
     if not parsed:
       print(f"DEBUG: Failed to parse AI JSON response: {ai_text}")
-      return {'ok': False, 'message': f'AI processing failed: Invalid JSON from Gemini. Raw response: ```json {ai_text[:200]}```\n\nPlease try again in a few minutes. The AI service may be experiencing high traffic.'}
+      return {'ok': False, 'message': f'AI processing failed: Invalid JSON from Groq. Raw response: ```json {ai_text[:200]}```\n\nPlease try again in a few minutes. The AI service may be experiencing high traffic.'}
     
     print(f"DEBUG: Successfully parsed AI response: {parsed}")
     return {'ok': True, **parsed}
   except Exception as e:
     return {'ok': False, 'message': str(e)}
+
+# Keep old function name for backward compatibility, but use Groq
+def _gemini_extract(image_b64: str, retry_count=0):
+  """Legacy function name - now uses Groq API with Llama 4 Scout vision model"""
+  return _groq_extract(image_b64, retry_count)
 
 def _validate_payment(amount, reference_number, confidence, expected_amount=50.00):
   try:
@@ -884,7 +930,7 @@ def create_app() -> Flask:
   from socket import gethostbyname, gaierror
 
   use_local = os.getenv('USE_LOCAL_DB', '').lower() == 'true'
-  env_host = os.getenv('MYSQL_HOST', 'irequest.ctyeeiou09cg.ap-southeast-2.rds.amazonaws.com')
+  env_host = os.getenv('MYSQL_HOST', 'irequest.cqv2smac4gvw.us-east-1.rds.amazonaws.com')
   env_user = os.getenv('MYSQL_USER', 'admin')
   env_pass = os.getenv('MYSQL_PASSWORD', 'Thesis_101')
   env_db = os.getenv('MYSQL_DB', 'irequest')
@@ -1125,6 +1171,333 @@ def create_app() -> Flask:
       """
     )
 
+    # Comprehensive migration for students table - add all missing columns
+    # This handles cases where table was created with an old schema
+    def add_column_if_not_exists(table_name, column_name, column_definition):
+      """Helper to add column if it doesn't exist"""
+      try:
+        cur.execute(f"SHOW COLUMNS FROM {table_name} LIKE '{column_name}'")
+        if not cur.fetchone():
+          cur.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_definition}")
+          print(f"✅ Added {column_name} column to {table_name} table")
+          return True
+      except Exception as e:
+        print(f"⚠️ Could not add {column_name} column: {e}")
+        # Try direct add without check
+        try:
+          cur.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_definition}")
+          return True
+        except Exception:
+          pass
+      return False
+    
+    # Add all required columns for students table
+    add_column_if_not_exists('students', 'student_no', 'student_no VARCHAR(16) NULL AFTER id')
+    add_column_if_not_exists('students', 'middle_name', 'middle_name VARCHAR(100) NULL AFTER first_name')
+    add_column_if_not_exists('students', 'suffix', 'suffix VARCHAR(20) NULL AFTER last_name')
+    add_column_if_not_exists('students', 'course_code', 'course_code VARCHAR(10) NULL')
+    add_column_if_not_exists('students', 'course_name', 'course_name VARCHAR(150) NULL')
+    add_column_if_not_exists('students', 'year_level', 'year_level INT NULL')
+    add_column_if_not_exists('students', 'year_level_name', 'year_level_name VARCHAR(50) NULL')
+    add_column_if_not_exists('students', 'mobile', 'mobile VARCHAR(20) NULL')
+    add_column_if_not_exists('students', 'gender', "gender ENUM('Male','Female') NULL")
+    add_column_if_not_exists('students', 'address', 'address TEXT NULL')
+    
+    # Add all required columns for staff table
+    add_column_if_not_exists('staff', 'middle_name', 'middle_name VARCHAR(100) NULL AFTER first_name')
+    add_column_if_not_exists('staff', 'suffix', 'suffix VARCHAR(20) NULL AFTER last_name')
+    add_column_if_not_exists('staff', 'contact_no', 'contact_no VARCHAR(20) NULL')
+    add_column_if_not_exists('staff', 'gender', "gender ENUM('Male','Female') NULL")
+    add_column_if_not_exists('staff', 'address', 'address TEXT NULL')
+    add_column_if_not_exists('staff', 'status', "status ENUM('Pending','Approved','Rejected') NOT NULL DEFAULT 'Pending'")
+    add_column_if_not_exists('staff', 'approved_by', 'approved_by VARCHAR(255) NULL')
+    add_column_if_not_exists('staff', 'rejection_reason', 'rejection_reason TEXT NULL')
+    
+    # Try to set constraints on student_no if it exists but isn't constrained
+    try:
+      cur.execute("ALTER TABLE students MODIFY COLUMN student_no VARCHAR(16) NOT NULL UNIQUE")
+    except Exception:
+      pass  # Constraint might already be set or column doesn't exist
+    
+    # Clearance workflow tables
+    cur, conn = mysql.cursor()
+    cur.execute(
+      """
+      CREATE TABLE IF NOT EXISTS clearance_requests (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        student_id INT NOT NULL,
+        status ENUM('Pending','Approved','Rejected') NOT NULL DEFAULT 'Pending',
+        document_type VARCHAR(100) NULL,
+        documents TEXT NULL,
+        purposes TEXT NULL,
+        reason TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CONSTRAINT fk_clearance_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      """
+    )
+    # Backfill columns in case table already existed without the new fields
+    try:
+      cur.execute("ALTER TABLE clearance_requests ADD COLUMN fulfillment_status ENUM('Pending','Processing','Released','Rejected') NOT NULL DEFAULT 'Pending'")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE clearance_requests ADD COLUMN registrar_status ENUM('Pending','Processing','Complete') NOT NULL DEFAULT 'Pending'")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE clearance_requests ADD COLUMN document_type VARCHAR(100) NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE clearance_requests ADD COLUMN documents TEXT NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE clearance_requests ADD COLUMN purposes TEXT NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE clearance_requests ADD COLUMN reason TEXT NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE clearance_requests ADD COLUMN payment_method VARCHAR(20) NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE clearance_requests ADD COLUMN payment_amount DECIMAL(10,2) NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE clearance_requests ADD COLUMN payment_verified BOOLEAN DEFAULT FALSE")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE clearance_requests ADD COLUMN payment_receipt LONGTEXT NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE clearance_requests ADD COLUMN payment_details TEXT NULL")
+    except Exception:
+      pass
+    # Add an explicit reference_number column for quick lookup if missing
+    try:
+      cur.execute("ALTER TABLE clearance_requests ADD COLUMN reference_number VARCHAR(32) NULL")
+    except Exception:
+      pass
+    # Add unique constraint to reference_number column to prevent duplicates
+    try:
+      cur.execute("ALTER TABLE clearance_requests ADD UNIQUE INDEX idx_unique_reference_number (reference_number)")
+    except Exception:
+      pass
+    # Add S3 columns for receipt storage
+    try:
+      cur.execute("ALTER TABLE clearance_requests ADD COLUMN payment_receipt_s3_url VARCHAR(500) NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE clearance_requests ADD COLUMN payment_receipt_s3_key VARCHAR(255) NULL")
+    except Exception:
+      pass
+    # Add index for duplicate checking performance
+    try:
+      cur.execute("ALTER TABLE clearance_requests ADD INDEX idx_duplicate_check (student_id, document_type, status, created_at)")
+    except Exception:
+      pass
+    cur.execute(
+      """
+      CREATE TABLE IF NOT EXISTS clearance_signatories (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        request_id INT NOT NULL,
+        office VARCHAR(100) NOT NULL,
+        status ENUM('Pending','Approved','Rejected') NOT NULL DEFAULT 'Pending',
+        signed_by VARCHAR(255) NULL,
+        signed_at TIMESTAMP NULL,
+        rejection_reason TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CONSTRAINT fk_signatory_request FOREIGN KEY (request_id) REFERENCES clearance_requests(id) ON DELETE CASCADE,
+        INDEX idx_req_office (request_id, office)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      """
+    )
+    # Add signed_by and signed_at columns if they don't exist (for existing tables)
+    try:
+      cur.execute("ALTER TABLE clearance_signatories ADD COLUMN signed_by VARCHAR(255) NULL")
+      print("✅ Added signed_by column to clearance_signatories")
+    except Exception as e:
+      if "Duplicate column name" not in str(e):
+        print(f"⚠️ Could not add signed_by column: {e}")
+      pass
+    try:
+      cur.execute("ALTER TABLE clearance_signatories ADD COLUMN signed_at TIMESTAMP NULL")
+      print("✅ Added signed_at column to clearance_signatories")
+    except Exception as e:
+      if "Duplicate column name" not in str(e):
+        print(f"⚠️ Could not add signed_at column: {e}")
+      pass
+
+    cur.execute(
+      """
+      CREATE TABLE IF NOT EXISTS document_requests (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        student_id INT NOT NULL,
+        document_type VARCHAR(255) NOT NULL,
+        purpose TEXT NULL,
+        status ENUM('Pending','Processing','Completed','Released','Unclaimed','Rejected') NOT NULL DEFAULT 'Pending',
+        rejection_reason TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        completed_at TIMESTAMP NULL,
+        auto_transferred_at TIMESTAMP NULL,
+        clearance_request_id INT NULL,
+        payment_method VARCHAR(50) NULL,
+        payment_amount DECIMAL(10,2) NULL,
+        payment_details TEXT NULL,
+        payment_verified BOOLEAN DEFAULT FALSE,
+        CONSTRAINT fk_doc_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+        INDEX idx_student_status (student_id, status),
+        INDEX idx_status_created (status, created_at),
+        INDEX idx_auto_transferred_at (auto_transferred_at),
+        INDEX idx_clearance_request_id (clearance_request_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      """
+    )
+
+    # Backfill for existing deployments where columns or indexes may be missing
+    try:
+      cur.execute("ALTER TABLE document_requests ADD COLUMN auto_transferred_at TIMESTAMP NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE document_requests ADD COLUMN clearance_request_id INT NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE document_requests ADD COLUMN payment_method VARCHAR(50) NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE document_requests ADD COLUMN payment_amount DECIMAL(10,2) NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE document_requests ADD COLUMN payment_details TEXT NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE document_requests ADD COLUMN payment_verified BOOLEAN DEFAULT FALSE")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE clearance_requests ADD COLUMN pickup_date TIMESTAMP NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE document_requests ADD COLUMN completed_at TIMESTAMP NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE document_requests ADD COLUMN pickup_date TIMESTAMP NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE document_requests ADD COLUMN reference_number VARCHAR(32) NULL")
+    except Exception:
+      pass
+    # Add unique constraint to reference_number column to prevent duplicates
+    try:
+      cur.execute("ALTER TABLE document_requests ADD UNIQUE INDEX idx_unique_reference_number (reference_number)")
+    except Exception:
+      pass
+    # Add receipt columns for document requests (similar to clearance_requests)
+    try:
+      cur.execute("ALTER TABLE document_requests ADD COLUMN payment_receipt LONGTEXT NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE document_requests ADD COLUMN payment_receipt_s3_url VARCHAR(500) NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE document_requests ADD COLUMN payment_receipt_s3_key VARCHAR(255) NULL")
+    except Exception:
+      pass
+    # Try to extend ENUM to include Released/Unclaimed for older deployments
+    try:
+      cur.execute("ALTER TABLE document_requests MODIFY status ENUM('Pending','Processing','Completed','Released','Unclaimed','Rejected') NOT NULL DEFAULT 'Pending'")
+    except Exception:
+      pass
+
+    # Ensure helpful indexes exist (wrapped to avoid errors on existing ones)
+    try:
+      cur.execute("CREATE INDEX idx_auto_transferred_at ON document_requests (auto_transferred_at)")
+    except Exception:
+      pass
+    try:
+      cur.execute("CREATE INDEX idx_clearance_request_id ON document_requests (clearance_request_id)")
+    except Exception:
+      pass
+
+    # Create auto_transfer_logs table to track automatic transfers
+    cur.execute(
+      """
+      CREATE TABLE IF NOT EXISTS auto_transfer_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        clearance_request_id INT NOT NULL,
+        document_request_id INT NOT NULL,
+        student_id INT NOT NULL,
+        transferred_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        reason VARCHAR(255) DEFAULT 'All office clearances approved',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_clearance_request (clearance_request_id),
+        INDEX idx_document_request (document_request_id),
+        INDEX idx_student_id (student_id),
+        INDEX idx_transferred_at (transferred_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      """
+    )
+
+    # Files uploaded by registrar for released document requests
+    cur.execute(
+      """
+      CREATE TABLE IF NOT EXISTS document_files (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        document_request_id INT NOT NULL,
+        original_name VARCHAR(255) NOT NULL,
+        file_path VARCHAR(500) NOT NULL,
+        mime_type VARCHAR(100) NULL,
+        file_size INT NULL,
+        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_doc_file_request (document_request_id),
+        CONSTRAINT fk_doc_files_request FOREIGN KEY (document_request_id) REFERENCES document_requests(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      """
+    )
+
+    # Files uploaded by registrar for clearance requests
+    cur.execute(
+      """
+      CREATE TABLE IF NOT EXISTS clearance_files (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        clearance_request_id INT NOT NULL,
+        original_name VARCHAR(255) NOT NULL,
+        file_path VARCHAR(500) NOT NULL,
+        mime_type VARCHAR(100) NULL,
+        file_size INT NULL,
+        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_clearance_file_request (clearance_request_id),
+        CONSTRAINT fk_clearance_files_request FOREIGN KEY (clearance_request_id) REFERENCES clearance_requests(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      """
+    )
+
+    cur.close()
+    conn.close()
+    print("✅ Database tables and columns verified/created successfully")
+
   # Initialize database inside application context
   with app.app_context():
     init_db()
@@ -1133,8 +1506,8 @@ def create_app() -> Flask:
   app.config['JWT_SECRET'] = os.environ.get('JWT_SECRET', 'dev-secret-change-me')
   app.config['JWT_EXPIRES_MIN'] = int(os.environ.get('JWT_EXPIRES_MIN', '43200'))  # 30 days
   
-  # ---------------- Gemini API config ----------------
-  app.config['GEMINI_API_KEY'] = os.environ.get('GEMINI_API_KEY', 'AIzaSyD5jvqYTkavoko_sFKbCYj5cXhIOtqf42I')
+  # ---------------- Groq AI config ----------------
+  app.config['GROQ_API_KEY'] = os.environ.get('GROQ_API_KEY')
 
   def _get_or_create_user_from_session(cur):
     me_student = _get_current_student(cur)
@@ -1239,69 +1612,9 @@ def create_app() -> Flask:
       return None
     cur.execute("SELECT id, first_name, last_name, department, email FROM staff WHERE email=%s AND status='Approved'", (email,))
     return cur.fetchone()
-
-
-    # Ensure new approval-related columns exist even if table was created previously
-    # Open a cursor for the following schema migration steps
-    cur, conn = mysql.cursor()
-    try:
-      cur.execute("ALTER TABLE staff ADD COLUMN status ENUM('Pending','Approved','Rejected') NOT NULL DEFAULT 'Pending'")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE staff ADD COLUMN approved_by VARCHAR(255) NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE staff ADD COLUMN rejection_reason TEXT NULL")
-    except Exception:
-      pass
-
-    # Add new course structure columns to students table
-    try:
-      cur.execute("ALTER TABLE students ADD COLUMN course_code VARCHAR(10) NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE students ADD COLUMN course_name VARCHAR(150) NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE students ADD COLUMN year_level INT NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE students ADD COLUMN year_level_name VARCHAR(50) NULL")
-    except Exception:
-      pass
     
-    # Migrate existing data to new structure
-    try:
-      cur.execute("""
-        UPDATE students SET 
-          course_code = CASE 
-            WHEN course LIKE '%BEED%' THEN 'BEED'
-            WHEN course LIKE '%BSED%' THEN 'BSED'
-            WHEN course LIKE '%BSHM%' OR course LIKE '%HM%' THEN 'BSHM'
-            WHEN course LIKE '%BSCS%' OR course LIKE '%Computer Science%' THEN 'BSCS'
-            WHEN course LIKE '%ACT%' OR course LIKE '%Computer Technology%' THEN 'ACT'
-            ELSE 'UNKNOWN'
-          END,
-          course_name = course,
-          year_level = CASE 
-            WHEN year_level LIKE '%1st%' OR year_level LIKE '%First%' THEN 1
-            WHEN year_level LIKE '%2nd%' OR year_level LIKE '%Second%' THEN 2
-            WHEN year_level LIKE '%3rd%' OR year_level LIKE '%Third%' THEN 3
-            WHEN year_level LIKE '%4th%' OR year_level LIKE '%Fourth%' THEN 4
-            ELSE 1
-          END,
-          year_level_name = year_level
-        WHERE course_code IS NULL OR course_name IS NULL OR year_level IS NULL OR year_level_name IS NULL
-      """)
-    except Exception:
-      pass
-
-    # Add clearance-related columns to students table
+    # Note: Additional migrations for other tables (clearance_requests, etc.) 
+    # are handled below in the table creation section
     try:
       cur.execute("ALTER TABLE students ADD COLUMN status ENUM('Pending','Approved','Rejected') NOT NULL DEFAULT 'Pending'")
     except Exception:
@@ -1362,319 +1675,7 @@ def create_app() -> Flask:
     except Exception:
       pass
 
-    # Before creating workflow tables, persist prior schema changes and reset cursor
-    try:
-      # No need to commit with autocommit=True
-      pass
-    except Exception:
-      pass
-    try:
-      cur.close()
-      conn.close()
-    except Exception:
-      pass
-    # Clearance workflow tables
-    cur, conn = mysql.cursor()
-    cur.execute(
-      """
-      CREATE TABLE IF NOT EXISTS clearance_requests (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        student_id INT NOT NULL,
-        status ENUM('Pending','Approved','Rejected') NOT NULL DEFAULT 'Pending',
-        document_type VARCHAR(100) NULL,
-        documents TEXT NULL,
-        purposes TEXT NULL,
-        reason TEXT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        CONSTRAINT fk_clearance_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-      """
-    )
-    # Backfill columns in case table already existed without the new fields
-    try:
-      cur.execute("ALTER TABLE clearance_requests ADD COLUMN fulfillment_status ENUM('Pending','Processing','Released','Rejected') NOT NULL DEFAULT 'Pending'")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE clearance_requests ADD COLUMN registrar_status ENUM('Pending','Processing','Complete') NOT NULL DEFAULT 'Pending'")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE clearance_requests ADD COLUMN document_type VARCHAR(100) NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE clearance_requests ADD COLUMN documents TEXT NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE clearance_requests ADD COLUMN purposes TEXT NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE clearance_requests ADD COLUMN reason TEXT NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE clearance_requests ADD COLUMN payment_method VARCHAR(20) NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE clearance_requests ADD COLUMN payment_amount DECIMAL(10,2) NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE clearance_requests ADD COLUMN payment_verified BOOLEAN DEFAULT FALSE")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE clearance_requests ADD COLUMN payment_receipt LONGTEXT NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE clearance_requests ADD COLUMN payment_details TEXT NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE clearance_requests ADD COLUMN payment_receipt LONGTEXT NULL")
-    except Exception:
-      pass
-    # Add an explicit reference_number column for quick lookup if missing
-    try:
-      cur.execute("ALTER TABLE clearance_requests ADD COLUMN reference_number VARCHAR(32) NULL")
-    except Exception:
-      pass
-    # Add unique constraint to reference_number column to prevent duplicates
-    try:
-      cur.execute("ALTER TABLE clearance_requests ADD UNIQUE INDEX idx_unique_reference_number (reference_number)")
-    except Exception:
-      pass
-    # Add S3 columns for receipt storage
-    try:
-      cur.execute("ALTER TABLE clearance_requests ADD COLUMN payment_receipt_s3_url VARCHAR(500) NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE clearance_requests ADD COLUMN payment_receipt_s3_key VARCHAR(255) NULL")
-    except Exception:
-      pass
-    # Add index for duplicate checking performance
-    try:
-      cur.execute("ALTER TABLE clearance_requests ADD INDEX idx_duplicate_check (student_id, document_type, status, created_at)")
-    except Exception:
-      pass
-    cur.execute(
-      """
-      CREATE TABLE IF NOT EXISTS clearance_signatories (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        request_id INT NOT NULL,
-        office VARCHAR(100) NOT NULL,
-        status ENUM('Pending','Approved','Rejected') NOT NULL DEFAULT 'Pending',
-        signed_by VARCHAR(255) NULL,
-        signed_at TIMESTAMP NULL,
-        rejection_reason TEXT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        CONSTRAINT fk_signatory_request FOREIGN KEY (request_id) REFERENCES clearance_requests(id) ON DELETE CASCADE,
-        INDEX idx_req_office (request_id, office)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-      """
-    )
-
-
-    cur.execute(
-      """
-      CREATE TABLE IF NOT EXISTS document_requests (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        student_id INT NOT NULL,
-        document_type VARCHAR(255) NOT NULL,
-        purpose TEXT NULL,
-        status ENUM('Pending','Processing','Completed','Released','Unclaimed','Rejected') NOT NULL DEFAULT 'Pending',
-        rejection_reason TEXT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        completed_at TIMESTAMP NULL,
-        auto_transferred_at TIMESTAMP NULL,
-        clearance_request_id INT NULL,
-        payment_method VARCHAR(50) NULL,
-        payment_amount DECIMAL(10,2) NULL,
-        payment_details TEXT NULL,
-        payment_verified BOOLEAN DEFAULT FALSE,
-        CONSTRAINT fk_doc_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-        INDEX idx_student_status (student_id, status),
-        INDEX idx_status_created (status, created_at),
-        INDEX idx_auto_transferred_at (auto_transferred_at),
-        INDEX idx_clearance_request_id (clearance_request_id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-      """
-    )
-
-    # Backfill for existing deployments where columns or indexes may be missing
-    try:
-      cur.execute("ALTER TABLE document_requests ADD COLUMN auto_transferred_at TIMESTAMP NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE document_requests ADD COLUMN clearance_request_id INT NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE document_requests ADD COLUMN payment_method VARCHAR(50) NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE document_requests ADD COLUMN payment_amount DECIMAL(10,2) NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE document_requests ADD COLUMN payment_details TEXT NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE document_requests ADD COLUMN payment_verified BOOLEAN DEFAULT FALSE")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE clearance_requests ADD COLUMN pickup_date TIMESTAMP NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE document_requests ADD COLUMN pickup_date TIMESTAMP NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE document_requests ADD COLUMN reference_number VARCHAR(32) NULL")
-    except Exception:
-      pass
-    # Add unique constraint to reference_number column to prevent duplicates
-    try:
-      cur.execute("ALTER TABLE document_requests ADD UNIQUE INDEX idx_unique_reference_number (reference_number)")
-    except Exception:
-      pass
-    # Add receipt columns for document requests (similar to clearance_requests)
-    try:
-      cur.execute("ALTER TABLE document_requests ADD COLUMN payment_receipt LONGTEXT NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE document_requests ADD COLUMN payment_receipt_s3_url VARCHAR(500) NULL")
-    except Exception:
-      pass
-    try:
-      cur.execute("ALTER TABLE document_requests ADD COLUMN payment_receipt_s3_key VARCHAR(255) NULL")
-    except Exception:
-      pass
-    # Try to extend ENUM to include Released/Unclaimed for older deployments
-    try:
-      cur.execute("ALTER TABLE document_requests MODIFY status ENUM('Pending','Processing','Completed','Released','Unclaimed','Rejected') NOT NULL DEFAULT 'Pending'")
-    except Exception:
-      pass
-
-    # Ensure helpful indexes exist (wrapped to avoid errors on existing ones)
-    try:
-      cur.execute("CREATE INDEX idx_auto_transferred_at ON document_requests (auto_transferred_at)")
-    except Exception:
-      pass
-    try:
-      cur.execute("CREATE INDEX idx_clearance_request_id ON document_requests (clearance_request_id)")
-    except Exception:
-      pass
-
-    # Create auto_transfer_logs table to track automatic transfers
-    cur.execute(
-      """
-      CREATE TABLE IF NOT EXISTS auto_transfer_logs (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        clearance_request_id INT NOT NULL,
-        document_request_id INT NOT NULL,
-        student_id INT NOT NULL,
-        transferred_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        reason VARCHAR(255) DEFAULT 'All office clearances approved',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_clearance_request (clearance_request_id),
-        INDEX idx_document_request (document_request_id),
-        INDEX idx_student_id (student_id),
-        INDEX idx_transferred_at (transferred_at)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-      """
-    )
-
-    # Files uploaded by registrar for released document requests
-    cur.execute(
-      """
-      CREATE TABLE IF NOT EXISTS document_files (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        document_request_id INT NOT NULL,
-        original_name VARCHAR(255) NOT NULL,
-        file_path VARCHAR(500) NOT NULL,
-        mime_type VARCHAR(100) NULL,
-        file_size INT NULL,
-        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_doc_file_request (document_request_id),
-        CONSTRAINT fk_doc_files_request FOREIGN KEY (document_request_id) REFERENCES document_requests(id) ON DELETE CASCADE
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-      """
-    )
-
-    # Files uploaded by registrar for clearance requests
-    cur.execute(
-      """
-      CREATE TABLE IF NOT EXISTS clearance_files (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        clearance_request_id INT NOT NULL,
-        original_name VARCHAR(255) NOT NULL,
-        file_path VARCHAR(500) NOT NULL,
-        mime_type VARCHAR(100) NULL,
-        file_size INT NULL,
-        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_clearance_file_request (clearance_request_id),
-        CONSTRAINT fk_clearance_files_request FOREIGN KEY (clearance_request_id) REFERENCES clearance_requests(id) ON DELETE CASCADE
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-      """
-    )
-
-
-    # Create departmental/year-level views to simulate per-table splits
-    try:
-      dept_to_course_code = {
-        'HM': 'BSHM',
-        'CS': 'BSCS',
-        'BEED': 'BEED',
-        'BSED': 'BSED',
-      }
-      year_to_suffix = {
-        1: 'firstyear',
-        2: 'secondyear',
-        3: 'thirdyear',
-        4: 'fourthyear',
-      }
-      # Per-year views (e.g., HM_Students_firstyear)
-      for dept_prefix, course_code in dept_to_course_code.items():
-        for year_num, year_suffix in year_to_suffix.items():
-          view_name = f"{dept_prefix}_Students_{year_suffix}"
-          cur.execute(
-            f"""
-            CREATE OR REPLACE VIEW {view_name} AS
-            SELECT * FROM students
-            WHERE course_code = '{course_code}' AND year_level = {year_num}
-            """
-          )
-        # All-year view (e.g., HM_Students_all)
-        all_view_name = f"{dept_prefix}_Students_all"
-        cur.execute(
-          f"""
-          CREATE OR REPLACE VIEW {all_view_name} AS
-          SELECT * FROM students
-          WHERE course_code = '{course_code}'
-          """
-        )
-    except Exception:
-      # If views cannot be created (e.g., permissions), skip silently
-      pass
-
-    cur.close()
-    conn.close()
+    # Note: Table creation code moved to init_db() function above
 
   @app.route('/')
   def index():
@@ -2911,6 +2912,61 @@ def create_app() -> Flask:
       }), 500
 
   # Test endpoint to check database connection
+  @app.route('/api/debug/student-requests', methods=['GET'])
+  def api_debug_student_requests():
+    """Debug endpoint to check student session and requests"""
+    try:
+      student_email = session.get('student_email')
+      debug_info = {
+        "has_session": student_email is not None,
+        "student_email": student_email,
+        "session_keys": list(session.keys())
+      }
+      
+      if not student_email:
+        return jsonify({"ok": False, "debug": debug_info, "message": "No student session found"}), 200
+      
+      cur, conn = mysql.cursor()
+      
+      # Check if student exists
+      cur.execute("SELECT id, first_name, last_name, email FROM students WHERE email=%s", (student_email,))
+      student = cur.fetchone()
+      debug_info["student_found"] = student is not None
+      if student:
+        debug_info["student_id"] = student['id']
+        student_id = student['id']
+        
+        # Check clearance requests
+        cur.execute("SELECT COUNT(*) as count FROM clearance_requests WHERE student_id=%s", (student_id,))
+        clearance_count = cur.fetchone()['count']
+        debug_info["clearance_requests_count"] = clearance_count
+        
+        # Check document requests
+        cur.execute("SELECT COUNT(*) as count FROM document_requests WHERE student_id=%s", (student_id,))
+        doc_count = cur.fetchone()['count']
+        debug_info["document_requests_count"] = doc_count
+        
+        # Get all clearance requests
+        cur.execute("SELECT id, status, document_type, created_at FROM clearance_requests WHERE student_id=%s ORDER BY created_at DESC LIMIT 10", (student_id,))
+        clearance_requests = cur.fetchall()
+        debug_info["clearance_requests"] = [dict(r) for r in clearance_requests]
+        
+        # Get all document requests
+        cur.execute("SELECT id, status, document_type, created_at FROM document_requests WHERE student_id=%s ORDER BY created_at DESC LIMIT 10", (student_id,))
+        doc_requests = cur.fetchall()
+        debug_info["document_requests"] = [dict(r) for r in doc_requests]
+      else:
+        debug_info["student_id"] = None
+        debug_info["clearance_requests_count"] = 0
+        debug_info["document_requests_count"] = 0
+      
+      cur.close()
+      conn.close()
+      
+      return jsonify({"ok": True, "debug": debug_info})
+    except Exception as e:
+      return jsonify({"ok": False, "error": str(e), "debug": debug_info if 'debug_info' in locals() else {}}), 500
+
   @app.route('/api/test-db', methods=['GET'])
   def api_test_db():
     """Test database connection and clearance_requests table"""
@@ -3100,54 +3156,6 @@ def create_app() -> Flask:
     except Exception as err:
       return jsonify({"ok": False, "message": f"Error: {err}"}), 500
 
-  @app.route('/api/student/clearance')
-  def api_student_clearance_overview():
-    try:
-      student_email = session.get('student_email')
-      if not student_email:
-        return jsonify({"ok": False, "message": "No student session found (HTTP 401)"}), 401
-      cur, conn = mysql.cursor()
-      # Find student and latest request
-      cur.execute("SELECT id FROM students WHERE email=%s", (student_email,))
-      stu = cur.fetchone()
-      if not stu:
-        cur.close()
-        conn.close()
-        return jsonify({"ok": True, "data": {"has_request": False }})
-      student_id = stu['id'] if stu else None
-      cur.execute("""
-        SELECT id, status, created_at, updated_at, pickup_date
-        FROM clearance_requests
-        WHERE student_id = %s
-        ORDER BY created_at DESC
-        LIMIT 1
-      """, (student_id,))
-      req = cur.fetchone()
-      if not req:
-        cur.close()
-        conn.close()
-        return jsonify({"ok": True, "data": {"has_request": False }})
-      request_id = req['id']
-      cur.execute("""
-        SELECT office, status, signed_by, signed_at, rejection_reason
-        FROM clearance_signatories
-        WHERE request_id = %s
-        ORDER BY id ASC
-      """, (request_id,))
-      sigs = cur.fetchall() or []
-      cur.close()
-      conn.close()
-      return jsonify({
-        "ok": True,
-        "data": {
-          "has_request": True,
-          "request": {"id": request_id, "status": req['status'], "created_at": req['created_at'], "updated_at": req['updated_at']},
-          "signatories": sigs
-        }
-      })
-    except Exception as err:
-      return jsonify({"ok": False, "message": f"Error: {err}"}), 500
-
   @app.route('/api/student/clearance', methods=['GET'])
   def api_student_clearance_with_status():
     """Get student clearance requests with status filter"""
@@ -3174,7 +3182,9 @@ def create_app() -> Flask:
         cur.execute("""
           SELECT cr.id, cr.student_id, cr.status, cr.fulfillment_status, cr.document_type, cr.documents, cr.purposes, 
                  cr.created_at, cr.updated_at, cr.pickup_date, cr.payment_receipt, cr.payment_method, 
-                 cr.payment_amount, cr.reference_number, cr.receipt_status,
+                 cr.payment_amount, cr.reference_number,
+                 CASE WHEN cr.payment_receipt IS NOT NULL OR cr.payment_receipt_s3_url IS NOT NULL THEN 'has_receipt' ELSE NULL END as receipt_status,
+                 cr.payment_receipt_s3_url, cr.payment_receipt_s3_key, cr.payment_details,
                  s.first_name, s.last_name, s.student_no
           FROM clearance_requests cr
           JOIN students s ON s.id = cr.student_id
@@ -3210,7 +3220,9 @@ def create_app() -> Flask:
         cur.execute("""
           SELECT cr.id, cr.student_id, cr.status, cr.fulfillment_status, cr.document_type, cr.documents, cr.purposes, 
                  cr.created_at, cr.updated_at, cr.pickup_date, cr.payment_receipt, cr.payment_method, 
-                 cr.payment_amount, cr.reference_number, cr.receipt_status,
+                 cr.payment_amount, cr.reference_number,
+                 CASE WHEN cr.payment_receipt IS NOT NULL OR cr.payment_receipt_s3_url IS NOT NULL THEN 'has_receipt' ELSE NULL END as receipt_status,
+                 cr.payment_receipt_s3_url, cr.payment_receipt_s3_key, cr.payment_details,
                  s.first_name, s.last_name, s.student_no
           FROM clearance_requests cr
           JOIN students s ON s.id = cr.student_id
@@ -3260,7 +3272,9 @@ def create_app() -> Flask:
         cur.execute("""
           SELECT cr.id, cr.student_id, cr.status, cr.fulfillment_status, cr.document_type, cr.documents, cr.purposes, 
                  cr.created_at, cr.updated_at, cr.pickup_date, cr.payment_receipt, cr.payment_method, 
-                 cr.payment_amount, cr.reference_number, cr.receipt_status,
+                 cr.payment_amount, cr.reference_number,
+                 CASE WHEN cr.payment_receipt IS NOT NULL OR cr.payment_receipt_s3_url IS NOT NULL THEN 'has_receipt' ELSE NULL END as receipt_status,
+                 cr.payment_receipt_s3_url, cr.payment_receipt_s3_key, cr.payment_details,
                  s.first_name, s.last_name, s.student_no
           FROM clearance_requests cr
           JOIN students s ON s.id = cr.student_id
@@ -3269,6 +3283,8 @@ def create_app() -> Flask:
         """, (student_id,))
       
       requests = cur.fetchall()
+      print(f"🔍 DEBUG /api/student/clearance: Found {len(requests)} requests for status '{status}'")
+      
       cur.close()
       conn.close()
       
@@ -3299,19 +3315,26 @@ def create_app() -> Flask:
         if not receipt_status and (receipt_s3_url or receipt_data):
           receipt_status = 'has_receipt'
         
+        # Safely handle datetime serialization
+        def safe_isoformat(dt):
+          try:
+            return dt.isoformat() if dt else None
+          except Exception:
+            return str(dt) if dt else None
+        
         formatted_requests.append({
           'id': req['id'],
           'request_id': req['id'],
           'student_id': req['student_id'],
-          'student_name': f"{req['first_name']} {req['last_name']}",
-          'status': req['status'],
-          'fulfillment_status': req['fulfillment_status'],
-          'document_type': req['document_type'],
-          'documents': req['documents'],
-          'purposes': req['purposes'],
-          'created_at': req['created_at'].isoformat() if req['created_at'] else None,
-          'updated_at': req['updated_at'].isoformat() if req['updated_at'] else None,
-          'pickup_date': req['pickup_date'].isoformat() if req['pickup_date'] else None,
+          'student_name': f"{req.get('first_name', '')} {req.get('last_name', '')}".strip(),
+          'status': req.get('status'),
+          'fulfillment_status': req.get('fulfillment_status'),
+          'document_type': req.get('document_type'),
+          'documents': req.get('documents'),
+          'purposes': req.get('purposes'),
+          'created_at': safe_isoformat(req.get('created_at')),
+          'updated_at': safe_isoformat(req.get('updated_at')),
+          'pickup_date': safe_isoformat(req.get('pickup_date')),
           'payment_receipt': receipt_data,
           'payment_receipt_s3_url': receipt_s3_url,
           'payment_receipt_s3_key': receipt_s3_key,
@@ -3325,7 +3348,11 @@ def create_app() -> Flask:
       return jsonify({"ok": True, "data": formatted_requests})
       
     except Exception as err:
-      return jsonify({"ok": False, "message": f"Error: {err}"}), 500
+      import traceback
+      error_trace = traceback.format_exc()
+      print(f"❌ ERROR in /api/student/clearance: {err}")
+      print(f"❌ Traceback: {error_trace}")
+      return jsonify({"ok": False, "message": f"Error: {str(err)}"}), 500
 
   # List all requests for the current student (for status badges/UI)
   @app.route('/api/student/existing-requests')
@@ -3429,16 +3456,39 @@ def create_app() -> Flask:
         except Exception:
           return value
       student_email = session.get('student_email')
+      print(f"🔍 DEBUG /api/student/requests: student_email from session: {student_email}")
       if not student_email:
         return jsonify({"ok": False, "message": "No student session found (HTTP 401)"}), 401
       cur, conn = mysql.cursor()
-      cur.execute("SELECT id FROM students WHERE email=%s", (student_email,))
+      
+      # First, verify student exists in database
+      cur.execute("SELECT id, first_name, last_name FROM students WHERE email=%s", (student_email,))
       stu = cur.fetchone()
+      print(f"🔍 DEBUG /api/student/requests: student found: {stu is not None}")
+      if stu:
+        print(f"🔍 DEBUG /api/student/requests: student_id: {stu['id']}, name: {stu.get('first_name')} {stu.get('last_name')}")
       if not stu:
         cur.close()
         conn.close()
+        print(f"🔍 DEBUG /api/student/requests: Student not found in database, returning empty list")
         return jsonify({"ok": True, "requests": []})
       student_id = stu['id']
+      
+      # Verify clearance_requests table exists and has data
+      try:
+        cur.execute("SELECT COUNT(*) as count FROM clearance_requests WHERE student_id = %s", (student_id,))
+        clearance_count = cur.fetchone()['count']
+        print(f"🔍 DEBUG /api/student/requests: Found {clearance_count} clearance_requests in database for student_id {student_id}")
+      except Exception as e:
+        print(f"⚠️ DEBUG /api/student/requests: Error checking clearance_requests: {e}")
+      
+      # Verify document_requests table exists and has data
+      try:
+        cur.execute("SELECT COUNT(*) as count FROM document_requests WHERE student_id = %s", (student_id,))
+        doc_count = cur.fetchone()['count']
+        print(f"🔍 DEBUG /api/student/requests: Found {doc_count} document_requests in database for student_id {student_id}")
+      except Exception as e:
+        print(f"⚠️ DEBUG /api/student/requests: Error checking document_requests: {e}")
       # --- Fetch clearance requests (pre-registrar) ---
       # If we have a student_id, use it; otherwise fall back to joining by email
       if student_id:
@@ -3486,65 +3536,109 @@ def create_app() -> Flask:
           (student_email,)
         )
       clearance_rows = cur.fetchall() or []
+      print(f"🔍 DEBUG /api/student/requests: Query returned {len(clearance_rows)} clearance requests from database")
+      if len(clearance_rows) > 0:
+        print(f"🔍 DEBUG /api/student/requests: First clearance request ID: {clearance_rows[0].get('id')}, status: {clearance_rows[0].get('status')}")
 
       # --- Fetch document requests (post-auto-transfer/registrar processing) ---
+      # Check if completed_at column exists before including it in query
+      cur.execute("SHOW COLUMNS FROM document_requests LIKE 'completed_at'")
+      has_completed_at = cur.fetchone() is not None
+      
       if student_id:
-        cur.execute(
-          """
-          SELECT dr.id, dr.status, dr.document_type, dr.purpose, dr.created_at AS date_requested, dr.updated_at,
-                 dr.reference_number, dr.completed_at, dr.pickup_date,
-                 s.first_name, s.last_name, s.middle_name, s.course_name, s.course_code, s.year_level, s.year_level_name
-          FROM document_requests dr
-          JOIN students s ON s.id = dr.student_id
-          WHERE dr.student_id = %s
-          ORDER BY dr.created_at DESC
-          """,
-          (student_id,)
-        )
+        if has_completed_at:
+          cur.execute(
+            """
+            SELECT dr.id, dr.status, dr.document_type, dr.purpose, dr.created_at AS date_requested, dr.updated_at,
+                   dr.reference_number, dr.completed_at, dr.pickup_date,
+                   s.first_name, s.last_name, s.middle_name, s.course_name, s.course_code, s.year_level, s.year_level_name
+            FROM document_requests dr
+            JOIN students s ON s.id = dr.student_id
+            WHERE dr.student_id = %s
+            ORDER BY dr.created_at DESC
+            """,
+            (student_id,)
+          )
+        else:
+          # Fallback query without completed_at column
+          cur.execute(
+            """
+            SELECT dr.id, dr.status, dr.document_type, dr.purpose, dr.created_at AS date_requested, dr.updated_at,
+                   dr.reference_number, NULL as completed_at, dr.pickup_date,
+                   s.first_name, s.last_name, s.middle_name, s.course_name, s.course_code, s.year_level, s.year_level_name
+            FROM document_requests dr
+            JOIN students s ON s.id = dr.student_id
+            WHERE dr.student_id = %s
+            ORDER BY dr.created_at DESC
+            """,
+            (student_id,)
+          )
       else:
-        cur.execute(
-          """
-          SELECT dr.id, dr.status, dr.document_type, dr.purpose, dr.created_at AS date_requested, dr.updated_at,
-                 dr.reference_number, dr.completed_at, dr.pickup_date,
-                 s.first_name, s.last_name, s.middle_name, s.course_name, s.course_code, s.year_level, s.year_level_name
-          FROM document_requests dr
-          JOIN students s ON s.id = dr.student_id
-          WHERE s.email = %s
-          ORDER BY dr.created_at DESC
-          """,
-          (student_email,)
-        )
+        if has_completed_at:
+          cur.execute(
+            """
+            SELECT dr.id, dr.status, dr.document_type, dr.purpose, dr.created_at AS date_requested, dr.updated_at,
+                   dr.reference_number, dr.completed_at, dr.pickup_date,
+                   s.first_name, s.last_name, s.middle_name, s.course_name, s.course_code, s.year_level, s.year_level_name
+            FROM document_requests dr
+            JOIN students s ON s.id = dr.student_id
+            WHERE s.email = %s
+            ORDER BY dr.created_at DESC
+            """,
+            (student_email,)
+          )
+        else:
+          # Fallback query without completed_at column
+          cur.execute(
+            """
+            SELECT dr.id, dr.status, dr.document_type, dr.purpose, dr.created_at AS date_requested, dr.updated_at,
+                   dr.reference_number, NULL as completed_at, dr.pickup_date,
+                   s.first_name, s.last_name, s.middle_name, s.course_name, s.course_code, s.year_level, s.year_level_name
+            FROM document_requests dr
+            JOIN students s ON s.id = dr.student_id
+            WHERE s.email = %s
+            ORDER BY dr.created_at DESC
+            """,
+            (student_email,)
+          )
       document_rows = cur.fetchall() or []
+      print(f"🔍 DEBUG /api/student/requests: Query returned {len(document_rows)} document requests from database")
+      if len(document_rows) > 0:
+        print(f"🔍 DEBUG /api/student/requests: First document request ID: {document_rows[0].get('id')}, status: {document_rows[0].get('status')}")
       # Prepare payload list we will return
       # requests_payload initialized above
 
-      # Attach signatories for newest clearance request (if any) for convenience
-      sigs = []
+      # Fetch signatories for ALL clearance requests (not just the latest)
+      # Create a mapping of request_id -> signatories
+      clearance_signatories_map = {}
       if clearance_rows:
-        latest_id = clearance_rows[0]['id']
-        cur.execute(
-          """
-          SELECT office, status, signed_by, signed_at, rejection_reason
-          FROM clearance_signatories
-          WHERE request_id = %s
-          ORDER BY id ASC
-          """,
-          (latest_id,)
-        )
-        sigs = cur.fetchall() or []
-        # Normalize nested signatory rows for JSON (e.g., datetime fields)
-        try:
-          normalized_sigs = []
-          for s in sigs:
-            normalized = dict(s)
+        request_ids = [r['id'] for r in clearance_rows]
+        if request_ids:
+          placeholders = ','.join(['%s'] * len(request_ids))
+          cur.execute(
+            f"""
+            SELECT request_id, office, status, signed_by, signed_at, rejection_reason
+            FROM clearance_signatories
+            WHERE request_id IN ({placeholders})
+            ORDER BY request_id, id ASC
+            """,
+            tuple(request_ids)
+          )
+          all_sigs = cur.fetchall() or []
+          # Group signatories by request_id
+          for sig in all_sigs:
+            req_id = sig['request_id']
+            if req_id not in clearance_signatories_map:
+              clearance_signatories_map[req_id] = []
+            # Normalize datetime fields
+            normalized = dict(sig)
             if 'signed_at' in normalized:
               normalized['signed_at'] = _dt(normalized.get('signed_at'))
-            normalized_sigs.append(normalized)
-          sigs = normalized_sigs
-        except Exception:
-          pass
+            clearance_signatories_map[req_id].append(normalized)
+          print(f"🔍 DEBUG /api/student/requests: Loaded signatories for {len(clearance_signatories_map)} clearance requests")
 
         # Convert rows to plain dicts – clearance side
+        print(f"🔍 DEBUG /api/student/requests: Processing {len(clearance_rows)} clearance rows from database")
         for r in clearance_rows:
           # Parse JSON text fields to Python lists/strings where applicable
           try:
@@ -3559,10 +3653,27 @@ def create_app() -> Flask:
           except Exception:
             parsed_documents = r.get('documents')
             parsed_purposes = r.get('purposes')
+          # Determine status based on fulfillment_status, registrar_status, and file presence
+          fulfillment_status = (r.get('fulfillment_status') or '').strip()
+          registrar_status = (r.get('registrar_status') or '').strip()
+          raw_status = (r.get('status') or '').strip()
+          
+          # Priority: file_status > registrar_status > fulfillment_status > raw status
+          if r.get('file_status') == 'has_files' and r.get('file_count', 0) > 0:
+            final_status = 'Completed'
+          elif registrar_status:
+            final_status = registrar_status
+          elif fulfillment_status:
+            final_status = fulfillment_status
+          else:
+            final_status = raw_status or 'Pending'
+          
           payload = {
             "id": r['id'],
-            "status": 'Completed' if r.get('file_status') == 'has_files' and r.get('file_count', 0) > 0 else r.get('registrar_status', r.get('fulfillment_status', r['status'])),  # Use file presence to determine completion
-            "clearance_status": 'Completed' if r.get('file_status') == 'has_files' and r.get('file_count', 0) > 0 else r.get('registrar_status', r.get('fulfillment_status', r['status'])),  # Use file presence for clearance status display
+            "status": final_status,  # Use determined status
+            "clearance_status": final_status,  # Use same status for clearance display
+            "fulfillment_status": fulfillment_status,  # Keep original for reference
+            "registrar_status": registrar_status,  # Keep original for reference
             "document_type": r.get('document_type'),
             "documents": parsed_documents,
             "purpose": parsed_purposes,
@@ -3590,13 +3701,15 @@ def create_app() -> Flask:
             "middle_name": r.get('middle_name'),
             "course": r.get('course_name') or r.get('course_code'),
             "year_level": r.get('year_level_name') or (f"Year {r.get('year_level')}" if r.get('year_level') else ''),
+            # Include signatories for this specific request - CRITICAL for getEffectiveStatus() to work
+            "signatories": clearance_signatories_map.get(r['id'], [])
           }
-          if r['id'] == latest_id:
-            payload['signatories'] = sigs
+          print(f"🔍 DEBUG /api/student/requests: Clearance request {r['id']} - status: {final_status}, signatories: {len(clearance_signatories_map.get(r['id'], []))}")
           # Ensure entire payload is JSON-safe
           requests_payload.append(_normalize_json(payload))
 
       # Always append normalized document requests so student sees items even without clearance rows
+      print(f"🔍 DEBUG /api/student/requests: Processing {len(document_rows)} document rows from database")
       for d in document_rows:
         # Normalize possible legacy fields for student details
         course_value = d.get('course_name') or d.get('course_code') or d.get('program') or d.get('course')
@@ -3635,9 +3748,23 @@ def create_app() -> Flask:
         if receipt_s3_url or receipt_data:
           receipt_status = 'has_receipt'
         
+        # Normalize document request status to match frontend expectations
+        doc_status = (d.get('status') or '').strip()
+        # Map database status values to frontend expected values
+        status_map = {
+          'Pending': 'Pending',
+          'Processing': 'Processing', 
+          'Completed': 'Completed',
+          'Released': 'Released',
+          'Unclaimed': 'Unclaimed',
+          'Rejected': 'Rejected',
+          'Claimed': 'Claimed'
+        }
+        normalized_doc_status = status_map.get(doc_status, doc_status or 'Pending')
+        
         payload = {
           "id": d['id'],
-          "status": d.get('status'),  # Already represents Pending/Processing/Completed
+          "status": normalized_doc_status,  # Normalized status for frontend
           "clearance_status": None,
           "document_type": d.get('document_type'),
           "documents": d.get('document_type'),
@@ -3667,6 +3794,7 @@ def create_app() -> Flask:
           "course": course_value,
           "year_level": year_level_name,
         }
+        print(f"🔍 DEBUG /api/student/requests: Document request {d['id']} - status: {normalized_doc_status}")
         # Ensure entire payload is JSON-safe
         requests_payload.append(_normalize_json(payload))
 
@@ -3762,6 +3890,12 @@ def create_app() -> Flask:
         pass
       cur.close()
       conn.close()
+      
+      print(f"🔍 DEBUG /api/student/requests: Total requests_payload count: {len(requests_payload)}")
+      print(f"🔍 DEBUG /api/student/requests: Returning {len(requests_payload)} requests")
+      if len(requests_payload) > 0:
+        print(f"🔍 DEBUG /api/student/requests: First request sample ID: {requests_payload[0].get('id') if requests_payload else 'None'}")
+      
       return jsonify({"ok": True, "requests": requests_payload})
     except Exception as err:
       # Log full traceback for debugging
@@ -4304,6 +4438,7 @@ def create_app() -> Flask:
 
       # Always create a NEW pending request (do not reuse existing)
       print(f"🔍 DEBUG: Storing in database - receipt_data: {'Yes' if receipt_data else 'No'}, receipt_s3_url: {receipt_s3_url}, receipt_s3_key: {receipt_s3_key}")
+      print(f"🔍 DEBUG: Inserting clearance request for student_id: {student_id}, document_type: {document_type}")
       cur.execute(
         """
         INSERT INTO clearance_requests (student_id, status, document_type, documents, purposes, reason, payment_method, payment_amount, payment_receipt, payment_receipt_s3_url, payment_receipt_s3_key, reference_number)
@@ -4312,6 +4447,12 @@ def create_app() -> Flask:
         (student_id, document_type, json.dumps(documents), json.dumps(purposes), reason, payment_method, payment_amount, receipt_data, receipt_s3_url, receipt_s3_key, reference_number)
       )
       request_id = cur.lastrowid
+      print(f"🔍 DEBUG: Clearance request created with ID: {request_id}")
+      
+      # Verify the request was saved
+      cur.execute("SELECT id, student_id, status, document_type FROM clearance_requests WHERE id = %s", (request_id,))
+      verify = cur.fetchone()
+      print(f"🔍 DEBUG: Verification query result: {verify}")
       # Create signatory sequence for this request
       offices = [
         'Computer Laboratory',
@@ -5111,13 +5252,54 @@ def create_app() -> Flask:
       if not request_id:
         return jsonify({"ok": False, "message": "Missing request_id"}), 400
       cur, conn = mysql.cursor()
-      # Update both status and fulfillment_status to 'Processing' for proper flow
-      # Also update registrar_status to 'Processing' for student dashboard sync
-      cur.execute("UPDATE clearance_requests SET status='Processing', fulfillment_status='Processing', registrar_status='Processing' WHERE id=%s", (request_id,))
-      # No need to commit with autocommit=True
+      # Check if this is a clearance_requests id
+      cur.execute("SELECT id FROM clearance_requests WHERE id=%s", (request_id,))
+      if cur.fetchone():
+        # Same as before: clearance flow
+        cur.execute("UPDATE clearance_requests SET status='Processing', fulfillment_status='Processing', registrar_status='Processing' WHERE id=%s", (request_id,))
+        cur.close()
+        conn.close()
+        return jsonify({"ok": True})
+      # Else treat as document_requests id (certificates / document-only) — same behavior as clearance
+      cur.execute("""
+        SELECT id, clearance_request_id, student_id FROM document_requests WHERE id=%s
+      """, (request_id,))
+      doc_row = cur.fetchone()
+      if not doc_row:
+        cur.close()
+        conn.close()
+        return jsonify({"ok": False, "message": "Request not found"}), 404
+      if doc_row.get('clearance_request_id'):
+        cur.execute("""
+          SELECT COUNT(*) AS total_signatories,
+                 SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) AS approved_count,
+                 SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) AS rejected_count,
+                 SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS pending_count
+          FROM clearance_signatories WHERE request_id = %s
+        """, (doc_row['clearance_request_id'],))
+        st = cur.fetchone()
+        rejected = (st.get('rejected_count') or 0)
+        pending = (st.get('pending_count') or 0)
+        approved = (st.get('approved_count') or 0)
+        total = (st.get('total_signatories') or 0)
+        if rejected > 0:
+          cur.close()
+          conn.close()
+          return jsonify({"ok": False, "message": "Cannot process — some clearances have been rejected.", "clearance_status": "rejected"}), 400
+        if pending > 0:
+          cur.close()
+          conn.close()
+          return jsonify({"ok": False, "message": "Cannot process yet — some clearances are still pending.", "clearance_status": "pending"}), 400
+        if total and approved != total:
+          cur.close()
+          conn.close()
+          return jsonify({"ok": False, "message": "Cannot process — not all clearances are approved.", "clearance_status": "incomplete"}), 400
+      cur.execute("UPDATE document_requests SET status='Processing', updated_at=NOW() WHERE id=%s", (request_id,))
+      if doc_row.get('student_id'):
+        create_notification(doc_row['student_id'], 'Registrar', 'processing', 'Processing', 'Your request is now in the Processing Phase.')
       cur.close()
       conn.close()
-      return jsonify({"ok": True})
+      return jsonify({"ok": True, "clearance_status": "approved"})
     except Exception as err:
       return jsonify({"ok": False, "message": f"Error: {err}"}), 500
 
@@ -5728,7 +5910,7 @@ def create_app() -> Flask:
                    dr.document_type, dr.document_type as documents, dr.purpose as purposes, dr.purpose, dr.status, 
                    'Pending' as fulfillment_status,
                    dr.created_at, dr.updated_at, dr.pickup_date,
-                   'document' as request_type, dr.clearance_request_id, 'Approved' as clearance_status
+                   'document' as request_type, dr.clearance_request_id, 'Approved' as clearance_status, dr.auto_transferred_at
             FROM document_requests dr
             JOIN students s ON s.id = dr.student_id
             WHERE dr.status = 'Pending'
@@ -5740,7 +5922,7 @@ def create_app() -> Flask:
                    cr.document_type, cr.documents, cr.purposes, NULL as purpose, cr.status, 
                    COALESCE(cr.fulfillment_status, 'Pending') as fulfillment_status,
                    cr.created_at, cr.updated_at, cr.pickup_date,
-                   'clearance' as request_type, NULL as clearance_request_id, NULL as clearance_status
+                   'clearance' as request_type, NULL as clearance_request_id, NULL as clearance_status, NULL as auto_transferred_at
             FROM clearance_requests cr
             JOIN students s ON s.id = cr.student_id
             WHERE (cr.status = 'Approved' OR cr.status IS NULL OR cr.status = '') 
@@ -5750,72 +5932,118 @@ def create_app() -> Flask:
             """
           )
         except Exception as e:
-          # If fulfillment_status column doesn't exist, fallback to status only
-          print(f"fulfillment_status column not found, using status only: {e}")
-          cur.execute(
-            """
-            SELECT dr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name, 
-                   s.course_code, s.course_name, s.year_level, s.year_level_name,
-                   dr.document_type, dr.document_type as documents, dr.purpose as purposes, dr.purpose, dr.status, 
-                   'Pending' as fulfillment_status,
-                   dr.created_at, dr.updated_at, dr.pickup_date,
-                   'document' as request_type, dr.clearance_request_id, 'Approved' as clearance_status
-            FROM document_requests dr
-            JOIN students s ON s.id = dr.student_id
-            WHERE dr.status = 'Pending'
-            
-            UNION ALL
-            
-            SELECT cr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name, 
-                   s.course_code, s.course_name, s.year_level, s.year_level_name,
-                   cr.document_type, cr.documents, cr.purposes, NULL as purpose, cr.status, 
-                   'Pending' as fulfillment_status,
-                   cr.created_at, cr.updated_at, cr.pickup_date,
-                   'clearance' as request_type, NULL as clearance_request_id, NULL as clearance_status
-            FROM clearance_requests cr
-            JOIN students s ON s.id = cr.student_id
-            WHERE (cr.status = 'Approved' OR cr.status IS NULL OR cr.status = '')
-            
-            ORDER BY created_at DESC
-            """
-          )
+          # Fallback: try without auto_transferred_at (older DB), or run each part separately
+          print(f"Registrar pending query fallback: {e}")
+          try:
+            cur.execute(
+              """
+              SELECT dr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name, 
+                     s.course_code, s.course_name, s.year_level, s.year_level_name,
+                     dr.document_type, dr.document_type as documents, dr.purpose as purposes, dr.purpose, dr.status, 
+                     'Pending' as fulfillment_status,
+                     dr.created_at, dr.updated_at, dr.pickup_date,
+                     'document' as request_type, dr.clearance_request_id, 'Approved' as clearance_status
+              FROM document_requests dr
+              JOIN students s ON s.id = dr.student_id
+              WHERE dr.status = 'Pending'
+              UNION ALL
+              SELECT cr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name, 
+                     s.course_code, s.course_name, s.year_level, s.year_level_name,
+                     cr.document_type, cr.documents, cr.purposes, NULL as purpose, cr.status, 
+                     COALESCE(cr.fulfillment_status, 'Pending') as fulfillment_status,
+                     cr.created_at, cr.updated_at, cr.pickup_date,
+                     'clearance' as request_type, NULL as clearance_request_id, NULL as clearance_status
+              FROM clearance_requests cr
+              JOIN students s ON s.id = cr.student_id
+              WHERE (cr.status = 'Approved' OR cr.status IS NULL OR cr.status = '')
+                AND (cr.fulfillment_status = 'Pending' OR cr.fulfillment_status IS NULL)
+              ORDER BY created_at DESC
+              """
+            )
+          except Exception as e2:
+            # Last resort: document_requests only so registrar at least sees certificates
+            print(f"Registrar pending fallback 2: {e2}")
+            cur.execute(
+              """
+              SELECT dr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name, 
+                     s.course_code, s.course_name, s.year_level, s.year_level_name,
+                     dr.document_type, dr.document_type as documents, dr.purpose as purposes, dr.purpose, dr.status, 
+                     'Pending' as fulfillment_status,
+                     dr.created_at, dr.updated_at, dr.pickup_date,
+                     'document' as request_type, dr.clearance_request_id, 'Approved' as clearance_status
+              FROM document_requests dr
+              JOIN students s ON s.id = dr.student_id
+              WHERE dr.status = 'Pending'
+              ORDER BY dr.created_at DESC
+              """
+            )
       elif status == 'processing':
         cur.execute(
           """
-          SELECT cr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name, 
+          SELECT dr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name,
                  s.course_code, s.course_name, s.year_level, s.year_level_name,
-                 cr.document_type, cr.documents, cr.purposes, cr.status, cr.fulfillment_status,
-                 cr.created_at, cr.updated_at, cr.pickup_date
+                 dr.document_type, dr.document_type AS documents, dr.purpose AS purposes, dr.status,
+                 'Processing' AS fulfillment_status, dr.created_at, dr.updated_at, dr.pickup_date,
+                 'document' AS request_type, dr.clearance_request_id, dr.auto_transferred_at
+          FROM document_requests dr
+          JOIN students s ON s.id = dr.student_id
+          WHERE dr.status = 'Processing'
+          UNION ALL
+          SELECT cr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name,
+                 s.course_code, s.course_name, s.year_level, s.year_level_name,
+                 cr.document_type, cr.documents, cr.purposes, cr.status, COALESCE(cr.fulfillment_status, 'Processing') AS fulfillment_status,
+                 cr.created_at, cr.updated_at, cr.pickup_date,
+                 'clearance' AS request_type, NULL AS clearance_request_id, NULL AS auto_transferred_at
           FROM clearance_requests cr
           JOIN students s ON s.id = cr.student_id
           WHERE (cr.status = 'Approved' OR cr.status IS NULL OR cr.status = '') AND (cr.fulfillment_status = 'Processing' OR cr.fulfillment_status = 'Approved')
-          ORDER BY cr.updated_at DESC
+          ORDER BY updated_at DESC
           """
         )
       elif status == 'completed':
         cur.execute(
           """
-          SELECT cr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name, 
+          SELECT dr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name,
                  s.course_code, s.course_name, s.year_level, s.year_level_name,
-                 cr.document_type, cr.documents, cr.purposes, cr.status, cr.fulfillment_status,
-                 cr.created_at, cr.updated_at, cr.pickup_date
+                 dr.document_type, dr.document_type AS documents, dr.purpose AS purposes, dr.status,
+                 'Completed' AS fulfillment_status, dr.created_at, dr.updated_at, dr.pickup_date,
+                 'document' AS request_type, dr.clearance_request_id, dr.auto_transferred_at, dr.completed_at
+          FROM document_requests dr
+          JOIN students s ON s.id = dr.student_id
+          WHERE dr.status = 'Completed'
+          UNION ALL
+          SELECT cr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name,
+                 s.course_code, s.course_name, s.year_level, s.year_level_name,
+                 cr.document_type, cr.documents, cr.purposes, cr.status, COALESCE(cr.fulfillment_status, 'Completed') AS fulfillment_status,
+                 cr.created_at, cr.updated_at, cr.pickup_date,
+                 'clearance' AS request_type, NULL AS clearance_request_id, NULL AS auto_transferred_at, NULL AS completed_at
           FROM clearance_requests cr
           JOIN students s ON s.id = cr.student_id
           WHERE (cr.status = 'Approved' OR cr.status IS NULL OR cr.status = '') AND cr.fulfillment_status = 'Completed'
-          ORDER BY cr.updated_at DESC
+          ORDER BY updated_at DESC
           """
         )
       elif status == 'released':
         cur.execute(
           """
+          SELECT dr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name,
+                 s.course_code, s.course_name, s.year_level, s.year_level_name,
+                 dr.document_type, dr.document_type AS documents, dr.purpose AS purposes, dr.status,
+                 'Released' AS fulfillment_status, dr.created_at, dr.updated_at, dr.pickup_date,
+                 'document' AS request_type, dr.clearance_request_id, dr.auto_transferred_at
+          FROM document_requests dr
+          JOIN students s ON s.id = dr.student_id
+          WHERE dr.status = 'Released'
+          UNION ALL
           SELECT cr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name,
                  s.course_code, s.course_name, s.year_level, s.year_level_name,
-                 cr.document_type, cr.documents, cr.purposes, cr.status, cr.fulfillment_status,
-                 cr.created_at, cr.updated_at, cr.pickup_date
+                 cr.document_type, cr.documents, cr.purposes, cr.status, COALESCE(cr.fulfillment_status, 'Released') AS fulfillment_status,
+                 cr.created_at, cr.updated_at, cr.pickup_date,
+                 'clearance' AS request_type, NULL AS clearance_request_id, NULL AS auto_transferred_at
           FROM clearance_requests cr
           JOIN students s ON s.id = cr.student_id
           WHERE (cr.status = 'Approved' OR cr.status IS NULL OR cr.status = '') AND cr.fulfillment_status = 'Released'
-          ORDER BY cr.updated_at DESC
+          ORDER BY updated_at DESC
           """
         )
       elif status == 'rejected':
@@ -5834,15 +6062,25 @@ def create_app() -> Flask:
       elif status == 'unclaimed':
         cur.execute(
           """
+          SELECT dr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name,
+                 s.course_code, s.course_name, s.year_level, s.year_level_name,
+                 dr.document_type, dr.document_type AS documents, dr.purpose AS purposes, dr.status,
+                 'Unclaimed' AS fulfillment_status, dr.created_at, dr.updated_at, dr.pickup_date,
+                 'document' AS request_type, dr.clearance_request_id, dr.auto_transferred_at
+          FROM document_requests dr
+          JOIN students s ON s.id = dr.student_id
+          WHERE dr.status = 'Unclaimed'
+          UNION ALL
           SELECT cr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name,
                  s.course_code, s.course_name, s.year_level, s.year_level_name,
-                 cr.document_type, cr.documents, cr.purposes, cr.status, cr.fulfillment_status,
-                 cr.created_at, cr.updated_at, cr.pickup_date
+                 cr.document_type, cr.documents, cr.purposes, cr.status, COALESCE(cr.fulfillment_status, 'Released') AS fulfillment_status,
+                 cr.created_at, cr.updated_at, cr.pickup_date,
+                 'clearance' AS request_type, NULL AS clearance_request_id, NULL AS auto_transferred_at
           FROM clearance_requests cr
           JOIN students s ON s.id = cr.student_id
           WHERE (cr.status = 'Approved' OR cr.status IS NULL OR cr.status = '') AND cr.fulfillment_status = 'Released'
           AND cr.updated_at < DATE_SUB(NOW(), INTERVAL 7 DAY)
-          ORDER BY cr.updated_at DESC
+          ORDER BY updated_at DESC
           """
         )
       else:
@@ -5924,7 +6162,9 @@ def create_app() -> Flask:
           "pickup_date": row.get('pickup_date'),
           "released_at": display_timestamp,  # Use pickup_date or updated_at for display
           "rejection_reason": row.get('rejection_reason'),
-          "request_type": row.get('request_type', 'clearance')
+          "request_type": row.get('request_type', 'clearance'),
+          "clearance_request_id": row.get('clearance_request_id'),
+          "auto_transferred_at": row.get('auto_transferred_at')
         })
       
       return jsonify({"ok": True, "data": data})
@@ -6427,7 +6667,7 @@ def create_app() -> Flask:
 
   @app.route('/api/validate-receipt-reference', methods=['POST'])
   def api_validate_receipt_reference():
-    """Validate if the reference number matches the receipt using Gemini AI."""
+    """Validate if the reference number matches the receipt using Groq AI."""
     try:
       data = request.get_json(silent=True) or {}
       receipt_image = data.get('receipt_image')
@@ -6436,7 +6676,7 @@ def create_app() -> Flask:
       if not receipt_image or not reference_number:
         return jsonify({"ok": False, "message": "Missing receipt image or reference number"})
       
-      # Use Gemini AI to extract reference number from receipt
+      # Use Groq AI to extract reference number from receipt
       result = _gemini_extract(receipt_image)
       
       if not result.get('ok'):
@@ -6756,7 +6996,8 @@ def create_app() -> Flask:
 
   @app.route('/api/registrar/set-pickup-date', methods=['POST'])
   def api_set_pickup_date():
-    """Set pickup date for a clearance request"""
+    """Set pickup date for a clearance request or document request.
+    Accepts either clearance_request id or document_request id (e.g. from Processing list)."""
     try:
       data = request.get_json()
       request_id = data.get('request_id')
@@ -6766,25 +7007,53 @@ def create_app() -> Flask:
         return jsonify({"ok": False, "message": "Missing request_id or pickup_date"}), 400
       
       cur, conn = mysql.cursor()
-      
-      # Update the pickup_date in clearance_requests table
+      clearance_id = None
+
+      # Update the pickup_date in clearance_requests table (request_id may be clearance id)
       cur.execute("""
           UPDATE clearance_requests 
           SET pickup_date = %s 
           WHERE id = %s
       """, (pickup_date, request_id))
       
-      if cur.rowcount == 0:
-        cur.close()
-        conn.close()
-        return jsonify({"ok": False, "message": "Request not found"}), 404
+      if cur.rowcount > 0:
+        clearance_id = request_id
+      else:
+        # request_id might be a document_request id (e.g. from Processing documents list)
+        cur.execute("""
+            SELECT clearance_request_id FROM document_requests WHERE id = %s
+        """, (request_id,))
+        row = cur.fetchone()
+        if row:
+          clearance_id = row.get('clearance_request_id')
+          if clearance_id:
+            cur.execute("""
+                UPDATE clearance_requests 
+                SET pickup_date = %s 
+                WHERE id = %s
+            """, (pickup_date, clearance_id))
+          # Update this document_request row (standalone or linked)
+          cur.execute("""
+              UPDATE document_requests 
+              SET pickup_date = %s 
+              WHERE id = %s
+          """, (pickup_date, request_id))
+          if cur.rowcount == 0 and not clearance_id:
+            cur.close()
+            conn.close()
+            return jsonify({"ok": False, "message": "Request not found"}), 404
+        else:
+          cur.close()
+          conn.close()
+          return jsonify({"ok": False, "message": "Request not found"}), 404
       
-      # Also update pickup_date in document_requests table if it exists
-      cur.execute("""
-          UPDATE document_requests 
-          SET pickup_date = %s 
-          WHERE clearance_request_id = %s
-      """, (pickup_date, request_id))
+      # Update document_requests linked to this clearance (when we have a clearance_id)
+      if clearance_id:
+        cur.execute("""
+            UPDATE document_requests 
+            SET pickup_date = %s 
+            WHERE clearance_request_id = %s
+        """, (pickup_date, clearance_id))
       
       cur.close()
       conn.close()
@@ -6800,7 +7069,8 @@ def create_app() -> Flask:
 
   @app.route('/api/registrar/upload-document', methods=['POST'])
   def api_upload_document():
-    """Upload document for a clearance request and mark as completed"""
+    """Upload document for a clearance request or document request and mark as completed.
+    Accepts either clearance_request id or document_request id (e.g. from Processing list)."""
     try:
       request_id = request.form.get('request_id')
       files = request.files.getlist('files[]') or request.files.getlist('file')
@@ -6812,49 +7082,74 @@ def create_app() -> Flask:
         return jsonify({"ok": False, "message": "No files provided"}), 400
       
       cur, conn = mysql.cursor()
-      
-      # Save uploaded files
+      clearance_id = None
+      is_document_request = False
+
+      # Resolve: request_id may be clearance_requests.id or document_requests.id
+      cur.execute("SELECT id FROM clearance_requests WHERE id = %s", (request_id,))
+      if cur.fetchone():
+        clearance_id = request_id
+      else:
+        cur.execute("""
+            SELECT id, clearance_request_id FROM document_requests WHERE id = %s
+        """, (request_id,))
+        doc_row = cur.fetchone()
+        if not doc_row:
+          cur.close()
+          conn.close()
+          return jsonify({"ok": False, "message": "Request not found"}), 404
+        is_document_request = True
+        clearance_id = doc_row.get('clearance_request_id')
+
+      # Save uploaded files: document requests -> document_files; clearance-only -> clearance_files
       saved_files = []
+      folder_id = request_id if is_document_request else (clearance_id or request_id)
+      base_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"clearance_{folder_id}")
+      os.makedirs(base_dir, exist_ok=True)
+
       for file in files:
         if not file or not file.filename:
           continue
-          
-        # Create upload directory
-        base_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"clearance_{request_id}")
-        os.makedirs(base_dir, exist_ok=True)
-        
-        # Generate unique filename
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
         safe_name = f"{timestamp}_{file.filename}"
         file_path = os.path.join(base_dir, safe_name)
-        
-        # Save file
         file.save(file_path)
         rel_path = os.path.relpath(file_path, app.root_path).replace('\\', '/')
         file_size = os.path.getsize(file_path)
-        
-        # Save file metadata to database
-        cur.execute("""
-            INSERT INTO clearance_files (clearance_request_id, original_name, file_path, mime_type, file_size)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (request_id, file.filename, rel_path, file.mimetype, file_size))
-        
+        if is_document_request:
+          cur.execute("""
+              INSERT INTO document_files (document_request_id, original_name, file_path, mime_type, file_size)
+              VALUES (%s, %s, %s, %s, %s)
+          """, (request_id, file.filename, rel_path, file.mimetype, file_size))
+        else:
+          cur.execute("""
+              INSERT INTO clearance_files (clearance_request_id, original_name, file_path, mime_type, file_size)
+              VALUES (%s, %s, %s, %s, %s)
+          """, (clearance_id, file.filename, rel_path, file.mimetype, file_size))
         saved_files.append({"name": file.filename})
-      
-      # Update clearance_requests fulfillment_status to Completed
-      cur.execute("""
-          UPDATE clearance_requests 
-          SET fulfillment_status = 'Completed', registrar_status = 'Complete', updated_at = NOW() 
-          WHERE id = %s
-      """, (request_id,))
-      
-      if cur.rowcount == 0:
-        cur.close()
-        conn.close()
-        return jsonify({"ok": False, "message": "Request not found"}), 404
-      
-      # Create notification for student
-      cur.execute("SELECT student_id FROM clearance_requests WHERE id = %s", (request_id,))
+
+      # Update status: clearance_requests and optionally document_requests
+      if clearance_id:
+        cur.execute("""
+            UPDATE clearance_requests 
+            SET fulfillment_status = 'Completed', registrar_status = 'Complete', updated_at = NOW() 
+            WHERE id = %s
+        """, (clearance_id,))
+        cur.execute("SELECT student_id FROM clearance_requests WHERE id = %s", (clearance_id,))
+      if is_document_request:
+        cur.execute("""
+            UPDATE document_requests 
+            SET status = 'Completed', completed_at = NOW(), updated_at = NOW() 
+            WHERE id = %s
+        """, (request_id,))
+        if clearance_id:
+          cur.execute("""
+              UPDATE clearance_requests cr
+              JOIN document_requests dr ON dr.clearance_request_id = cr.id
+              SET cr.fulfillment_status = 'Completed', cr.registrar_status = 'Complete', cr.updated_at = NOW()
+              WHERE dr.id = %s
+          """, (request_id,))
+        cur.execute("SELECT student_id FROM document_requests WHERE id = %s", (request_id,))
       result = cur.fetchone()
       if result and result.get('student_id'):
         create_notification(
@@ -6864,16 +7159,14 @@ def create_app() -> Flask:
           'Completed',
           'Your document has been processed and is ready for review.'
         )
-      
+
       cur.close()
       conn.close()
-      
       return jsonify({
-          "ok": True, 
+          "ok": True,
           "message": "Document uploaded successfully",
           "files": saved_files
       })
-      
     except Exception as err:
       return jsonify({"ok": False, "message": f"Error: {err}"}), 500
 

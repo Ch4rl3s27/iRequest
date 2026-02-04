@@ -3,7 +3,7 @@ import json
 
 # Connect to database (using AWS RDS credentials)
 connection = pymysql.connect(
-    host='irequest.ctyeeiou09cg.ap-southeast-2.rds.amazonaws.com',
+    host='irequest.cqv2smac4gvw.us-east-1.rds.amazonaws.com',
     user='admin',
     password='Thesis_101',
     database='irequest',

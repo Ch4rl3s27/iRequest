@@ -7,6 +7,17 @@ This script will help diagnose database connection issues
 import pymysql
 import os
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+# Required tables for the application
+REQUIRED_TABLES = ['students', 'staff', 'clearance_requests', 'clearance_signatories', 
+                   'document_requests', 'auto_transfer_logs', 'document_files', 'clearance_files']
+
 def test_database_connection():
     """Test database connection with detailed error reporting"""
     
@@ -17,9 +28,9 @@ def test_database_connection():
         print("🔧 Testing LOCAL database connection...")
         config = {
             'host': 'localhost',
-            'user': 'root',
-            'password': '',
-            'database': 'irequest',
+            'user': os.getenv('MYSQL_USER', 'root'),
+            'password': os.getenv('MYSQL_PASSWORD', ''),
+            'database': os.getenv('MYSQL_DB', 'irequest'),
             'charset': 'utf8mb4',
             'cursorclass': pymysql.cursors.DictCursor,
             'autocommit': True,
@@ -30,10 +41,10 @@ def test_database_connection():
     else:
         print("☁️ Testing AWS RDS database connection...")
         config = {
-            'host': 'irequest.ctyeeiou09cg.ap-southeast-2.rds.amazonaws.com',
-            'user': 'admin',
-            'password': 'Thesis_101',
-            'database': 'irequest',
+            'host': os.getenv('MYSQL_HOST', 'irequest.cqv2smac4gvw.us-east-1.rds.amazonaws.com'),
+            'user': os.getenv('MYSQL_USER', 'admin'),
+            'password': os.getenv('MYSQL_PASSWORD', 'Thesis_101'),
+            'database': os.getenv('MYSQL_DB', 'irequest'),
             'charset': 'utf8mb4',
             'cursorclass': pymysql.cursors.DictCursor,
             'autocommit': True,
@@ -60,36 +71,37 @@ def test_database_connection():
             version = cursor.fetchone()
             print(f"✅ MySQL Version: {version['VERSION()']}")
             
-            # Test clearance_requests table
-            cursor.execute("SHOW TABLES LIKE 'clearance_requests'")
-            table_exists = cursor.fetchone()
-            if table_exists:
-                print("✅ clearance_requests table exists")
-                
-                # Test columns
-                cursor.execute("SHOW COLUMNS FROM clearance_requests")
-                columns = [row['Field'] for row in cursor.fetchall()]
-                print(f"✅ Available columns: {columns}")
-                
-                # Test data
-                cursor.execute("SELECT COUNT(*) as count FROM clearance_requests")
-                count = cursor.fetchone()
-                print(f"✅ Record count: {count['count']}")
-                
-                # Test specific record
-                cursor.execute("SELECT id, student_id, payment_receipt FROM clearance_requests WHERE id = 85")
-                record = cursor.fetchone()
-                if record:
-                    print(f"✅ Record 85 found: ID={record['id']}, Student ID={record['student_id']}")
-                    print(f"✅ Payment receipt: {'Present' if record['payment_receipt'] else 'NULL'}")
+            # Get all existing tables
+            print("\n🔍 Checking database tables...")
+            cursor.execute("SHOW TABLES")
+            existing_tables = [list(row.values())[0] for row in cursor.fetchall()]
+            print(f"📊 Found {len(existing_tables)} tables: {', '.join(sorted(existing_tables))}")
+            
+            # Check required tables
+            print("\n🔍 Verifying required tables...")
+            missing_tables = []
+            for table in REQUIRED_TABLES:
+                if table in existing_tables:
+                    cursor.execute(f"SELECT COUNT(*) as count FROM {table}")
+                    count = cursor.fetchone()['count']
+                    print(f"   ✅ {table} - exists ({count} records)")
                 else:
-                    print("❌ Record 85 not found")
+                    print(f"   ❌ {table} - MISSING")
+                    missing_tables.append(table)
+            
+            if missing_tables:
+                print(f"\n⚠️  Missing {len(missing_tables)} required table(s): {', '.join(missing_tables)}")
+                print("💡 Solution: Run your Flask application - it will automatically create missing tables.")
             else:
-                print("❌ clearance_requests table does not exist")
+                print("\n✅ All required tables are present!")
         
         connection.close()
-        print("\n✅ All tests passed!")
-        return True
+        if missing_tables:
+            print("\n⚠️  Database connection works, but some tables are missing.")
+            return False
+        else:
+            print("\n✅ All tests passed!")
+            return True
         
     except pymysql.Error as e:
         print(f"\n❌ PyMySQL Error: {e}")

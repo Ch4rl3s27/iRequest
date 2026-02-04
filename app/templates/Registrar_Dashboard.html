@@ -2826,7 +2826,7 @@
       });
     }
 
-    // Move a pending item to processing
+    // Move a pending item to processing (clearance at certificates — iisang API, backend na bahala)
     async function moveToProcessing(btn) {
       const row = btn.closest('tr');
       const requestId = row.dataset.requestId;
@@ -3505,7 +3505,11 @@
         updateCounters();
       } catch (error) {
         console.error('Error loading pending documents:', error);
-        addSampleData();
+        const tbody = document.getElementById('pendingList');
+        if (tbody) {
+          tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-4"><i class="fa-solid fa-exclamation-triangle me-2"></i>Unable to load pending documents. Please refresh the page.</td></tr>';
+        }
+        updateCounters();
       }
     }
 

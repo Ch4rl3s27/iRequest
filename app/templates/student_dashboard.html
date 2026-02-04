@@ -6028,11 +6028,19 @@
         if (pendingCardsContainer) pendingCardsContainer.innerHTML = '';
         if ((!list || list.length === 0) && lastRequestsLoadOk){
           // only show empty state when the API succeeded but returned no data
+          const debugInfo = `Total requests in cache: ${allRequestsCache.length}. Check browser console (F12) for details.`;
           if (pendingTableBody){
             const tr = document.createElement('tr');
             tr.innerHTML = '<td colspan="8" class="text-center py-4 text-muted">'+
                            '<i class="fas fa-inbox fa-2x mb-2 d-block"></i>'+
-                           'No requests found'+
+                           '<div style="font-size: 16px; margin-bottom: 8px;">No requests found</div>'+
+                           '<div style="font-size: 12px; color: #999; margin-top: 8px;">'+
+                           'If you expected to see requests, please:<br>'+
+                           '1. Check the browser console (Press F12) for debug messages<br>'+
+                           '2. Verify you are logged in with the correct account<br>'+
+                           '3. Check server logs for API debug messages<br>'+
+                           '4. Try refreshing the page'+
+                           '</div>'+
                            '</td>';
             pendingTableBody.appendChild(tr);
           }
@@ -6041,10 +6049,14 @@
             emptyCard.className = 'pending-card-item empty';
             emptyCard.innerHTML = '<div class="text-center text-muted" style="width:100%">'+
                                   '<i class="fas fa-inbox fa-2x mb-2 d-block"></i>'+
-                                  'No requests found'+
+                                  '<div style="font-size: 16px; margin-bottom: 8px;">No requests found</div>'+
+                                  '<div style="font-size: 12px; color: #999; margin-top: 8px;">'+
+                                  'Check browser console (F12) for details'+
+                                  '</div>'+
                                   '</div>';
             pendingCardsContainer.appendChild(emptyCard);
           }
+          console.warn("⚠️ Empty state shown. Debug info:", debugInfo);
           return;
         }
         // Helper to display requested documents nicely
@@ -6400,19 +6412,31 @@
           // Add cache-busting parameter to force fresh data
           const timestamp = new Date().getTime();
           const resp = await fetch(`/api/student/requests?t=${timestamp}`);
+          console.log("🔍 API Response status:", resp.status, resp.statusText);
           if (!resp.ok){
             let message = 'Server error ('+resp.status+') while loading requests';
             try {
               const errJson = await resp.json();
+              console.log("🔍 Error response JSON:", errJson);
               if (errJson && (errJson.error || errJson.message)){
                 message = (errJson.error || errJson.message) + ' (HTTP '+resp.status+')';
               }
-            } catch(_){ }
+            } catch(e){ 
+              console.error("🔍 Error parsing error response:", e);
+            }
             lastRequestsLoadOk = false;
+            // If it's a 401, it's likely a session issue
+            if (resp.status === 401) {
+              console.error("❌ Session expired or invalid. Please log in again.");
+              message = "Your session has expired. Please log in again.";
+            }
             throw new Error(message);
           }
           const data = await resp.json();
           console.log("API response:", data);
+          console.log("🔍 API response status:", resp.status);
+          console.log("🔍 API response data.ok:", data.ok);
+          console.log("🔍 API response requests count:", data.requests ? data.requests.length : 'N/A');
           if (data.ok && Array.isArray(data.requests)){
             allRequestsCache = data.requests.slice().sort(function(a,b){
               const da = a.date_requested ? new Date(a.date_requested).getTime() : 0;
@@ -6422,10 +6446,19 @@
             // Update global reference
             window.allRequestsCache = allRequestsCache;
             // Use effective status (considers signatories + registrar state) so Pending view matches dashboard
-            pendingCache = allRequestsCache.filter(function(r){ return getEffectiveStatus(r) === 'pending'; });
+            console.log("🔍 Filtering requests by effective status 'pending'...");
+            pendingCache = allRequestsCache.filter(function(r){ 
+              const effectiveStatus = getEffectiveStatus(r);
+              console.log(`🔍 Request ${r.id}: status="${r.status}", effectiveStatus="${effectiveStatus}"`);
+              return effectiveStatus === 'pending'; 
+            });
             lastRequestsLoadOk = true;
-            console.log("All requests loaded:", allRequestsCache.length);
-            console.log("Pending requests:", pendingCache.length);
+            console.log("✅ All requests loaded:", allRequestsCache.length);
+            console.log("✅ Pending requests after filtering:", pendingCache.length);
+            if (allRequestsCache.length > 0 && pendingCache.length === 0) {
+              console.warn("⚠️ WARNING: There are requests but none are marked as 'pending'. Check getEffectiveStatus() logic.");
+              console.warn("⚠️ All request statuses:", allRequestsCache.map(r => ({id: r.id, status: r.status, effective: getEffectiveStatus(r)})));
+            }
             
             // Debug: Log all requests to see what we have
             console.log("=== DEBUG: All Requests Details ===");
@@ -6471,7 +6504,10 @@
             allRequestsCache = [];
             pendingCache = [];
             lastRequestsLoadOk = true;
-            console.log("No requests found");
+            console.log("⚠️ No requests found in API response. This could mean:");
+            console.log("  1. The student has no requests in the database");
+            console.log("  2. The session might not be matching the correct student");
+            console.log("  3. Check server logs for DEBUG messages from /api/student/requests");
             // Update pending clearance button visibility
           } else {
             // Malformed response
@@ -6613,7 +6649,13 @@
       }
 
       async function renderPendingPage(page){
-        if (!pendingCache.length){ await loadPending(); }
+        console.log("🔍 renderPendingPage called, pendingCache.length:", pendingCache.length);
+        if (!pendingCache.length){ 
+          console.log("🔍 pendingCache is empty, loading requests...");
+          await loadPending(); 
+          console.log("🔍 After loadPending, pendingCache.length:", pendingCache.length);
+          console.log("🔍 After loadPending, allRequestsCache.length:", allRequestsCache.length);
+        }
         pendingCurrentPage = page || 1;
         updatePendingPagination();
       }
