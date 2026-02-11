@@ -6033,14 +6033,7 @@
             const tr = document.createElement('tr');
             tr.innerHTML = '<td colspan="8" class="text-center py-4 text-muted">'+
                            '<i class="fas fa-inbox fa-2x mb-2 d-block"></i>'+
-                           '<div style="font-size: 16px; margin-bottom: 8px;">No requests found</div>'+
-                           '<div style="font-size: 12px; color: #999; margin-top: 8px;">'+
-                           'If you expected to see requests, please:<br>'+
-                           '1. Check the browser console (Press F12) for debug messages<br>'+
-                           '2. Verify you are logged in with the correct account<br>'+
-                           '3. Check server logs for API debug messages<br>'+
-                           '4. Try refreshing the page'+
-                           '</div>'+
+                           '<div style="font-size: 16px;">No requests found</div>'+
                            '</td>';
             pendingTableBody.appendChild(tr);
           }
@@ -6049,10 +6042,7 @@
             emptyCard.className = 'pending-card-item empty';
             emptyCard.innerHTML = '<div class="text-center text-muted" style="width:100%">'+
                                   '<i class="fas fa-inbox fa-2x mb-2 d-block"></i>'+
-                                  '<div style="font-size: 16px; margin-bottom: 8px;">No requests found</div>'+
-                                  '<div style="font-size: 12px; color: #999; margin-top: 8px;">'+
-                                  'Check browser console (F12) for details'+
-                                  '</div>'+
+                                  '<div style="font-size: 16px;">No requests found</div>'+
                                   '</div>';
             pendingCardsContainer.appendChild(emptyCard);
           }

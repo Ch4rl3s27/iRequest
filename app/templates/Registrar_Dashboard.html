@@ -1819,6 +1819,7 @@
                   <th>Student Name</th>
                   <th>Document</th>
                   <th>Status</th>
+                  <th>Pickup Date</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -2936,8 +2937,9 @@
           const newRow = document.createElement('tr');
           newRow.dataset.requestId = requestId;
           newRow.dataset.studentId = studentId;
+          newRow.dataset.requestType = row.dataset.requestType || 'document';
           
-          // Get the pickup date from the processing row
+          // Get the pickup date from the processing/pending row
           const pickupDateCell = row.querySelector('.pickup-date-display');
           const pickupDate = pickupDateCell ? pickupDateCell.innerHTML : '<span class="text-muted">Not set</span>';
           
@@ -2946,7 +2948,7 @@
             <td>${row.cells[1].textContent}</td>
             <td class="text-success fw-semibold">Completed</td>
             <td>${new Date().toLocaleString()}</td>
-            <td>${pickupDate.includes('Not set') ? '—' : formatPickupDate(pickupDate.replace(/<[^>]*>/g, ''))}</td>
+            <td>${pickupDate.includes('Not set') ? '—' : (typeof formatPickupDate === 'function' ? formatPickupDate(pickupDate.replace(/<[^>]*>/g, '')) : pickupDate.replace(/<[^>]*>/g, ''))}</td>
             <td>
               <button class="btn btn-outline-primary btn-sm me-2" onclick="openViewClearance(${requestId})"><i class="fa-solid fa-eye"></i> View Clearance</button>
               <button class="btn btn-primary btn-sm" onclick="moveToReleased(this)"><i class='fa-solid fa-paper-plane'></i> Released Documents</button>
@@ -3488,6 +3490,9 @@
               </td>
               <td>${documentType}</td>
               <td class="${statusClass}">${statusText}</td>
+              <td class="pickup-date-display">
+                ${doc.pickup_date ? `<span class="text-success"><i class="fa-solid fa-calendar-check"></i> ${typeof formatPickupDate === 'function' ? formatPickupDate(doc.pickup_date) : doc.pickup_date}</span>` : '<span class="text-muted">Not set</span>'}
+              </td>
               <td>
                 ${doc.clearance_request_id ? 
                   `<button class="btn btn-outline-primary btn-sm me-2" onclick="openViewClearance(${doc.clearance_request_id})"><i class="fa-solid fa-eye"></i> View Clearance</button>` : 
@@ -3495,7 +3500,9 @@
                 }
                 ${(doc.clearance_request_id && doc.clearance_status && doc.clearance_status !== 'Approved') ? 
                   `<button class="btn btn-secondary btn-sm" disabled title="Cannot process - clearances not fully approved"><i class='fa-solid fa-lock'></i> Start Processing</button>` :
-                  `<button class="btn btn-primary btn-sm" onclick="moveToProcessing(this)"><i class='fa-solid fa-play'></i> Start Processing</button>`
+                  `<button class="btn btn-primary btn-sm me-2" onclick="moveToProcessing(this)"><i class='fa-solid fa-play'></i> Start Processing</button>
+                <button class="btn btn-info btn-sm me-2" onclick="setPickupDateFromPending(this)"><i class='fa-solid fa-calendar'></i> Set Pickup Date</button>
+                <button class="btn btn-success btn-sm" onclick="markAsCompletedFromPending(this)"><i class='fa-solid fa-upload'></i> Upload File</button>`
                 }
               </td>
             `;
@@ -3507,7 +3514,7 @@
         console.error('Error loading pending documents:', error);
         const tbody = document.getElementById('pendingList');
         if (tbody) {
-          tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-4"><i class="fa-solid fa-exclamation-triangle me-2"></i>Unable to load pending documents. Please refresh the page.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4"><i class="fa-solid fa-exclamation-triangle me-2"></i>Unable to load pending documents. Please refresh the page.</td></tr>';
         }
         updateCounters();
       }
@@ -3710,6 +3717,46 @@
       }
     }
 
+    // Ensure document is in Processing (for completing from Pending without clicking Start Processing)
+    async function ensureProcessing(requestId) {
+      if (!requestId) return false;
+      try {
+        const res = await fetch('/api/registrar/mark-processing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ request_id: Number(requestId) })
+        });
+        const data = await res.json();
+        return !!data.ok;
+      } catch (_) { return false; }
+    }
+
+    async function setPickupDateFromPending(btn) {
+      const row = btn.closest('tr');
+      const requestId = row.dataset.requestId;
+      if (!requestId) { Swal.fire('Error', 'Request ID not found', 'error'); return; }
+      const moved = await ensureProcessing(requestId);
+      if (moved) {
+        row.querySelector('td.status-pending')?.classList?.add('status-processing');
+        const statusTd = row.querySelector('td.status-pending, td.status-processing');
+        if (statusTd) statusTd.textContent = 'Processing';
+      }
+      await setPickupDate(btn);
+    }
+
+    async function markAsCompletedFromPending(btn) {
+      const row = btn.closest('tr');
+      const requestId = row.dataset.requestId;
+      if (!requestId) { Swal.fire('Error', 'Request ID not found', 'error'); return; }
+      const moved = await ensureProcessing(requestId);
+      if (moved) {
+        row.querySelector('td.status-pending')?.classList?.add('status-processing');
+        const statusTd = row.querySelector('td.status-pending, td.status-processing');
+        if (statusTd) statusTd.textContent = 'Processing';
+      }
+      await markAsCompleted(btn);
+    }
+
     async function loadCompletedDocuments() {
       try {
         const response = await fetch('/api/registrar/document-requests?status=completed');
@@ -3883,41 +3930,35 @@
     async function moveToUnclaimed(btn) {
       const row = btn.closest('tr');
       const requestId = row.dataset.requestId;
+      const requestType = (row.dataset.requestType || 'clearance').toLowerCase();
+      
+      if (!requestId) {
+        Swal.fire('Error', 'Request ID not found', 'error');
+        return;
+      }
       
       try {
-        const response = await fetch('/api/registrar/mark-unclaimed', {
-          method: 'POST', 
-          headers: {'Content-Type': 'application/json'}, 
+        // Document requests (e.g. Certificate) use document-requests/mark-unclaimed so DB and student dashboard update
+        const url = requestType === 'document'
+          ? '/api/registrar/document-requests/mark-unclaimed'
+          : '/api/registrar/mark-unclaimed';
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({request_id: Number(requestId)})
         });
         
         const data = await response.json();
         
         if (data.ok) {
-          const list = document.getElementById('unclaimedList');
-          if (list){
-            const newRow = document.createElement('tr');
-            newRow.dataset.requestId = requestId;
-            newRow.dataset.studentId = row.dataset.studentId;
-            newRow.innerHTML = `
-              <td>${row.cells[0].textContent}</td>
-              <td>${row.cells[1].textContent}</td>
-              <td class="text-secondary fw-semibold">Unclaimed</td>
-              <td>${new Date().toLocaleString()}</td>
-              <td>
-                <button class="btn btn-primary btn-sm" onclick="markReleased(this)"><i class='fa-solid fa-paper-plane'></i> Mark Released</button>
-              </td>
-            `;
-            list.appendChild(newRow);
-          }
           row.remove();
+          await loadUnclaimedDocuments();
           updateCounters();
           showTable('unclaimed');
-          
           Swal.fire({
             icon: 'success',
             title: 'Document Marked as Unclaimed!',
-            text: 'Document has been moved to unclaimed status.',
+            text: 'Document has been moved to unclaimed. Student will see it under Unclaimed.',
             timer: 3000,
             showConfirmButton: false
           });
@@ -4093,9 +4134,10 @@
                 showConfirmButton: false
               });
             
-            // Move to completed table
+            // Move to completed table and show Completed tab
             moveToCompleted(row);
             updateCounters();
+            showTable('completed');
           } else {
             Swal.fire('Error', data.message || 'Failed to upload file', 'error');
           }
@@ -4238,6 +4280,7 @@
             const tr = document.createElement('tr');
             tr.dataset.requestId = doc.request_id || doc.id || '';
             tr.dataset.studentId = doc.student_id || doc.id || '';
+            tr.dataset.requestType = doc.request_type || 'document';
             
             // Determine document type based on documents field
             let documentType = '—';
@@ -5480,20 +5523,28 @@
       const reason = select.value; 
       if(!reason) return; 
       
+      const row = select.closest('tr'); 
+      if (!row) {
+        console.warn('registrarRejectFromSelect: row not found');
+        return;
+      }
+      const requestId = row.dataset.requestId || '';
+      if (!requestId) {
+        Swal.fire('Error', 'Request ID not found', 'error');
+        return;
+      }
+      
       // Show full-screen loading overlay
       if (window.buttonLoadingManager) {
         window.buttonLoadingManager.showFullScreenLoading('Rejecting Clearance...');
-      }
-      
-      const row = select.closest('tr'); 
-      const requestId = row.dataset.requestId || ''; 
+      } 
       try { 
         await fetch('/api/registrar/reject',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ request_id: Number(requestId), reason }) }); 
       } catch(_) {}
       const rejectedList = document.getElementById('clRejectedList'); 
       if (rejectedList) {
         const newRow = document.createElement('tr'); 
-        newRow.dataset.studentId = currentRow.dataset.studentId || '';
+        newRow.dataset.studentId = row.dataset.studentId || '';
           newRow.setAttribute('role', 'row');
           newRow.innerHTML = `
           <td>${row.cells[0].textContent}</td>

@@ -5332,7 +5332,17 @@ def create_app() -> Flask:
       # Update both status and fulfillment_status to 'Unclaimed' for proper flow
       # Also update registrar_status to 'Complete' for student dashboard sync
       cur.execute("UPDATE clearance_requests SET status='Unclaimed', fulfillment_status='Unclaimed', registrar_status='Complete' WHERE id=%s", (request_id,))
-      # No need to commit with autocommit=True
+      # Notify student so they see it under Unclaimed on their dashboard
+      cur.execute("SELECT student_id FROM clearance_requests WHERE id=%s", (request_id,))
+      row = cur.fetchone()
+      if row and row.get('student_id'):
+        create_notification(
+          row['student_id'],
+          'Registrar',
+          'unclaimed',
+          'Unclaimed',
+          'Your clearance document is unclaimed. You can claim it at the Registrar.'
+        )
       cur.close()
       conn.close()
       return jsonify({"ok": True})
@@ -6070,6 +6080,15 @@ def create_app() -> Flask:
           FROM document_requests dr
           JOIN students s ON s.id = dr.student_id
           WHERE dr.status = 'Unclaimed'
+          UNION ALL
+          SELECT cr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name,
+                 s.course_code, s.course_name, s.year_level, s.year_level_name,
+                 cr.document_type, cr.documents, cr.purposes, cr.status, COALESCE(cr.fulfillment_status, 'Unclaimed') AS fulfillment_status,
+                 cr.created_at, cr.updated_at, cr.pickup_date,
+                 'clearance' AS request_type, NULL AS clearance_request_id, NULL AS auto_transferred_at
+          FROM clearance_requests cr
+          JOIN students s ON s.id = cr.student_id
+          WHERE (cr.status = 'Approved' OR cr.status IS NULL OR cr.status = '') AND cr.fulfillment_status = 'Unclaimed'
           UNION ALL
           SELECT cr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name,
                  s.course_code, s.course_name, s.year_level, s.year_level_name,
