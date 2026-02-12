@@ -472,419 +472,6 @@
       padding: var(--space-4) 0;
     }
 
-    /* Dark Mode Toggle Styles */
-    .dark-mode-toggle {
-      margin: var(--space-6) 0;
-      padding: 0;
-    }
-
-    .dark-mode-btn {
-      width: 100%;
-      background: transparent;
-      border: none;
-      color: rgba(255, 255, 255, 0.8);
-      padding: var(--space-3) var(--space-4);
-      border-radius: 12px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      transition: all var(--transition-normal);
-      font-size: var(--text-sm);
-      font-weight: 500;
-      position: relative;
-      min-height: 48px;
-      margin: 0 var(--space-3);
-    }
-
-    .dark-mode-btn:hover {
-      background: rgba(255, 255, 255, 0.08);
-      color: white;
-      transform: translateX(2px);
-    }
-
-    .dark-mode-btn:active {
-      transform: translateX(0);
-    }
-
-    .dark-mode-btn i {
-      font-size: var(--text-lg);
-      width: 20px;
-      text-align: center;
-      transition: transform var(--transition-normal);
-      flex-shrink: 0;
-    }
-
-    .dark-mode-btn.active i {
-      transform: rotate(180deg);
-    }
-
-    /* Dark Mode Styles */
-    .dark-mode {
-      --primary-50: #1a1a1a;
-      --primary-100: #2d2d2d;
-      --primary-200: #404040;
-      --primary-300: #525252;
-      --primary-400: #666666;
-      --primary-500: #7a7a7a;
-      --primary-600: #8e8e8e;
-      --primary-700: #a1a1a1;
-      --primary-800: #b5b5b5;
-      --primary-900: #c9c9c9;
-      
-      --gray-50: #1a1a1a;
-      --gray-100: #2d2d2d;
-      --gray-200: #404040;
-      --gray-300: #525252;
-      --gray-400: #666666;
-      --gray-500: #7a7a7a;
-      --gray-600: #8e8e8e;
-      --gray-700: #a1a1a1;
-      --gray-800: #b5b5b5;
-      --gray-900: #c9c9c9;
-      
-      --text-primary: #ffffff;
-      --text-secondary: #b5b5b5;
-      --text-muted: #8e8e8e;
-      
-      --bg-primary: #1a1a1a;
-      --bg-secondary: #2d2d2d;
-      --bg-tertiary: #404040;
-    }
-
-    /* Global dark mode styles */
-    .dark-mode {
-      background: #1a1a1a !important;
-      color: #ffffff !important;
-    }
-
-
-
-    .dark-mode input,
-    .dark-mode textarea,
-    .dark-mode select {
-      background: #2d2d2d !important;
-      color: #ffffff !important;
-      border: 1px solid #404040 !important;
-    }
-
-    .dark-mode input::placeholder,
-    .dark-mode textarea::placeholder {
-      color: #8e8e8e !important;
-    }
-
-    .dark-mode .sidebar {
-      background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
-      border-right: 1px solid #404040;
-    }
-
-    .dark-mode .main-content {
-      background: #1a1a1a !important;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .content {
-      background: #1a1a1a !important;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .content h1,
-    .dark-mode .content h2,
-    .dark-mode .content h3,
-    .dark-mode .content h4,
-    .dark-mode .content h5,
-    .dark-mode .content h6 {
-      color: #ffffff !important;
-    }
-
-    .dark-mode .topbar {
-      background: #2d2d2d !important;
-      border-bottom: 1px solid #404040;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .topbar h1,
-    .dark-mode .topbar h2,
-    .dark-mode .topbar h3,
-    .dark-mode .topbar h4,
-    .dark-mode .topbar h5,
-    .dark-mode .topbar h6 {
-      color: #ffffff !important;
-    }
-
-    .dark-mode .card {
-      background: #2d2d2d !important;
-      border: 1px solid #404040 !important;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .card-header {
-      background: #404040 !important;
-      border-bottom: 1px solid #525252 !important;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .card-body {
-      background: #2d2d2d !important;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .form-control,
-    .dark-mode input[type="text"],
-    .dark-mode input[type="email"],
-    .dark-mode input[type="password"],
-    .dark-mode input[type="number"],
-    .dark-mode textarea,
-    .dark-mode select {
-      background: #2d2d2d !important;
-      border: 1px solid #404040 !important;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .form-control:focus,
-    .dark-mode input:focus,
-    .dark-mode textarea:focus,
-    .dark-mode select:focus {
-      background: #2d2d2d !important;
-      border-color: #8b5cf6 !important;
-      color: #ffffff !important;
-      box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2) !important;
-    }
-
-    .dark-mode .form-control::placeholder,
-    .dark-mode input::placeholder,
-    .dark-mode textarea::placeholder {
-      color: #8e8e8e !important;
-    }
-
-    .dark-mode .btn-primary {
-      background: var(--accent-600) !important;
-      border-color: var(--accent-600) !important;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .btn-primary:hover {
-      background: var(--accent-700) !important;
-      border-color: var(--accent-700) !important;
-    }
-
-    .dark-mode .btn-secondary {
-      background: #404040 !important;
-      border-color: #525252 !important;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .btn-secondary:hover {
-      background: #525252 !important;
-      border-color: #666666 !important;
-    }
-
-    .dark-mode .table {
-      color: #ffffff !important;
-      background: #2d2d2d !important;
-    }
-
-    .dark-mode .table th {
-      background: #404040 !important;
-      border-color: #525252 !important;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .table td {
-      border-color: #525252 !important;
-      background: #2d2d2d !important;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .table-striped tbody tr:nth-of-type(odd) {
-      background: rgba(255, 255, 255, 0.05) !important;
-    }
-
-    .dark-mode .table-striped tbody tr:nth-of-type(even) {
-      background: #2d2d2d !important;
-    }
-
-    .dark-mode .table-hover tbody tr:hover {
-      background: rgba(255, 255, 255, 0.1) !important;
-    }
-
-    /* Badge styles */
-    .dark-mode .badge {
-      color: #ffffff !important;
-    }
-
-    .dark-mode .badge-warning {
-      background: #f59e0b !important;
-      color: #000000 !important;
-    }
-
-    .dark-mode .badge-success {
-      background: #10b981 !important;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .badge-danger {
-      background: #ef4444 !important;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .badge-info {
-      background: #3b82f6 !important;
-      color: #ffffff !important;
-    }
-
-    /* Pagination */
-    .dark-mode .pagination {
-      background: #2d2d2d !important;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .page-link {
-      background: #404040 !important;
-      border-color: #525252 !important;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .page-link:hover {
-      background: #525252 !important;
-      border-color: #666666 !important;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .page-item.active .page-link {
-      background: var(--accent-600) !important;
-      border-color: var(--accent-600) !important;
-      color: #ffffff !important;
-    }
-
-    /* Section headers */
-    .dark-mode .section-header {
-      background: #404040 !important;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .section-title {
-      color: #ffffff !important;
-    }
-
-    /* Status cards */
-    .dark-mode .status-card {
-      background: #2d2d2d !important;
-      border: 1px solid #404040 !important;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .status-card .card-body {
-      background: #2d2d2d !important;
-      color: #ffffff !important;
-    }
-
-    /* Profile section */
-    .dark-mode .profile-section {
-      background: #2d2d2d !important;
-      color: #ffffff !important;
-    }
-
-    .dark-mode .profile-header {
-      background: #404040 !important;
-      color: #ffffff !important;
-    }
-
-    /* All text elements */
-    .dark-mode h1,
-    .dark-mode h2,
-    .dark-mode h3,
-    .dark-mode h4,
-    .dark-mode h5,
-    .dark-mode h6,
-    .dark-mode p,
-    .dark-mode span,
-    .dark-mode div,
-    .dark-mode label,
-    .dark-mode strong,
-    .dark-mode em,
-    .dark-mode small,
-    .dark-mode .text-muted,
-    .dark-mode .form-label,
-    .dark-mode .section-title,
-    .dark-mode .card-title {
-      color: #ffffff !important;
-    }
-
-    /* Profile and form sections */
-    .dark-mode .profile-container,
-    .dark-mode .profile-card,
-    .dark-mode .profile-header,
-    .dark-mode .profile-body,
-    .dark-mode .profile-field,
-    .dark-mode .profile-label,
-    .dark-mode .profile-input {
-      background: #2d2d2d !important;
-      color: #ffffff !important;
-      border-color: #404040 !important;
-    }
-
-    .dark-mode .profile-input {
-      background: #1a1a1a !important;
-      color: #ffffff !important;
-      border: 1px solid #404040 !important;
-    }
-
-    .dark-mode p,
-    .dark-mode span,
-    .dark-mode div {
-      color: #ffffff !important;
-    }
-
-
-    /* Specific overrides for better visibility */
-    .dark-mode .username,
-    .dark-mode .notification,
-    .dark-mode .link-text,
-    .dark-mode .sidebar-title {
-      color: #ffffff !important;
-    }
-
-    /* Simple dark mode text visibility */
-    .dark-mode h1,
-    .dark-mode h2,
-    .dark-mode h3,
-    .dark-mode h4,
-    .dark-mode h5,
-    .dark-mode h6,
-    .dark-mode p,
-    .dark-mode span,
-    .dark-mode div,
-    .dark-mode label {
-      color: #ffffff !important;
-    }
-
-    .dark-mode label {
-      color: #ffffff !important;
-    }
-
-    /* Input groups */
-    .dark-mode .input-group-text {
-      background: #404040 !important;
-      border-color: #525252 !important;
-      color: #ffffff !important;
-    }
-
-    /* Dropdowns */
-    .dark-mode .dropdown-menu {
-      background: #2d2d2d !important;
-      border: 1px solid #404040 !important;
-    }
-
-    .dark-mode .dropdown-item {
-      color: #ffffff !important;
-    }
-
-    .dark-mode .dropdown-item:hover {
-      background: #404040 !important;
-      color: #ffffff !important;
-    }
-
     /* Main Content */
     .main-content {
       flex: 1;
@@ -1431,12 +1018,6 @@
       margin-bottom: var(--space-6);
     }
 
-    /* Remove white backgrounds in dark mode */
-    .dark-mode .form-section {
-      background: transparent !important;
-      border: 1px solid #404040 !important;
-    }
-
     /* Checkbox and radio styling */
     .request-form label {
       display: flex;
@@ -1787,17 +1368,6 @@
       color: var(--gray-700);
     }
 
-    /* Remove white backgrounds from document checkboxes in dark mode */
-    .dark-mode .documents-grid label {
-      background: transparent !important;
-      border: none !important;
-      padding: var(--space-2) 0 !important;
-    }
-
-    .dark-mode .document-name {
-      color: #ffffff !important;
-    }
-
     .payment-method-options {
       display: flex;
       flex-direction: column;
@@ -1812,17 +1382,6 @@
       gap: var(--space-2);
     }
 
-    /* Remove white backgrounds from payment options in dark mode */
-    .dark-mode .payment-method-options label {
-      background: transparent !important;
-      border: none !important;
-      padding: var(--space-2) 0 !important;
-    }
-
-    .dark-mode .payment-option {
-      color: #ffffff !important;
-    }
-
     .purpose-options {
       display: flex;
       flex-direction: column;
@@ -1832,17 +1391,6 @@
     .purpose-option {
       font-weight: var(--font-medium);
       color: var(--gray-700);
-    }
-
-    /* Remove white backgrounds from purpose options in dark mode */
-    .dark-mode .purpose-options label {
-      background: transparent !important;
-      border: none !important;
-      padding: var(--space-2) 0 !important;
-    }
-
-    .dark-mode .purpose-option {
-      color: #ffffff !important;
     }
 
     .other-purpose {
@@ -3233,14 +2781,6 @@
      
       
       <a id="profileLink"><i class="fas fa-user"></i> <span class="link-text">Profile</span></a>
-    </div>
-    
-    <!-- Dark Mode Toggle -->
-    <div class="dark-mode-toggle">
-      <button id="darkModeToggle" class="dark-mode-btn">
-        <i class="fas fa-moon" id="darkModeIcon"></i>
-        <span class="link-text">Dark Mode</span>
-      </button>
     </div>
     
     <div class="logout">
@@ -5034,22 +4574,22 @@
                     </div>
                     ${!validationResult.ai_success ? `
                       <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 10px 0;">
-                        <strong>⚠️ AI Processing Issue:</strong> The system could not read the reference number from your receipt image. 
-                        This might be due to:
-                        <ul style="text-align: left; margin: 5px 0; padding-left: 20px;">
-                          <li>Blurry or unclear receipt image</li>
-                          <li>Poor lighting or image quality</li>
-                          <li>Receipt format not recognized by AI</li>
+                        <strong>⚠️ No reference number found in image.</strong><br>
+                        ${validationResult.user_message || 'The system could not read the reference number from your image.'}
+                        <ul style="text-align: left; margin: 8px 0 0 0; padding-left: 20px;">
+                          <li>Use a <strong>payment receipt</strong> (e.g. GCash, payment slip), not a personal photo or ID</li>
+                          <li>Ensure the receipt is clear and the reference number is visible</li>
+                          <li>Good lighting and avoid blur</li>
                         </ul>
                       </div>
                     ` : ''}
                     <p style="color: #6c757d; font-size: 14px; margin-top: 10px;">
                       Please check your receipt and enter the correct reference number. 
-                      ${!validationResult.ai_success ? 'Try taking a clearer photo of your receipt or wait a few minutes and try again.' : ''}
+                      ${!validationResult.ai_success ? 'Upload a clear photo of your payment receipt showing the reference number.' : ''}
                     </p>
-                    ${validationResult.message ? `
+                    ${(validationResult.user_message || validationResult.message) ? `
                       <div style="background: #e3f2fd; border: 1px solid #2196f3; padding: 10px; border-radius: 5px; margin: 10px 0;">
-                        <strong>💡 Tip:</strong> ${validationResult.message}
+                        <strong>💡 Tip:</strong> ${validationResult.user_message || validationResult.message}
                       </div>
                     ` : ''}
                   </div>
@@ -5076,7 +4616,7 @@
               submitButton.style.opacity = '1';
             }
             
-            // Show SweetAlert for validation error
+            // Show SweetAlert for validation error (network/parse/exception)
             Swal.fire({
               icon: 'error',
               title: 'Verification Error',
@@ -5084,7 +4624,9 @@
                 <div style="text-align: center;">
                   <p style="margin-bottom: 15px;">Unable to verify reference number. Please try again.</p>
                   <p style="color: #6c757d; font-size: 14px;">
-                    Make sure your receipt image is clear and readable.
+                    • Use a <strong>payment receipt</strong> image (e.g. GCash, payment slip) that shows the reference number.<br>
+                    • Ensure the image is clear and readable.<br>
+                    • If the problem persists, check your internet connection or try again later.
                   </p>
                 </div>
               `,
@@ -7094,63 +6636,6 @@ ${pendingCache.map((req, i) =>
 
       // Initial load
       loadAllRequests();
-
-      // Dark Mode Toggle Functionality
-      const darkModeToggle = document.getElementById('darkModeToggle');
-      const darkModeIcon = document.getElementById('darkModeIcon');
-      const body = document.body;
-
-      // Check for saved dark mode preference or default to dark mode
-      const isDarkMode = localStorage.getItem('darkMode') !== 'false';
-      
-      // Initialize dark mode
-      function initializeDarkMode() {
-        if (isDarkMode) {
-          body.classList.add('dark-mode');
-          document.documentElement.classList.add('dark-mode');
-          darkModeToggle.classList.add('active');
-          darkModeIcon.className = 'fas fa-sun';
-        } else {
-          body.classList.remove('dark-mode');
-          document.documentElement.classList.remove('dark-mode');
-          darkModeToggle.classList.remove('active');
-          darkModeIcon.className = 'fas fa-moon';
-        }
-      }
-
-      // Force dark mode on page load for better text visibility
-      body.classList.add('dark-mode');
-      document.documentElement.classList.add('dark-mode');
-      darkModeToggle.classList.add('active');
-      darkModeIcon.className = 'fas fa-sun';
-      
-
-      // Toggle dark mode
-      function toggleDarkMode() {
-        const isCurrentlyDark = body.classList.contains('dark-mode');
-        
-        if (isCurrentlyDark) {
-          // Switch to light mode
-          body.classList.remove('dark-mode');
-          document.documentElement.classList.remove('dark-mode');
-          darkModeToggle.classList.remove('active');
-          darkModeIcon.className = 'fas fa-moon';
-          localStorage.setItem('darkMode', 'false');
-        } else {
-          // Switch to dark mode
-          body.classList.add('dark-mode');
-          document.documentElement.classList.add('dark-mode');
-          darkModeToggle.classList.add('active');
-          darkModeIcon.className = 'fas fa-sun';
-          localStorage.setItem('darkMode', 'true');
-        }
-      }
-
-      // Add event listener to dark mode toggle
-      darkModeToggle.addEventListener('click', toggleDarkMode);
-
-      // Initialize dark mode on page load
-      initializeDarkMode();
 
     });
 
