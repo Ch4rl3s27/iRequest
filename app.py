@@ -18,11 +18,14 @@ from typing import Any, cast, Optional, Tuple, Union
 # Load environment variables from .env file
 try:
     from dotenv import load_dotenv
-    # Try loading .env first, then aws_config.env as fallback
-    load_dotenv()  # Load .env file
+    # Load from current working directory first
+    load_dotenv()
+    # Also load from app directory (so it works when run from any cwd, e.g. on EC2)
+    _env_app_dir = os.path.dirname(os.path.abspath(__file__))
+    load_dotenv(os.path.join(_env_app_dir, '.env'))
     if not os.getenv('AWS_ACCESS_KEY_ID'):
-        # If AWS credentials not in .env, try aws_config.env
         load_dotenv('aws_config.env')
+        load_dotenv(os.path.join(_env_app_dir, 'aws_config.env'))
 except ImportError:
     # dotenv not installed, try to load aws_config.env manually
     if os.path.exists('aws_config.env'):
@@ -43,12 +46,23 @@ AWS_S3_BUCKET = os.getenv('AWS_S3_BUCKET', 'irequest-receipts')
 
 if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:
     raise RuntimeError("Missing AWS credentials in environment. Set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY.")
+
+# Staff signup: unlisted path (set in production) and optional link on login (e.g. for dev)
+STAFF_SIGNUP_PATH = os.environ.get('STAFF_SIGNUP_PATH', '/staff_signup.html').strip()
+if not STAFF_SIGNUP_PATH.startswith('/'):
+    STAFF_SIGNUP_PATH = '/' + STAFF_SIGNUP_PATH
+SHOW_STAFF_SIGNUP_LINK = os.environ.get('SHOW_STAFF_SIGNUP_LINK', 'false').strip().lower() in ('1', 'true', 'yes')
+
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
 from email.utils import formataddr
 from datetime import datetime, timedelta
 import os
+try:
+  from zoneinfo import ZoneInfo
+except ImportError:
+  ZoneInfo = None
 import base64
 import json
 import requests
@@ -240,12 +254,17 @@ def _extract_ref_amount_from_ai_text(json_text: str):
 def _groq_extract(image_b64: str, retry_count=0, model_name=None):
   """Extract receipt information using Groq AI API with Llama 4 Scout vision model"""
   try:
-    # Get API key from Flask app config
+    # Get API key from Flask app config or environment (so it works when .env is loaded from app dir)
     from flask import current_app
-    api_key = current_app.config.get('GROQ_API_KEY')
-    
+    api_key = None
+    try:
+      api_key = current_app.config.get('GROQ_API_KEY')
+    except Exception:
+      pass
     if not api_key:
-      return {'ok': False, 'message': 'GROQ_API_KEY not configured. Please set your Groq API key in the app configuration.'}
+      api_key = os.environ.get('GROQ_API_KEY')
+    if not api_key:
+      return {'ok': False, 'message': 'GROQ_API_KEY not configured. Add GROQ_API_KEY to your .env file (get a key from https://console.groq.com).'}
     
     # Try different model names if first attempt fails
     if model_name is None:
@@ -613,6 +632,121 @@ def _check_duplicate_request(cur, student_id, documents, purposes, document_type
     print(f"Error checking duplicate request: {e}")
     return False, None
 
+def _student_has_pending_request(cur, student_id):
+  """
+  Check if student has any pending clearance or document request.
+  Returns True if they have clearance_requests status='Pending' or
+  document_requests status in ('Pending','Processing').
+  """
+  try:
+    cur.execute("""
+      SELECT 1 FROM clearance_requests
+      WHERE student_id = %s AND status = 'Pending'
+      LIMIT 1
+    """, (student_id,))
+    if cur.fetchone():
+      return True
+    cur.execute("""
+      SELECT 1 FROM document_requests
+      WHERE student_id = %s AND status IN ('Pending', 'Processing')
+      LIMIT 1
+    """, (student_id,))
+    return cur.fetchone() is not None
+  except Exception as e:
+    print(f"Error checking pending request: {e}")
+    return False
+
+def _normalize_doc_name(x):
+  """Return trimmed string for a document name (for consistent matching)."""
+  if x is None:
+    return ""
+  s = str(x).strip()
+  return s
+
+# Map aliases/short names to exact checkbox values on the request form (student_dashboard)
+_DOCUMENT_NAME_TO_FORM_VALUE = {
+  "tor": "Transcript of Record",
+  "transcript": "Transcript of Record",
+  "transcript of record": "Transcript of Record",
+  "diploma": "Diploma",
+  "transfer credential": "Transfer Credential",
+  "certificate - enrollment": "Certificate - Enrollment",
+  "certificate - cross enroll": "Certificate - Cross Enroll",
+  "certificate - candidacy / completion of academic requirements": "Certificate - Candidacy / Completion of Academic Requirements",
+  "certificate - graduation": "Certificate - Graduation",
+  "certificate - weighted average": "Certificate - Weighted Average",
+  "cav": "CAV",
+}
+
+def _document_name_to_form_value(name):
+  """Return the exact form checkbox value for this document name (for disabling)."""
+  if not name:
+    return ""
+  s = _normalize_doc_name(name)
+  if not s:
+    return ""
+  key = s.lower()
+  return _DOCUMENT_NAME_TO_FORM_VALUE.get(key, s)
+
+def _student_pending_request_documents(cur, student_id):
+  """
+  Return list of document names that appear in the student's pending/processing requests.
+  Names are normalized to match the exact checkbox values on the request form.
+  """
+  out = []
+  try:
+    cur.execute("""
+      SELECT documents FROM clearance_requests
+      WHERE student_id = %s AND status = 'Pending'
+    """, (student_id,))
+    for row in cur.fetchall() or []:
+      docs = row.get('documents')
+      if docs is None:
+        continue
+      if isinstance(docs, str):
+        try:
+          docs = json.loads(docs)
+        except Exception:
+          docs = [d.strip() for d in docs.split(',') if d.strip()]
+      if isinstance(docs, list):
+        for d in docs:
+          name = _document_name_to_form_value(d)
+          if name:
+            out.append(name)
+    cur.execute("""
+      SELECT document_type FROM document_requests
+      WHERE student_id = %s AND status IN ('Pending', 'Processing')
+    """, (student_id,))
+    for row in cur.fetchall() or []:
+      dt = row.get('document_type')
+      if dt is None:
+        continue
+      if isinstance(dt, str):
+        try:
+          parsed = json.loads(dt)
+          if isinstance(parsed, list):
+            for p in parsed:
+              name = _document_name_to_form_value(p)
+              if name:
+                out.append(name)
+          else:
+            name = _document_name_to_form_value(parsed)
+            if name:
+              out.append(name)
+        except Exception:
+          for part in (d.strip() for d in dt.split(',') if d.strip()):
+            name = _document_name_to_form_value(part)
+            if name:
+              out.append(name)
+      else:
+        name = _document_name_to_form_value(dt)
+        if name:
+          out.append(name)
+    return list(dict.fromkeys(out))
+  except Exception as e:
+    print(f"Error getting pending request documents: {e}")
+    return []
+
 def _create_clearance_notification_email_template(signatory_name: str, student_name: str, documents: list, purposes: list, deadline_date: str) -> str:
   """
   Creates a beautiful HTML email template for clearance request notifications.
@@ -909,6 +1043,23 @@ def create_notification(student_id, staff_name, action, phase, message):
     except Exception as e:
         print(f"❌ Error creating notification: {e}")
         # Don't affect the main transaction if notification fails
+
+
+def log_user_activity(mysql_conn, user_type: str, user_identifier: str, user_display_name: str, action: str, details: Optional[str] = None):
+  """Log user activity for admin monitoring. user_type: 'student'|'staff'|'admin'."""
+  if not mysql_conn:
+    return
+  try:
+    cur, conn = mysql_conn.cursor()
+    cur.execute("""
+      INSERT INTO user_activity_log (user_type, user_identifier, user_display_name, action, details)
+      VALUES (%s, %s, %s, %s, %s)
+    """, (user_type, (user_identifier or '')[:255], (user_display_name or '')[:255], (action or '')[:500], (details or '')[:1000] if details else None))
+    cur.close()
+    conn.close()
+  except Exception as e:
+    print(f"⚠️ log_user_activity failed: {e}")
+
 
 def create_app() -> Flask:
   global mysql
@@ -1316,6 +1467,7 @@ def create_app() -> Flask:
         signed_by VARCHAR(255) NULL,
         signed_at TIMESTAMP NULL,
         rejection_reason TEXT NULL,
+        remarks TEXT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         CONSTRAINT fk_signatory_request FOREIGN KEY (request_id) REFERENCES clearance_requests(id) ON DELETE CASCADE,
@@ -1337,6 +1489,13 @@ def create_app() -> Flask:
     except Exception as e:
       if "Duplicate column name" not in str(e):
         print(f"⚠️ Could not add signed_at column: {e}")
+      pass
+    try:
+      cur.execute("ALTER TABLE clearance_signatories ADD COLUMN remarks TEXT NULL")
+      print("✅ Added remarks column to clearance_signatories")
+    except Exception as e:
+      if "Duplicate column name" not in str(e):
+        print(f"⚠️ Could not add remarks column: {e}")
       pass
 
     cur.execute(
@@ -1494,13 +1653,37 @@ def create_app() -> Flask:
       """
     )
 
+    # User activity log for admin dashboard monitoring
+    cur.execute(
+      """
+      CREATE TABLE IF NOT EXISTS user_activity_log (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_type VARCHAR(20) NOT NULL,
+        user_identifier VARCHAR(255) NOT NULL,
+        user_display_name VARCHAR(255) NOT NULL,
+        action VARCHAR(500) NOT NULL,
+        details TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_created_at (created_at),
+        INDEX idx_user_type (user_type)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      """
+    )
+
     cur.close()
     conn.close()
     print("✅ Database tables and columns verified/created successfully")
 
-  # Initialize database inside application context
+  # Initialize database inside application context (retry once on connection error)
   with app.app_context():
-    init_db()
+    try:
+      init_db()
+    except Exception as e:
+      err_name = getattr(type(e), "__name__", "")
+      if err_name in ("InterfaceError", "OperationalError"):
+        init_db()
+      else:
+        raise
 
   # ---------------- Messenger config ----------------
   app.config['JWT_SECRET'] = os.environ.get('JWT_SECRET', 'dev-secret-change-me')
@@ -1685,14 +1868,18 @@ def create_app() -> Flask:
   # Routes to serve HTML templates
   @app.route('/login.html')
   def login_page():
-    return render_template('login.html')
+    return render_template('login.html',
+                          show_staff_signup_link=SHOW_STAFF_SIGNUP_LINK,
+                          staff_signup_path=STAFF_SIGNUP_PATH)
   
   @app.route('/Student_Signup.html')
   def student_signup_page():
     return render_template('Student_Signup.html')
   
-  @app.route('/staff_signup.html')
+  @app.route(STAFF_SIGNUP_PATH)
   def staff_signup_page():
+    if session.get('student_email'):
+      return redirect('/student_dashboard.html')
     return render_template('staff_signup.html')
   
   @app.route('/student_dashboard.html')
@@ -1935,6 +2122,8 @@ def create_app() -> Flask:
 
   @app.route('/staff/signup', methods=['POST'])
   def staff_signup():
+    if session.get('student_email'):
+      return jsonify({"ok": False, "message": "Staff signup is not allowed for student accounts."}), 403
     form = request.form
     department = form.get('department', '').strip()
     first_name = form.get('first_name', '').strip()
@@ -2099,6 +2288,7 @@ def create_app() -> Flask:
             # Login should not send or require OTP. Allow if credentials match.
             session['student_email'] = email
             session.permanent = True  # Make session permanent
+            log_user_activity(mysql, 'student', email, f"{student.get('first_name','')} {student.get('last_name','')}".strip() or email, 'Logged in to the system')
             cur.close()
             conn.close()
             return jsonify({"ok": True, "redirect": "/student_dashboard.html"})
@@ -2128,6 +2318,8 @@ def create_app() -> Flask:
             session['staff_email'] = email
             # Make session permanent for staff members
             session.permanent = True
+            staff_display = f"{staff.get('first_name','')} {staff.get('last_name','')}".strip() or email
+            log_user_activity(mysql, 'admin' if department_lower == 'admin' else 'staff', email, staff_display, 'Logged in to the system')
             # Redirect by department
             department = department_lower
             dept_to_page = {
@@ -2538,10 +2730,14 @@ def create_app() -> Flask:
       return _message_and_back('Missing staff id.')
     try:
       cur, conn = mysql.cursor()
+      cur.execute("SELECT first_name, last_name, email FROM staff WHERE id=%s", (staff_id,))
+      staff_row = cur.fetchone()
       cur.execute("UPDATE staff SET status='Approved', approved_by=%s, rejection_reason=NULL WHERE id=%s", (approver, staff_id))
       # No need to commit with autocommit=True
       cur.close()
       conn.close()
+      staff_name = f"{staff_row.get('first_name','')} {staff_row.get('last_name','')}".strip() if staff_row else f"ID {staff_id}"
+      log_user_activity(mysql, 'admin', session.get('staff_email') or approver, approver, 'Approved staff', details=staff_name)
       if request.is_json:
         return jsonify({"ok": True})
       return redirect('/admin/staff/pending')
@@ -2563,10 +2759,14 @@ def create_app() -> Flask:
       return _message_and_back('Missing staff id or reason.')
     try:
       cur, conn = mysql.cursor()
+      cur.execute("SELECT first_name, last_name FROM staff WHERE id=%s", (staff_id,))
+      staff_row = cur.fetchone()
       cur.execute("UPDATE staff SET status='Rejected', approved_by=%s, rejection_reason=%s WHERE id=%s", (approver, reason, staff_id))
       # No need to commit with autocommit=True
       cur.close()
       conn.close()
+      staff_name = f"{staff_row.get('first_name','')} {staff_row.get('last_name','')}".strip() if staff_row else f"ID {staff_id}"
+      log_user_activity(mysql, 'admin', session.get('staff_email') or approver, approver, 'Rejected staff', details=f"{staff_name}: {reason[:200]}")
       if request.is_json:
         return jsonify({"ok": True})
       return redirect('/admin/staff/pending')
@@ -2612,6 +2812,30 @@ def create_app() -> Flask:
   @app.route('/api/admin/me')
   def api_admin_me():
     return jsonify({"ok": True, "admin_name": session.get('admin_name', 'Admin')})
+
+  @app.route('/api/admin/activity-log')
+  def api_admin_activity_log():
+    if not session.get('admin_name') and session.get('staff_department') != 'admin':
+      return jsonify({"ok": False, "message": "Unauthorized"}), 403
+    limit = min(int(request.args.get('limit', 100)), 500)
+    try:
+      cur, conn = mysql.cursor()
+      cur.execute("""
+        SELECT id, user_type, user_identifier, user_display_name, action, details, created_at
+        FROM user_activity_log
+        ORDER BY created_at DESC
+        LIMIT %s
+      """, (limit,))
+      rows = cur.fetchall()
+      cur.close()
+      conn.close()
+      # Send raw UTC time; frontend will treat as UTC and display in user's local time (e.g. Philippines)
+      for r in rows:
+        if r.get('created_at'):
+          r['created_at'] = r['created_at'].strftime('%Y-%m-%d %H:%M:%S') if hasattr(r['created_at'], 'strftime') else str(r['created_at'])
+      return jsonify({"ok": True, "data": rows})
+    except Exception as err:
+      return jsonify({"ok": False, "message": str(err)}), 500
 
   # Helper function to build student information from database result
   def _build_student_info(result):
@@ -3354,6 +3578,48 @@ def create_app() -> Flask:
       print(f"❌ Traceback: {error_trace}")
       return jsonify({"ok": False, "message": f"Error: {str(err)}"}), 500
 
+  @app.route('/api/student/has-pending-request')
+  def api_student_has_pending_request():
+    """Return whether the current student has any pending clearance or document request."""
+    try:
+      student_email = session.get('student_email')
+      if not student_email:
+        return jsonify({"ok": False, "message": "No student session found"}), 401
+      cur, conn = mysql.cursor()
+      cur.execute("SELECT id FROM students WHERE email = %s", (student_email,))
+      stu = cur.fetchone()
+      if not stu:
+        cur.close()
+        conn.close()
+        return jsonify({"ok": False, "message": "Student not found"}), 404
+      has_pending = _student_has_pending_request(cur, stu['id'])
+      cur.close()
+      conn.close()
+      return jsonify({"ok": True, "has_pending": has_pending})
+    except Exception as e:
+      return jsonify({"ok": False, "message": str(e)}), 500
+
+  @app.route('/api/student/pending-request-documents')
+  def api_student_pending_request_documents():
+    """Return document names that are in the student's pending/processing requests (to disable those checkboxes)."""
+    try:
+      student_email = session.get('student_email')
+      if not student_email:
+        return jsonify({"ok": False, "message": "No student session found"}), 401
+      cur, conn = mysql.cursor()
+      cur.execute("SELECT id FROM students WHERE email = %s", (student_email,))
+      stu = cur.fetchone()
+      if not stu:
+        cur.close()
+        conn.close()
+        return jsonify({"ok": False, "message": "Student not found"}), 404
+      documents = _student_pending_request_documents(cur, stu['id'])
+      cur.close()
+      conn.close()
+      return jsonify({"ok": True, "documents": documents})
+    except Exception as e:
+      return jsonify({"ok": False, "message": str(e)}), 500
+
   # List all requests for the current student (for status badges/UI)
   @app.route('/api/student/existing-requests')
   def api_student_existing_requests():
@@ -3617,7 +3883,7 @@ def create_app() -> Flask:
           placeholders = ','.join(['%s'] * len(request_ids))
           cur.execute(
             f"""
-            SELECT request_id, office, status, signed_by, signed_at, rejection_reason
+            SELECT request_id, office, status, signed_by, signed_at, rejection_reason, remarks
             FROM clearance_signatories
             WHERE request_id IN ({placeholders})
             ORDER BY request_id, id ASC
@@ -3971,6 +4237,34 @@ def create_app() -> Flask:
   @app.route('/api/logout', methods=['POST'])
   def api_logout():
     try:
+      # Log logout activity before clearing session
+      student_email = session.get('student_email')
+      staff_email = session.get('dean_email') or session.get('staff_email')
+      if student_email:
+        try:
+          cur, conn = mysql.cursor()
+          cur.execute("SELECT first_name, last_name FROM students WHERE email = %s", (student_email,))
+          row = cur.fetchone()
+          cur.close()
+          conn.close()
+          display = f"{row.get('first_name', '')} {row.get('last_name', '')}".strip() if row else student_email
+          log_user_activity(mysql, 'student', student_email, display, 'Logged out of the system')
+        except Exception:
+          log_user_activity(mysql, 'student', student_email, student_email, 'Logged out of the system')
+      elif staff_email:
+        display = session.get('admin_name')
+        if not display:
+          try:
+            cur, conn = mysql.cursor()
+            cur.execute("SELECT first_name, last_name, department FROM staff WHERE email = %s", (staff_email,))
+            row = cur.fetchone()
+            cur.close()
+            conn.close()
+            display = f"{row.get('first_name', '')} {row.get('last_name', '')}".strip() if row else staff_email
+          except Exception:
+            display = staff_email
+        user_type = 'admin' if session.get('staff_department') == 'admin' else 'staff'
+        log_user_activity(mysql, user_type, staff_email, display or staff_email, 'Logged out of the system')
       session.clear()
       return jsonify({"ok": True})
     except Exception as err:
@@ -4332,6 +4626,15 @@ def create_app() -> Flask:
       # Get student name for email notifications
       student_name = f"{stu.get('first_name', '')} {stu.get('middle_name', '')} {stu.get('last_name', '')}".strip()
       
+      # Block new request if student still has a pending request
+      if _student_has_pending_request(cur, student_id):
+        cur.close()
+        conn.close()
+        return jsonify({
+          "ok": False,
+          "message": "May pending request ka pa. Hintayin mo muna na ma-process o ma-complete ang iyong current request bago makapag-request ng bagong dokumento."
+        }), 400
+      
       if request.is_json:
         print(f"🔍 CLEARANCE REQUEST: Processing JSON request")
         try:
@@ -4494,6 +4797,8 @@ def create_app() -> Flask:
         # Don't fail the request if email fails
         import traceback
         traceback.print_exc()
+
+      log_user_activity(mysql, 'student', student_email, student_name, 'Submitted clearance request', details=f"Request ID: {request_id}")
       
       return jsonify({
         "ok": True, 
@@ -4537,7 +4842,7 @@ def create_app() -> Flask:
       # Get signatories in a separate query (can't be easily joined due to multiple rows)
       cur.execute(
         """
-        SELECT office, status, signed_by, signed_at, rejection_reason
+        SELECT office, status, signed_by, signed_at, rejection_reason, remarks
         FROM clearance_signatories
         WHERE request_id = %s
         ORDER BY id ASC
@@ -4882,7 +5187,7 @@ def create_app() -> Flask:
         SELECT cs.id AS signatory_id, cr.id AS request_id, s.id AS student_id,
                s.first_name, s.last_name, s.course_code, s.course_name, s.year_level, s.year_level_name,
                cr.purposes, cr.payment_method, cr.payment_amount, cr.payment_details, cr.payment_receipt,
-               cs.rejection_reason, cs.updated_at
+               cs.rejection_reason, cs.remarks, cs.updated_at
         FROM clearance_signatories cs
         JOIN clearance_requests cr ON cr.id = cs.request_id
         JOIN students s ON s.id = cr.student_id
@@ -5390,7 +5695,7 @@ def create_app() -> Flask:
       print(f"🔍 Updating signatory {signatory_id} for request {request_id}")
       
       # Approve registrar signatory
-      cur.execute("UPDATE clearance_signatories SET status='Approved', signed_by=%s, signed_at=NOW() WHERE id=%s", (registrar, signatory_id))
+      cur.execute("UPDATE clearance_signatories SET status='Approved', signed_by=%s, signed_at=NOW(), rejection_reason=NULL, remarks=NULL WHERE id=%s", (registrar, signatory_id))
       
       if signature:
         print(f"🔍 Updating student signature for student_id: {student_id}")
@@ -5423,6 +5728,7 @@ def create_app() -> Flask:
     reason = (data.get('reason') or '').strip()
     if not request_id or not reason:
       return jsonify({"ok": False, "message": "Missing request_id or reason"}), 400
+    remarks = (data.get('remarks') or '').strip() or None
     try:
       cur, conn = mysql.cursor()
       # Find registrar signatory for request
@@ -5433,7 +5739,7 @@ def create_app() -> Flask:
         conn.close()
         return jsonify({"ok": False, "message": "Registrar signatory not found"}), 404
       signatory_id = row['id']
-      cur.execute("UPDATE clearance_signatories SET status='Rejected', rejection_reason=%s, updated_at=NOW() WHERE id=%s", (reason, signatory_id))
+      cur.execute("UPDATE clearance_signatories SET status='Rejected', rejection_reason=%s, remarks=%s, updated_at=NOW() WHERE id=%s", (reason, remarks, signatory_id))
       cur.execute("UPDATE clearance_requests SET status='Rejected', fulfillment_status='Rejected', registrar_status='Pending' WHERE id=%s", (request_id,))
       # No need to commit with autocommit=True
       cur.close()
@@ -5478,7 +5784,7 @@ def create_app() -> Flask:
       signatory_id = signatory_row['id']
       
       # Update registrar signatory status back to pending
-      cur.execute("UPDATE clearance_signatories SET status='Pending', signed_by=NULL, rejection_reason=NULL, updated_at=NOW() WHERE id=%s", (signatory_id,))
+      cur.execute("UPDATE clearance_signatories SET status='Pending', signed_by=NULL, rejection_reason=NULL, remarks=NULL, updated_at=NOW() WHERE id=%s", (signatory_id,))
       
       # Update the main request status back to pending
       cur.execute("UPDATE clearance_requests SET status='Pending', fulfillment_status='Pending', registrar_status='Pending' WHERE id=%s", (request_id,))
@@ -5707,7 +6013,7 @@ def create_app() -> Flask:
       
       # Get all signatories for this request
       cur.execute("""
-        SELECT office, status, signed_by, signed_at, rejection_reason
+        SELECT office, status, signed_by, signed_at, rejection_reason, remarks
         FROM clearance_signatories 
         WHERE request_id = %s
         ORDER BY office
@@ -5799,7 +6105,7 @@ def create_app() -> Flask:
           return jsonify({"ok": False, "message": "Signatory not found"}), 404
         request_id = row['request_id']
         # Update signatory status
-        cur.execute("UPDATE clearance_signatories SET status='Approved', signed_by=%s, signed_at=NOW(), rejection_reason=NULL WHERE id=%s", (approver, signatory_id))
+        cur.execute("UPDATE clearance_signatories SET status='Approved', signed_by=%s, signed_at=NOW(), rejection_reason=NULL, remarks=NULL WHERE id=%s", (approver, signatory_id))
         
         # Store signature image on the student record if provided
         cur.execute("SELECT student_id, status FROM clearance_requests WHERE id=%s", (request_id,))
@@ -5861,7 +6167,8 @@ def create_app() -> Flask:
         conn.close()
         return jsonify({"ok": False, "message": "Signatory not found"}), 404
       request_id = row['request_id']
-      cur.execute("UPDATE clearance_signatories SET status='Rejected', signed_by=%s, signed_at=NOW(), rejection_reason=%s WHERE id=%s", (approver, reason, signatory_id))
+      remarks = (data.get('remarks') or '').strip() or None
+      cur.execute("UPDATE clearance_signatories SET status='Rejected', signed_by=%s, signed_at=NOW(), rejection_reason=%s, remarks=%s WHERE id=%s", (approver, reason, remarks, signatory_id))
       cur.execute("UPDATE clearance_requests SET status='Rejected', fulfillment_status='Rejected', registrar_status='Pending' WHERE id=%s", (request_id,))
       # Sync student status
       cur.execute("SELECT student_id FROM clearance_requests WHERE id=%s", (request_id,))
@@ -6332,9 +6639,7 @@ def create_app() -> Flask:
         for month in sorted(data_by_month.keys()):
           month_data = data_by_month[month]
           count = month_data['documents'].get(doc_type, 0)
-          total = monthly_totals[month]
-          percentage = (count / total * 100) if total > 0 else 0
-          data.append(round(percentage, 1))
+          data.append(count)
         
         datasets.append({
           'label': doc_type,
@@ -6343,6 +6648,66 @@ def create_app() -> Flask:
           'borderColor': colors[idx % len(colors)].replace('0.8', '1'),
           'borderWidth': 1
         })
+      
+      monthly_totals_arr = [monthly_totals[m] for m in sorted(data_by_month.keys())]
+      
+      # By course with document breakdown (so frontend can show which docs each course requested)
+      cur.execute("""
+        SELECT COALESCE(NULLIF(TRIM(s.course_name), ''), NULLIF(TRIM(s.course_code), ''), 'Unknown') AS course,
+               cr.documents
+        FROM clearance_requests cr
+        JOIN students s ON s.id = cr.student_id
+        WHERE cr.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)
+          AND cr.documents IS NOT NULL AND cr.documents != ''
+      """)
+      course_doc_counts = {}
+      for row in (cur.fetchall() or []):
+        course = row['course'] or 'Unknown'
+        docs_json = row['documents']
+        doc_list = []
+        if docs_json:
+          try:
+            parsed = json.loads(docs_json)
+            doc_list = parsed if isinstance(parsed, list) else [parsed] if isinstance(parsed, str) else []
+          except Exception:
+            if isinstance(docs_json, str):
+              doc_list = [docs_json]
+        for doc_type in doc_list:
+          if doc_type and str(doc_type).strip():
+            doc_type = str(doc_type).strip()
+            if course not in course_doc_counts:
+              course_doc_counts[course] = {}
+            course_doc_counts[course][doc_type] = course_doc_counts[course].get(doc_type, 0) + 1
+      cur.execute("""
+        SELECT COALESCE(NULLIF(TRIM(s.course_name), ''), NULLIF(TRIM(s.course_code), ''), 'Unknown') AS course,
+               dr.document_type AS doc_type,
+               COUNT(*) AS cnt
+        FROM document_requests dr
+        JOIN students s ON s.id = dr.student_id
+        WHERE dr.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)
+          AND dr.clearance_request_id IS NULL
+          AND dr.document_type IS NOT NULL AND dr.document_type != ''
+        GROUP BY 1, 2
+      """)
+      for row in (cur.fetchall() or []):
+        course = row['course'] or 'Unknown'
+        doc_type = (row['doc_type'] or '').strip()
+        if not doc_type:
+          continue
+        if course not in course_doc_counts:
+          course_doc_counts[course] = {}
+        course_doc_counts[course][doc_type] = course_doc_counts[course].get(doc_type, 0) + row['cnt']
+      
+      all_doc_types_course = set()
+      for doc_dict in course_doc_counts.values():
+        all_doc_types_course.update(doc_dict.keys())
+      course_document_types = sorted(all_doc_types_course)
+      by_course = []
+      for course in sorted(course_doc_counts.keys()):
+        doc_dict = course_doc_counts[course]
+        total = sum(doc_dict.values())
+        documents = [{'type': t, 'count': doc_dict[t]} for t in sorted(doc_dict.keys())]
+        by_course.append({'course': course, 'total': total, 'documents': documents})
       
       cur.close()
       conn.close()
@@ -6353,7 +6718,10 @@ def create_app() -> Flask:
           'months': months,
           'document_types': document_types,
           'datasets': datasets,
-          'monthly_totals': {k: v for k, v in monthly_totals.items()}
+          'monthly_totals': {k: v for k, v in monthly_totals.items()},
+          'monthly_totals_arr': monthly_totals_arr,
+          'by_course': by_course,
+          'course_document_types': course_document_types
         }
       })
     except Exception as err:
@@ -6775,6 +7143,14 @@ def create_app() -> Flask:
         print(f"DEBUG: Confidence: {confidence}")
         print(f"DEBUG: Raw text: {result.get('raw_text', '')[:500]}")
       
+      # User-friendly message when no reference number found (wrong image type or unreadable)
+      user_message = None
+      if not extracted_digits:
+        user_message = (
+          "No reference number found in the image. "
+          "Please upload a clear photo of your payment receipt (e.g. GCash, payment slip) that clearly shows the reference number."
+        )
+      
       return jsonify({
         "ok": True,
         "matches": matches,
@@ -6786,6 +7162,7 @@ def create_app() -> Flask:
         "amount": result.get('amount'),
         "raw_text": result.get('raw_text', ''),
         "ai_success": bool(extracted_digits),
+        "user_message": user_message,
         "debug_info": {
           "ai_processed": True,
           "extraction_successful": bool(extracted_digits),
@@ -6908,6 +7285,15 @@ def create_app() -> Flask:
         return jsonify({"ok": False, "message": "Student not found"}), 404
       
       student_id = stu['id']
+      
+      # Block new request if student still has a pending request
+      if _student_has_pending_request(cur, student_id):
+        cur.close()
+        conn.close()
+        return jsonify({
+          "ok": False,
+          "message": "May pending request ka pa. Hintayin mo muna na ma-process o ma-complete ang iyong current request bago makapag-request ng bagong dokumento."
+        }), 400
       
       # Check if request is JSON or FormData
       is_json = request.content_type and 'application/json' in request.content_type

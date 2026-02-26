@@ -323,9 +323,30 @@
       openSig(tr);
     } else if (action === 'reject') {
       const { value: reason } = await Swal.fire({
-        title: 'Reject Request', input: 'text', inputLabel: 'Reason', inputPlaceholder: 'Enter reason', showCancelButton: true
+        title: 'Reject Request',
+        html: `
+          <label class="swal2-input-label" style="display:block; text-align:left; margin-bottom:4px;">Reason (required)</label>
+          <input id="swal-reason" class="swal2-input" placeholder="e.g. Incomplete records">
+          <label class="swal2-input-label" style="display:block; text-align:left; margin:12px 0 4px;">Remarks (required)</label>
+          <textarea id="swal-remarks" class="swal2-textarea" placeholder="e.g. manuscript, missing form — so registrar and student can see what is missing" style="min-height:60px; resize:vertical;"></textarea>
+        `,
+        showCancelButton: true,
+        preConfirm: () => {
+          const r = document.getElementById('swal-reason').value.trim();
+          const m = (document.getElementById('swal-remarks') || {}).value.trim();
+          if (!r) {
+            Swal.showValidationMessage('Please enter a reason');
+            return false;
+          }
+          if (!m) {
+            Swal.showValidationMessage('Please enter remarks (e.g. what is missing) so registrar and student can see.');
+            return false;
+          }
+          return { reason: r, remarks: m };
+        }
       });
-      if (!reason) return;
+      const payload = reason;
+      if (!payload || !payload.reason) return;
       
       try {
         // Show loading state
@@ -336,7 +357,7 @@
         const response = await fetch('/api/signatories/reject', { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify({ signatory_id: signatoryId, reason }) 
+          body: JSON.stringify({ signatory_id: signatoryId, reason: payload.reason, remarks: payload.remarks }) 
         });
         
         const result = await response.json();

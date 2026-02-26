@@ -366,6 +366,7 @@ async function viewDetails(requestId) {
           <td class="signed-by">${s.signed_by || '—'}</td>
           <td class="date-cell">${s.signed_at ? new Date(s.signed_at).toLocaleDateString() : '—'}</td>
           <td class="reason-cell">${s.rejection_reason || '—'}</td>
+          <td class="remarks-cell">${s.remarks || '—'}</td>
         </tr>
       `;
     }).join('');
@@ -409,6 +410,7 @@ async function viewDetails(requestId) {
                     <th class="signed-col">Signed By</th>
                     <th class="date-col">Date</th>
                     <th class="reason-col">Reason</th>
+                    <th class="remarks-col">Remarks</th>
                   </tr>
                 </thead>
                 <tbody>

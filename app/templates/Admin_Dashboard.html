@@ -283,6 +283,10 @@
         <i class="fas fa-lock"></i>
         <span class="link-text">Change Password</span>
       </div>
+      <div class="sidebar-nav-item" onclick="loadContent('activity')">
+        <i class="fas fa-history"></i>
+        <span class="link-text">User Activity Monitoring</span>
+      </div>
     </div>
     <div class="sidebar-footer">
       <button class="logout-btn" onclick="logout()">
@@ -349,7 +353,7 @@
         </h4>
       </div>
       
-      <!-- Search and Refresh -->
+      <!-- Search -->
       <div class="p-6 border-b border-gray-200">
         <div class="flex flex-col md:flex-row gap-4">
           <input 
@@ -358,13 +362,6 @@
             placeholder="Search staff..." 
             class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
           >
-          <button 
-            onclick="refreshAll()" 
-            class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2 justify-center font-medium"
-          >
-            <i class="fas fa-sync-alt"></i>
-            Refresh
-          </button>
         </div>
       </div>
       
@@ -545,8 +542,9 @@
         confirmButtonText: 'Yes, Logout',
         cancelButtonText: 'Cancel',
         confirmButtonColor: '#ef4444'
-      }).then((result) => {
+      }).then(async (result) => {
         if (result.isConfirmed) {
+          try { await fetch('/api/logout', { method: 'POST' }); } catch (_) {}
           window.location.href = '/login.html';
         }
       });
@@ -892,25 +890,6 @@
       }
     });
 
-    async function refreshAll() {
-      try {
-        Swal.fire({
-          title: 'Refreshing...',
-          text: 'Please wait',
-          allowOutsideClick: false,
-          showConfirmButton: false,
-          didOpen: () => Swal.showLoading()
-        });
-        
-        await Promise.all([refreshCounts(), fetchApprovals(), fetchApproved(), fetchRejected()]);
-        
-        Swal.close();
-      } catch (err) {
-        Swal.close();
-        console.error('Error refreshing:', err);
-      }
-    }
-
     // Load admin name
     (async function() {
       try {
@@ -944,8 +923,43 @@
     // Load content function for navigation
     function loadContent(type) {
       const mainContent = document.getElementById('mainContent');
-      
+      const topbarTitle = document.querySelector('.topbar h2');
+
+      if (type === 'activity') {
+        if (topbarTitle) topbarTitle.textContent = 'User Activity Monitoring';
+        mainContent.innerHTML = `
+          <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <div class="bg-gradient-to-r from-slate-600 to-slate-700 text-white px-6 py-4">
+              <h4 class="text-xl font-semibold flex items-center gap-2">
+                <i class="fas fa-history"></i>
+                User Activity Monitoring
+              </h4>
+              <p class="text-slate-200 text-sm mt-1">Recent user activities in the system</p>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="min-w-full">
+                <thead class="bg-gray-100">
+                  <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Date & Time</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">User</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Type</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Action</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" title="e.g. Request ID when student requests; staff name when admin approves/rejects">Details</th>
+                  </tr>
+                </thead>
+                <tbody id="activityLogBody" class="bg-white divide-y divide-gray-200">
+                  <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500"><i class="fas fa-spinner fa-spin text-2xl mb-2 block"></i> Loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+        fetchActivityLog();
+        return;
+      }
+
       if (type === 'password') {
+        if (topbarTitle) topbarTitle.textContent = 'Change Password';
         mainContent.innerHTML = `
           <div class="bg-white rounded-xl shadow-md p-6 max-w-2xl">
             <div class="mb-6">
@@ -1074,6 +1088,83 @@
           text: 'Unable to connect to server. Please check your connection and try again.',
           confirmButtonText: 'OK'
         });
+      }
+    }
+
+    function formatActivityDateTime(dateStr) {
+      if (!dateStr) return '-';
+      try {
+        // Server sends UTC (e.g. 00:50 = 12:50 am UTC). Treat as UTC so local time shows correctly (e.g. 8:50 am Philippines).
+        let s = String(dateStr).trim().replace(' ', 'T');
+        if (!/Z|[+-]\d{2}:?\d{2}$/.test(s)) s += 'Z';
+        const d = new Date(s);
+        if (isNaN(d.getTime())) return dateStr;
+        const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        const datePart = `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+        let h = d.getHours(), m = d.getMinutes();
+        const ampm = h >= 12 ? 'pm' : 'am';
+        h = h % 12 || 12;
+        const timePart = `${h}:${String(m).padStart(2,'0')} ${ampm}`;
+        return `${datePart}, ${timePart}`;
+      } catch (_) { return dateStr; }
+    }
+
+    function actionToEnglish(action) {
+      if (!action) return '-';
+      const map = {
+        'Nag-log in sa system': 'Logged in to the system',
+        'Nag-log out sa system': 'Logged out of the system',
+        'In-approve ang staff': 'Approved staff',
+        'Ni-reject ang staff': 'Rejected staff',
+        'Nag-submit ng clearance request': 'Submitted clearance request'
+      };
+      return map[action] || action;
+    }
+
+    async function fetchActivityLog() {
+      const tbody = document.getElementById('activityLogBody');
+      try {
+        tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
+        const r = await safeFetchJson('/api/admin/activity-log');
+        if (!r.ok || !r.json?.ok) {
+          const msg = r.json?.message || r.text || 'Failed to load activity log';
+          tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-red-600">${msg}</td></tr>`;
+          return;
+        }
+        const data = r.json.data || [];
+        if (data.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                <i class="fas fa-inbox text-4xl mb-2 block"></i>
+                No activity log yet
+              </td>
+            </tr>
+          `;
+          return;
+        }
+        tbody.innerHTML = data.map(row => {
+          const typeLabel = row.user_type === 'admin' ? 'Admin' : row.user_type === 'staff' ? 'Staff' : 'Student';
+          const typeBadge = row.user_type === 'admin' ? 'bg-purple-100 text-purple-800' : row.user_type === 'staff' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800';
+          const dateTimeFormatted = formatActivityDateTime(row.created_at);
+          return `
+            <tr class="hover:bg-gray-50 transition">
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${dateTimeFormatted}</td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900">${(row.user_display_name || row.user_identifier || '-')}</div>
+                <div class="text-xs text-gray-500">${(row.user_identifier || '')}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${typeBadge}">${typeLabel}</span>
+              </td>
+              <td class="px-6 py-4 text-sm text-gray-700">${actionToEnglish(row.action)}</td>
+              <td class="px-6 py-4 text-sm text-gray-600 max-w-xs truncate" title="${(row.details || '').replace(/"/g, '&quot;')}">${(row.details || '-')}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Error fetching activity log:', err);
+        tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-red-600">Error loading activity log</td></tr>`;
       }
     }
 

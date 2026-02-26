@@ -8,6 +8,7 @@ uploads/
 backup_*/
 aws_config.env
 irequest-s3-user_accessKeys*.csv
+irequest_accessKeys*.csv
 .env
 .env.*
 .vscode/

@@ -1993,6 +1993,8 @@
                   <th>Payment Status</th>
                   <th>Status</th>
                   <th>Reason</th>
+                  <th>Remarks</th>
+                  <th>Approve</th>
                 </tr>
               </thead>
               <tbody id="clRejectedList"></tbody>
@@ -2015,6 +2017,18 @@
               </div>
               <div class="card-body">
                 <canvas id="analyticsChart" height="80"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row mt-4">
+          <div class="col-12">
+            <div class="card shadow-sm">
+              <div class="card-header text-white" style="background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);">
+                <h5 class="mb-0"><i class="fas fa-graduation-cap me-2"></i>Requests by Course</h5>
+              </div>
+              <div class="card-body">
+                <canvas id="analyticsCourseChart" height="80"></canvas>
               </div>
             </div>
           </div>
@@ -2179,6 +2193,12 @@
                         <div class="th-content">
                           <i class="fa-solid fa-comment"></i>
                           <span>Reason</span>
+                        </div>
+                      </th>
+                      <th>
+                        <div class="th-content">
+                          <i class="fa-solid fa-pen-to-square"></i>
+                          <span>Remarks</span>
                         </div>
                       </th>
                     </tr>
@@ -2507,7 +2527,7 @@
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
       max-height: 500px;
       overflow-y: auto;
-      overflow-x: hidden;
+      overflow-x: auto;
     }
 
     .professional-table {
@@ -2536,11 +2556,12 @@
       white-space: nowrap;
     }
 
-    .professional-table th:nth-child(1) { width: 25%; } /* Office */
-    .professional-table th:nth-child(2) { width: 15%; } /* Status */
-    .professional-table th:nth-child(3) { width: 20%; } /* Approved By */
-    .professional-table th:nth-child(4) { width: 20%; } /* Updated */
-    .professional-table th:nth-child(5) { width: 20%; } /* Reason */
+    .professional-table th:nth-child(1) { width: 18%; } /* Office */
+    .professional-table th:nth-child(2) { width: 10%; } /* Status */
+    .professional-table th:nth-child(3) { width: 18%; } /* Approved By */
+    .professional-table th:nth-child(4) { width: 12%; } /* Updated */
+    .professional-table th:nth-child(5) { width: 21%; } /* Reason */
+    .professional-table th:nth-child(6) { width: 21%; } /* Remarks */
 
     .th-content {
       display: flex;
@@ -2566,10 +2587,28 @@
     .professional-table td.text-muted {
       font-size: 12px;
       color: #64748b;
-      max-width: 100%;
+    }
+
+    .professional-table td.reason-remarks-cell {
+      font-size: 12px;
+      color: #64748b;
+      white-space: normal;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
       overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      min-width: 0;
+      box-sizing: border-box;
+      vertical-align: top;
+    }
+
+    .professional-table td.reason-remarks-cell .reason-remarks-inner {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      line-height: 1.4;
+      box-sizing: border-box;
     }
 
     .professional-table td small {
@@ -4354,6 +4393,25 @@
        Load Analytics Data and Display Charts
        ============================================================ */
     let analyticsChart = null;
+    let analyticsCourseChart = null;
+
+    const COURSE_CHART_COLORS = [
+      'rgba(59, 130, 246, 0.85)',   // Blue
+      'rgba(34, 197, 94, 0.85)',    // Green
+      'rgba(251, 191, 36, 0.85)',   // Amber
+      'rgba(239, 68, 68, 0.85)',    // Red
+      'rgba(168, 85, 247, 0.85)',   // Purple
+      'rgba(236, 72, 153, 0.85)',   // Pink
+      'rgba(14, 165, 233, 0.85)',   // Sky
+      'rgba(20, 184, 166, 0.85)',   // Teal
+      'rgba(249, 115, 22, 0.85)',   // Orange
+      'rgba(99, 102, 241, 0.85)',   // Indigo
+      'rgba(16, 185, 129, 0.85)',   // Emerald
+      'rgba(139, 92, 246, 0.85)',   // Violet
+      'rgba(6, 182, 212, 0.85)',    // Cyan
+      'rgba(217, 119, 6, 0.85)',    // Orange dark
+      'rgba(101, 163, 13, 0.85)'   // Lime
+    ];
 
     async function loadAnalytics() {
       try {
@@ -4370,107 +4428,164 @@
 
         const analyticsData = data.data;
         
-        // Destroy existing chart if it exists
+        // Destroy existing charts if they exist
         if (analyticsChart) {
           analyticsChart.destroy();
+          analyticsChart = null;
+        }
+        if (analyticsCourseChart) {
+          analyticsCourseChart.destroy();
+          analyticsCourseChart = null;
         }
 
-        // Create grouped bar chart
+        // Create grouped bar chart (by month and type) — count + percent in tooltip
         const ctx = document.getElementById('analyticsChart');
-        if (!ctx) {
-          console.warn('analyticsChart canvas not found');
-          return;
+        if (ctx) {
+          const months = analyticsData.months || [];
+          const datasets = analyticsData.datasets || [];
+          const monthlyTotalsArr = analyticsData.monthly_totals_arr || [];
+          analyticsChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: months,
+              datasets: datasets
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: {
+                legend: {
+                  display: true,
+                  position: 'top',
+                  labels: { boxWidth: 12, padding: 10, font: { size: 11 } }
+                },
+                tooltip: {
+                  mode: 'index',
+                  intersect: false,
+                  callbacks: {
+                    label: function(context) {
+                      const label = context.dataset.label || '';
+                      const value = context.parsed.y != null ? context.parsed.y : 0;
+                      const total = monthlyTotalsArr[context.dataIndex];
+                      const pct = total ? ((value / total) * 100).toFixed(1) : 0;
+                      return label + ': ' + value + ' request' + (value !== 1 ? 's' : '') + ' (' + pct + '%)';
+                    }
+                  }
+                },
+                title: { display: false }
+              },
+              scales: {
+                x: {
+                  stacked: false,
+                  title: { display: true, text: 'Months', font: { size: 12, weight: 'bold' } },
+                  ticks: { font: { size: 10 } }
+                },
+                y: {
+                  beginAtZero: true,
+                  title: { display: true, text: 'Number of requests', font: { size: 12, weight: 'bold' } },
+                  ticks: { font: { size: 10 }, stepSize: 1 }
+                }
+              },
+              interaction: { mode: 'index', intersect: false }
+            }
+          });
         }
 
-        // Months are on x-axis (bottom), percentage on y-axis (side)
-        const months = analyticsData.months || [];
-        const datasets = analyticsData.datasets || [];
-
-        analyticsChart = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: months, // Months at the bottom (x-axis)
-            datasets: datasets // Document types as separate series
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-              legend: {
-                display: true,
-                position: 'top',
-                labels: {
-                  boxWidth: 12,
-                  padding: 10,
-                  font: {
-                    size: 11
-                  }
-                }
-              },
-              tooltip: {
-                mode: 'index',
-                intersect: false,
-                callbacks: {
-                  label: function(context) {
-                    const label = context.dataset.label || '';
-                    const value = context.parsed.y || 0;
-                    return `${label}: ${value}%`;
-                  }
-                }
-              },
-              title: {
-                display: false
-              }
-            },
-            scales: {
-              x: {
-                stacked: false,
-                title: {
-                  display: true,
-                  text: 'Months',
-                  font: {
-                    size: 12,
-                    weight: 'bold'
-                  }
-                },
-                ticks: {
-                  font: {
-                    size: 10
-                  }
-                }
-              },
-              y: {
-                beginAtZero: true,
-                max: 100,
-                title: {
-                  display: true,
-                  text: 'Percentage (%)',
-                  font: {
-                    size: 12,
-                    weight: 'bold'
-                  }
-                },
-                ticks: {
-                  callback: function(value) {
-                    return value + '%';
-                  },
-                  font: {
-                    size: 10
-                  },
-                  stepSize: 10
-                }
-              }
-            },
-            interaction: {
-              mode: 'index',
-              intersect: false
-            }
+        // Requests by Course: stacked by document type, hover shows which documents each course requested
+        const byCourse = analyticsData.by_course || [];
+        const courseDocTypes = analyticsData.course_document_types || [];
+        const courseCtx = document.getElementById('analyticsCourseChart');
+        const DOC_TYPE_COLORS = [
+          'rgba(59, 130, 246, 0.85)', 'rgba(34, 197, 94, 0.85)', 'rgba(251, 191, 36, 0.85)',
+          'rgba(239, 68, 68, 0.85)', 'rgba(168, 85, 247, 0.85)', 'rgba(236, 72, 153, 0.85)',
+          'rgba(14, 165, 233, 0.85)', 'rgba(20, 184, 166, 0.85)', 'rgba(249, 115, 22, 0.85)',
+          'rgba(99, 102, 241, 0.85)', 'rgba(16, 185, 129, 0.85)', 'rgba(139, 92, 246, 0.85)'
+        ];
+        if (courseCtx && byCourse.length > 0) {
+          const courseLabels = byCourse.map(function(x) { return x.course; });
+          const courseTotals = byCourse.map(function(x) { return x.total; });
+          const courseDatasets = courseDocTypes.map(function(docType, idx) {
+            const color = DOC_TYPE_COLORS[idx % DOC_TYPE_COLORS.length];
+            const data = byCourse.map(function(c) {
+              const doc = (c.documents || []).find(function(d) { return d.type === docType; });
+              return doc ? doc.count : 0;
+            });
+            return {
+              label: docType,
+              data: data,
+              backgroundColor: color,
+              borderColor: color.replace('0.85', '1'),
+              borderWidth: 1
+            };
+          });
+          if (courseDatasets.length === 0) {
+            courseDatasets.push({
+              label: 'Requests',
+              data: courseTotals,
+              backgroundColor: DOC_TYPE_COLORS[0],
+              borderColor: DOC_TYPE_COLORS[0].replace('0.85', '1'),
+              borderWidth: 1
+            });
           }
-        });
+          analyticsCourseChart = new Chart(courseCtx, {
+            type: 'bar',
+            data: {
+              labels: courseLabels,
+              datasets: courseDatasets
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              indexAxis: 'y',
+              stacked: true,
+              plugins: {
+                legend: {
+                  display: true,
+                  position: 'top',
+                  labels: { boxWidth: 12, padding: 8, font: { size: 11 } }
+                },
+                tooltip: {
+                  mode: 'index',
+                  intersect: false,
+                  callbacks: {
+                    title: function(items) {
+                      const idx = items[0] && items[0].dataIndex;
+                      if (idx == null) return '';
+                      const total = courseTotals[idx];
+                      return courseLabels[idx] + ' — ' + total + ' request' + (total !== 1 ? 's' : '') + ' total';
+                    },
+                    label: function(context) {
+                      const count = context.parsed.x != null ? context.parsed.x : 0;
+                      if (count === 0) return null;
+                      const idx = context.dataIndex;
+                      const total = courseTotals[idx];
+                      const pct = total ? ((count / total) * 100).toFixed(1) : 0;
+                      return context.dataset.label + ': ' + count + ' request' + (count !== 1 ? 's' : '') + ' (' + pct + '%)';
+                    }
+                  }
+                },
+                title: { display: false }
+              },
+              scales: {
+                x: {
+                  stacked: true,
+                  beginAtZero: true,
+                  title: { display: true, text: 'Number of requests', font: { size: 12, weight: 'bold' } },
+                  ticks: { font: { size: 10 }, stepSize: 1 }
+                },
+                y: {
+                  stacked: true,
+                  title: { display: true, text: 'Course', font: { size: 12, weight: 'bold' } },
+                  ticks: { font: { size: 10 }, autoSkip: false }
+                }
+              },
+              interaction: { mode: 'index', intersect: false }
+            }
+          });
+        }
 
       } catch (error) {
         console.error('Error loading analytics:', error);
-        // Don't show error alert for analytics as it's not critical
       }
     }
 
@@ -5506,11 +5621,14 @@
           }
           
           const tr = document.createElement('tr'); 
+          tr.dataset.signatoryId = item.signatory_id || '';
           tr.innerHTML = `
           <td>${(item.first_name||'') + ' ' + (item.last_name||'')}</td>
           <td class="payment-status-cell">${paymentStatusHtml}</td>
           <td class="status-cell status-rejected">Rejected</td>
           <td>${item.rejection_reason || 'No reason provided'}</td>
+          <td>${item.remarks || '—'}</td>
+          <td><button type="button" class="btn btn-success btn-sm" onclick="approveFromRejectedRegistrar(this)" title="Student has passed requirements"><i class="fa-solid fa-check"></i> Approve</button></td>
         `; tbody.appendChild(tr); 
         }); 
         }
@@ -5519,6 +5637,44 @@
         console.error('Error loading registrar rejected:', err); 
       }
     }
+
+    /** Approve from Rejected list: student has passed requirements */
+    async function approveFromRejectedRegistrar(btn) {
+      const row = btn.closest('tr');
+      const signatoryId = row.dataset.signatoryId || '';
+      if (!signatoryId) {
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Cannot approve: missing signatory id.' });
+        return;
+      }
+      const { value: confirmed } = await Swal.fire({
+        title: 'Approve Clearance?',
+        html: 'Student has passed requirements. Approve this clearance?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Approve',
+        cancelButtonText: 'Cancel'
+      });
+      if (!confirmed) return;
+      Swal.fire({ title: 'Approving...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+      try {
+        const res = await fetch('/api/signatories/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ signatory_id: Number(signatoryId) })
+        });
+        const result = await res.json();
+        if (result.ok) {
+          row.remove();
+          updateClearanceCounters();
+          Swal.fire({ icon: 'success', title: 'Approved', text: 'Clearance approved.', confirmButtonText: 'OK' });
+        } else {
+          throw new Error(result.message || 'Approval failed');
+        }
+      } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'Failed to approve.' });
+      }
+    }
+
     async function registrarRejectFromSelect(select){ 
       const reason = select.value; 
       if(!reason) return; 
@@ -5541,20 +5697,11 @@
       try { 
         await fetch('/api/registrar/reject',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ request_id: Number(requestId), reason }) }); 
       } catch(_) {}
-      const rejectedList = document.getElementById('clRejectedList'); 
-      if (rejectedList) {
-        const newRow = document.createElement('tr'); 
-        newRow.dataset.studentId = row.dataset.studentId || '';
-          newRow.setAttribute('role', 'row');
-          newRow.innerHTML = `
-          <td>${row.cells[0].textContent}</td>
-          <td class="payment-status-cell">${row.cells[1].innerHTML}</td>
-          <td class="status-cell status-rejected">Rejected</td>
-          <td>${reason}</td>
-        `; 
-        rejectedList.appendChild(newRow);
-      }
-      row.remove(); updateClearanceCounters(); showClearanceTable('rejected'); Swal.fire({icon:'warning', title:'Clearance Rejected', text:`Student clearance rejected: ${reason}`}); 
+      row.remove();
+      updateClearanceCounters();
+      await loadRegistrarRejectedClearances();
+      showClearanceTable('rejected');
+      Swal.fire({icon:'warning', title:'Clearance Rejected', text:`Student clearance rejected: ${reason}`}); 
       
       // Hide full-screen loading overlay
       if (window.buttonLoadingManager) {
@@ -5825,6 +5972,7 @@
             const officeIcon = getOfficeIcon(s.office||'');
             const updated = s.updated_at || s.signed_at || '-';
             const reason = s.rejection_reason || '-';
+            const remarks = s.remarks || '-';
             const signedBy = s.signed_by || '-';
             
             const tr = document.createElement('tr'); 
@@ -5844,7 +5992,8 @@
               </td>
               <td class="text-muted">${signedBy}</td>
               <td class="text-muted"><small>${updated}</small></td>
-              <td class="text-muted">${reason}</td>
+              <td class="reason-remarks-cell"><div class="reason-remarks-inner">${reason}</div></td>
+              <td class="reason-remarks-cell"><div class="reason-remarks-inner">${remarks}</div></td>
             `; 
             tbody.appendChild(tr); 
           }); 

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Migration Script: Add missing columns to clearance_signatories table
-This script adds signed_by and signed_at columns if they don't exist
+This script adds signed_by, signed_at, and remarks columns if they don't exist.
+Run once: python fix_clearance_signatories_columns.py
 """
 
 import pymysql
@@ -89,13 +90,21 @@ def migrate_clearance_signatories():
                 cursor.execute("ALTER TABLE clearance_signatories ADD COLUMN signed_at TIMESTAMP NULL")
                 print("✅ Successfully added 'signed_at' column")
             
+            # Check and add remarks column (for rejection remarks from signatories)
+            if check_column_exists(cursor, 'clearance_signatories', 'remarks'):
+                print("✅ Column 'remarks' already exists")
+            else:
+                print("🔧 Adding column 'remarks'...")
+                cursor.execute("ALTER TABLE clearance_signatories ADD COLUMN remarks TEXT NULL")
+                print("✅ Successfully added 'remarks' column")
+            
             # Verify the columns
             print("\n🔍 Verifying table structure...")
             cursor.execute("DESCRIBE clearance_signatories")
             columns = cursor.fetchall()
             column_names = [col['Field'] for col in columns]
             
-            if 'signed_by' in column_names and 'signed_at' in column_names:
+            if 'signed_by' in column_names and 'signed_at' in column_names and 'remarks' in column_names:
                 print("✅ Migration completed successfully!")
                 print("\n📋 Current columns in clearance_signatories:")
                 for col in columns:

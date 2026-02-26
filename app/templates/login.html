@@ -165,8 +165,9 @@
       <div id="loginAlert" class="alert d-none" role="alert" style="margin-bottom:12px"></div>
       <button type="submit" class="btn">Login</button>
       <div class="extra-links">
-        <a href="/forgot_password.html">Forgot Password?</a> | 
-        <a href="Student_Signup.html">Sign Up as Student</a>
+        <a href="/forgot_password.html">Forgot Password?</a> |
+        <a href="/Student_Signup.html">Sign Up as Student</a>{% if show_staff_signup_link %} |
+        <a href="{{ staff_signup_path }}">Sign Up as Staff</a>{% endif %}
       </div>
     </form>
   </div>

@@ -544,12 +544,14 @@
 
 
 
-    /* Content area */
+    /* Content area - no overlap */
     .content {
       flex: 1;
       padding: var(--space-6) var(--space-6) var(--space-6) var(--space-6);
       overflow-y: auto;
+      overflow-x: hidden;
       margin-top: 0;
+      position: relative;
     }
 
     .content h1 {
@@ -559,7 +561,7 @@
       color: var(--gray-800);
     }
 
-    /* Status Cards */
+    /* Status Cards - prevent overlap */
     .status-cards {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -568,6 +570,7 @@
       position: relative;
       width: 100%;
       max-width: 100%;
+      isolation: isolate;
     }
 
     .card {
@@ -600,8 +603,9 @@
     }
 
     .card:hover {
-      transform: translateY(-4px);
+      transform: translateY(-2px);
       box-shadow: var(--shadow-xl);
+      z-index: 5;
     }
 
     .card:hover::before {
@@ -622,6 +626,8 @@
 
     .card div {
       flex: 1;
+      min-width: 0;
+      padding-right: 36px;
     }
 
     .card h3 {
@@ -1650,9 +1656,11 @@
       color: var(--gray-600);
     }
 
-    .reason-cell {
+    .reason-cell,
+    .remarks-cell {
       max-width: 200px;
       word-wrap: break-word;
+      white-space: normal;
     }
 
     /* Professional Receipt Button */
@@ -2804,8 +2812,8 @@
     <div class="content">
       <h1 id="pageTitle">Request Status</h1>
 
-      <!-- Dashboard Section -->
-      <div id="dashboardSection">
+      <!-- Dashboard Section - clear flow to prevent overlap -->
+      <div id="dashboardSection" style="display: flex; flex-direction: column; gap: 0;">
         <div class="status-cards">
           <button type="button" class="card pending btn" id="pendingBtn">
             <span class="status-badge" id="pendingBadge">0</span>
@@ -2859,7 +2867,7 @@
 
 
         <!-- Pending Requests Panel (shows inside dashboard when Pending is clicked) -->
-        <div id="pendingRequestsPanel" style="display:none;">
+        <div id="pendingRequestsPanel" style="display:none; margin-top: 1.5rem; position: relative; z-index: 1;">
           <div class="pending-requests-header">
             <div class="request-card-title" id="requestsHeaderTitle"><i class="fas fa-folder-open"></i> Pending Requests</div>
             <div class="pending-requests-actions">
@@ -3015,7 +3023,7 @@
                 <div class="card-content">
                   <div class="input-group">
                     <label>Address</label>
-                    <input type="text" id="docAddress" placeholder="Address" readonly>
+                    <textarea id="docAddress" placeholder="Address" readonly rows="2" class="doc-info-textarea"></textarea>
                   </div>
                   <div class="input-group">
                     <label>Nationality</label>
@@ -3035,7 +3043,7 @@
                 <div class="card-content">
                   <div class="input-group">
                     <label>Course</label>
-                    <input type="text" id="docCourse" placeholder="Course" readonly>
+                    <textarea id="docCourse" placeholder="Course" readonly rows="2" class="doc-info-textarea"></textarea>
                   </div>
                   <div class="input-group">
                     <label>Year Level</label>
@@ -3178,18 +3186,7 @@
                 </div>
               </div>
 
-              <!-- ID Upload Section -->
-              <div class="form-section">
-                <h3><i class="fas fa-camera"></i> Upload Valid ID Photo</h3>
-                <div class="id-upload-container">
-                  <input type="file" name="validID" id="validID" accept="image/*" required>
-                  <div class="id-preview-container">
-                    <img id="idPreview" alt="Valid ID Preview" class="id-preview">
-                  </div>
-                </div>
-                <input type="hidden" id="clearanceReason" value="">
-              </div>
-
+              <input type="hidden" id="clearanceReason" value="">
               <!-- Submit Section -->
               <div class="form-section submit-section">
                 <button type="submit" class="btn btn-primary submit-btn">
@@ -3487,29 +3484,90 @@
       }
       showNoRequestState();
 
-      documentLink.addEventListener("click", async function () {
+      documentLink.addEventListener("click", async function (e) {
         setActive(documentLink);
         pageTitle.textContent = "Request Document";
         hideAllSections();
         documentSection.style.display = "block";
         
-        // Show full-screen loading
         if (window.showFullScreenLoading) {
           window.showFullScreenLoading('Loading document form...');
         }
         
         try {
-          // Populate student information in document request form
+          await loadAllRequests();
           await populateDocumentRequestForm();
+          await applyPendingDocumentsDisable();
         } catch (error) {
           console.error('Error loading document form:', error);
         } finally {
-          // Hide full-screen loading
           if (window.hideFullScreenLoading) {
             window.hideFullScreenLoading();
           }
         }
       });
+
+      var _pendingDisableRetryScheduled = false;
+      async function applyPendingDocumentsDisable(retry) {
+        retry = !!retry;
+        const checkboxes = document.querySelectorAll('input[name="requestedDocument"]');
+        if (!checkboxes.length) return;
+        checkboxes.forEach(cb => {
+          cb.disabled = false;
+          cb.removeAttribute('title');
+          cb.closest('label')?.classList.remove('document-in-pending');
+        });
+        var pendingSet = new Set();
+        try {
+          const res = await fetch('/api/student/pending-request-documents');
+          const data = await res.json();
+          if (data.ok && Array.isArray(data.documents)) {
+            data.documents.forEach(d => { const s = String(d).trim(); if (s) pendingSet.add(s); });
+          }
+        } catch (_) {}
+        if (typeof allRequestsCache !== 'undefined' && Array.isArray(allRequestsCache)) {
+          var docAliases = { 'tor': 'Transcript of Record', 'transcript': 'Transcript of Record', 'transcript of record': 'Transcript of Record' };
+          function toFormValue(s) {
+            s = String(s).trim();
+            if (!s) return '';
+            var key = s.toLowerCase();
+            return docAliases[key] || s;
+          }
+          allRequestsCache.forEach(r => {
+            const eff = typeof getEffectiveStatus === 'function' ? getEffectiveStatus(r) : '';
+            if (eff !== 'pending' && eff !== 'processing') return;
+            var docs = r.documents;
+            if (typeof docs === 'string') {
+              try { docs = JSON.parse(docs); } catch (e) { docs = docs.split(',').map(function(x){ return x.trim(); }); }
+            }
+            if (Array.isArray(docs)) {
+              docs.forEach(function(d) {
+                var v = toFormValue(d);
+                if (v) pendingSet.add(v);
+              });
+            } else if (r.document_type) {
+              var v = toFormValue(r.document_type);
+              if (v) pendingSet.add(v);
+            }
+          });
+        }
+        checkboxes.forEach(cb => {
+          const val = (cb.value || '').trim();
+          if (pendingSet.has(val)) {
+            cb.disabled = true;
+            cb.checked = false;
+            cb.setAttribute('title', 'Nasa pending/processing na ang dokumentong ito.');
+            cb.closest('label')?.classList.add('document-in-pending');
+          }
+        });
+        if (!retry && !_pendingDisableRetryScheduled) {
+          _pendingDisableRetryScheduled = true;
+          setTimeout(function() {
+            _pendingDisableRetryScheduled = false;
+            applyPendingDocumentsDisable(true);
+          }, 250);
+        }
+      }
 
       // Handle individual document request form submission (guard if form exists)
       const documentRequestFormEl = document.getElementById('documentRequestForm');
@@ -3820,25 +3878,6 @@
           '</tr>';
         }).join('');
       }
-
-      // Preview ng Valid ID
-      const validIDInput = document.getElementById("validID");
-      const idPreview = document.getElementById("idPreview");
-
-      validIDInput.addEventListener("change", function() {
-        const file = this.files[0];
-        if (file && file.type.startsWith("image/")) {
-          const reader = new FileReader();
-          reader.onload = function(e) {
-            idPreview.src = e.target.result;
-            idPreview.style.display = "block";
-          }
-          reader.readAsDataURL(file);
-        } else {
-          idPreview.style.display = "none"; // hide kung hindi image (like pdf)
-        }
-      });
-
 
       // Document pricing configuration
       const documentPricing = {
@@ -4732,12 +4771,6 @@
               formData.append('payment_method', 'cash');
               formData.append('reference_number', referenceNumber || '');
 
-              // Add valid ID file
-              const validIDFile = document.getElementById('validID').files[0];
-              if (validIDFile) {
-                formData.append('valid_id', validIDFile);
-              }
-
               // Add payment receipt file
               const paymentReceiptFile = document.getElementById('paymentReceipt').files[0];
               if (paymentReceiptFile) {
@@ -5465,26 +5498,34 @@
                 const statusClass = statusLower === 'approved' ? 'status-approved-professional' : (statusLower === 'rejected' ? 'status-rejected-professional' : 'status-pending-professional');
                 const officeIconClass = getOfficeIconClass(s.office||'');
                 const officeIcon = getOfficeIcon(s.office||'');
-                const updated = s.updated_at || s.signed_at || '-';
+                let updated = s.updated_at || s.signed_at || '-';
+                if (updated !== '-' && (s.updated_at || s.signed_at)) {
+                  try {
+                    const d = new Date(s.updated_at || s.signed_at);
+                    if (!isNaN(d.getTime())) updated = d.toLocaleDateString('en-PH', { day: '2-digit', month: 'short' }) + ', ' + d.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
+                  } catch (_) {}
+                }
                 const reason = s.rejection_reason || '-';
+                const remarks = s.remarks || '-';
                 const signedBy = s.signed_by || '-';
                 
                 return '<tr>'+
-                  '<td>'+
+                  '<td class="td-office">'+
                     '<div class="office-cell-professional">'+
                       '<div class="office-icon-professional office-icon-'+officeIconClass+'"><i class="'+officeIcon+'"></i></div>'+
                       '<span class="fw-semibold">'+(s.office||'-')+'</span>'+
                     '</div>'+
                   '</td>'+
-                  '<td>'+
+                  '<td class="td-status">'+
                     '<span class="status-badge-professional '+statusClass+'">'+
                       '<i class="fa-solid '+statusIcon+'"></i>'+
                       (s.status||'-')+
                     '</span>'+
                   '</td>'+
-                  '<td class="text-muted">'+signedBy+'</td>'+
-                  '<td class="text-muted"><small>'+updated+'</small></td>'+
-                  '<td class="text-muted">'+reason+'</td>'+
+                  '<td class="td-signed text-muted">'+signedBy+'</td>'+
+                  '<td class="td-updated text-muted"><small>'+updated+'</small></td>'+
+                  '<td class="td-reason reason-remarks-cell"><div class="reason-remarks-inner">'+reason+'</div></td>'+
+                  '<td class="td-remarks reason-remarks-cell"><div class="reason-remarks-inner">'+remarks+'</div></td>'+
                 '</tr>';
               }).join('');
             } else {
@@ -6651,9 +6692,9 @@ ${pendingCache.map((req, i) =>
     });
   </script>
 
-  <!-- Professional Clearance Modal -->
+  <!-- Professional Clearance Modal - extra large for table -->
   <div class="modal fade" id="clViewModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered clearance-modal-dialog">
       <div class="modal-content professional-modal">
         <div class="modal-header professional-header">
           <div class="d-flex align-items-center">
@@ -6709,7 +6750,7 @@ ${pendingCache.map((req, i) =>
           </div>
 
 
-          <!-- Office Clearance Status Card -->
+          <!-- Office Clearance Status Card (same as Registrar) -->
           <div class="info-card professional-card">
             <div class="card-header-professional">
               <div class="header-accent-line"></div>
@@ -6723,6 +6764,14 @@ ${pendingCache.map((req, i) =>
             <div class="card-body-professional">
               <div class="table-container-professional">
                 <table class="professional-table">
+                  <colgroup>
+                    <col style="width: 14%">
+                    <col style="width: 10%">
+                    <col style="width: 14%">
+                    <col style="width: 14%">
+                    <col style="width: 24%">
+                    <col style="width: 24%">
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>
@@ -6755,6 +6804,12 @@ ${pendingCache.map((req, i) =>
                           <span>Reason</span>
                         </div>
                       </th>
+                      <th>
+                        <div class="th-content">
+                          <i class="fa-solid fa-pen-to-square"></i>
+                          <span>Remarks</span>
+                        </div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody id="clViewSignatories">
@@ -6783,12 +6838,18 @@ ${pendingCache.map((req, i) =>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
+    /* Clearance modal - wider so table has room */
+    .clearance-modal-dialog {
+      max-width: min(95vw, 1320px);
+      margin: 1rem auto;
+    }
+
     .professional-modal {
       border: none;
       border-radius: 20px;
       box-shadow: 0 32px 64px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      max-width: 1400px;
+      width: 100%;
       margin: 0 auto;
       background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
       overflow: hidden;
@@ -6896,11 +6957,15 @@ ${pendingCache.map((req, i) =>
     /* Professional Body Styles */
     .professional-body {
       background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-      padding: 40px;
+      padding: 32px 28px;
       border-radius: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      max-height: 75vh;
+      position: relative;
     }
 
-    /* Professional Card Styles */
+    /* Professional Card Styles - prevent overlap in modal */
     .professional-card {
       background: white;
       border-radius: 16px;
@@ -6909,18 +6974,21 @@ ${pendingCache.map((req, i) =>
       overflow: hidden;
       transition: all 0.3s ease;
       border: 1px solid rgba(226, 232, 240, 0.5);
+      position: relative;
+      z-index: 1;
     }
 
     .professional-card:hover {
       box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
-      transform: translateY(-4px);
+      transform: translateY(-2px);
+      z-index: 2;
     }
 
     .card-header-professional {
       background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
       padding: 24px 32px;
-      border-bottom: 1px solid #e2e8f0;
       position: relative;
+      border-bottom: 1px solid #e2e8f0;
     }
 
     .header-accent-line {
@@ -6960,6 +7028,10 @@ ${pendingCache.map((req, i) =>
 
     .card-body-professional {
       padding: 32px;
+    }
+
+    .card-body-professional.card-body-no-header {
+      padding: 24px 28px;
     }
 
     /* Professional Grid Styles */
@@ -7074,18 +7146,19 @@ ${pendingCache.map((req, i) =>
       color: #1e293b;
     }
 
-    /* Professional Table Styles */
+    /* Professional Table (same as Registrar) */
     .table-container-professional {
       border-radius: 16px;
       border: 1px solid #e2e8f0;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
       max-height: 500px;
       overflow-y: auto;
-      overflow-x: hidden;
+      overflow-x: auto;
     }
 
     .professional-table {
       width: 100%;
+      min-width: 720px;
       border-collapse: collapse;
       background: white;
       table-layout: fixed;
@@ -7099,22 +7172,21 @@ ${pendingCache.map((req, i) =>
     }
 
     .professional-table th {
-      padding: 16px 12px;
+      padding: 12px 10px;
       text-align: left;
       font-weight: 600;
       color: white;
-      font-size: 13px;
+      font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       border-bottom: none;
       white-space: nowrap;
+      border-right: 1px solid rgba(255,255,255,0.2);
     }
 
-    .professional-table th:nth-child(1) { width: 25%; } /* Office */
-    .professional-table th:nth-child(2) { width: 15%; } /* Status */
-    .professional-table th:nth-child(3) { width: 20%; } /* Approved By */
-    .professional-table th:nth-child(4) { width: 20%; } /* Updated */
-    .professional-table th:nth-child(5) { width: 20%; } /* Reason */
+    .professional-table th:last-child {
+      border-right: none;
+    }
 
     .th-content {
       display: flex;
@@ -7128,22 +7200,64 @@ ${pendingCache.map((req, i) =>
     }
 
     .professional-table td {
-      padding: 12px;
+      padding: 10px;
       border-bottom: 1px solid #f1f5f9;
+      border-right: 1px solid #e2e8f0;
       vertical-align: middle;
-      font-size: 13px;
+      font-size: 12px;
       word-wrap: break-word;
       overflow-wrap: break-word;
       line-height: 1.4;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+
+    .professional-table td:last-child {
+      border-right: none;
     }
 
     .professional-table td.text-muted {
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    /* Each column strictly contained - tapat sa column, no overlap */
+    .professional-table td.td-office,
+    .professional-table td.td-status,
+    .professional-table td.td-signed,
+    .professional-table td.td-updated,
+    .professional-table td.td-reason,
+    .professional-table td.td-remarks {
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    .professional-table td.td-updated {
+      font-size: 11px;
+    }
+
+    /* Reason & Remarks: wrap inside cell, no spill */
+    .professional-table td.reason-remarks-cell {
       font-size: 12px;
       color: #64748b;
-      max-width: 100%;
+      white-space: normal;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
       overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      min-width: 0;
+      box-sizing: border-box;
+      vertical-align: top;
+    }
+
+    .professional-table td.reason-remarks-cell .reason-remarks-inner {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      line-height: 1.4;
+      box-sizing: border-box;
+      overflow: hidden;
     }
 
     .professional-table td small {
@@ -7157,28 +7271,6 @@ ${pendingCache.map((req, i) =>
 
     .professional-table tbody tr:hover {
       background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-    }
-
-    /* Ensure all content is visible */
-    .professional-table td:nth-child(1) { 
-      min-width: 120px; 
-      max-width: 200px;
-    }
-    .professional-table td:nth-child(2) { 
-      min-width: 80px; 
-      max-width: 120px;
-    }
-    .professional-table td:nth-child(3) { 
-      min-width: 100px; 
-      max-width: 150px;
-    }
-    .professional-table td:nth-child(4) { 
-      min-width: 100px; 
-      max-width: 150px;
-    }
-    .professional-table td:nth-child(5) { 
-      min-width: 100px; 
-      max-width: 200px;
     }
 
     .office-cell-professional {
@@ -7296,6 +7388,11 @@ ${pendingCache.map((req, i) =>
 
     /* Responsive Design */
     @media (max-width: 768px) {
+      .clearance-modal-dialog {
+        max-width: 98vw;
+        margin: 0.5rem auto;
+      }
+
       .professional-modal {
         margin: 16px;
         border-radius: 16px;
@@ -7433,6 +7530,24 @@ ${pendingCache.map((req, i) =>
   .documents-grid label:has(input:checked) {
     border-color: #667eea;
     background: #f0f4ff;
+  }
+
+  .documents-grid label.document-in-pending {
+    opacity: 0.65;
+    cursor: not-allowed;
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+    pointer-events: none;
+  }
+  .documents-grid label.document-in-pending:hover {
+    border-color: #e2e8f0;
+    background: #f1f5f9;
+  }
+  .documents-grid label.document-in-pending .document-name {
+    color: #64748b;
+  }
+  .documents-grid label.document-in-pending input[type="checkbox"] {
+    pointer-events: none;
   }
 
   .purpose-options {

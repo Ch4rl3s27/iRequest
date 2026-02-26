@@ -241,10 +241,22 @@ body {
 
 .document-info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 2rem;
   position: relative;
   z-index: 1;
+}
+
+@media (max-width: 1100px) {
+  .document-info-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .document-info-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .info-card {
@@ -256,7 +268,8 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.3);
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  min-width: 0;
 }
 
 .info-card::before {
@@ -329,6 +342,53 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  min-width: 0;
+}
+
+.document-info-container .input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.document-info-container .input-group label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.75px;
+  margin: 0;
+}
+
+.document-info-container .input-group input,
+.document-info-container .input-group textarea.doc-info-textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0.875rem 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  background: #f8fafc;
+  color: #1e293b;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  font-family: inherit;
+}
+
+.document-info-container .input-group textarea.doc-info-textarea {
+  resize: none;
+  min-height: 2.5rem;
+  line-height: 1.5;
+}
+
+.document-info-container .input-group textarea.doc-info-textarea:read-only {
+  background: #f1f5f9;
+  color: #64748b;
+  cursor: default;
+  border-color: #d1d5db;
 }
 
 .input-group {
