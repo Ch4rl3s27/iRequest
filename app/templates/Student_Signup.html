@@ -445,6 +445,8 @@
       var els = lockedSection.querySelectorAll('input, select, button');
       els.forEach(function(el){
         if(el.id === 'stu_no_middlename') return;
+        // Keep Suffix, Course, Year Level dropdowns always enabled so options always show
+        if(el.tagName === 'SELECT' && (el.name === 'suffix' || el.name === 'course' || el.name === 'year_level')) return;
         el.disabled = locked;
       });
       if(submitBtn) submitBtn.disabled = locked;
@@ -514,7 +516,15 @@
         return;
       }
       fetch('/api/student/lookup?student_no=' + encodeURIComponent(val))
-        .then(function(r){ return r.json(); })
+        .then(function(r){
+          if (!r.ok) {
+            return r.text().then(function(t){
+              try { var d = JSON.parse(t); return Promise.reject({ serverError: true, message: d.message || 'Server error.' }); }
+              catch(e){ return Promise.reject({ serverError: true, message: 'Server returned ' + r.status }); }
+            });
+          }
+          return r.json();
+        })
         .then(function(data){
           hideDropdown();
           if(data.found){
@@ -531,9 +541,12 @@
             setLocked(true);
           }
         })
-        .catch(function(){
+        .catch(function(err){
           hideDropdown();
-          Swal.fire({ icon:'error', title:'Error', text:'Unable to verify Student Number. Please try again.' });
+          var msg = 'Unable to verify Student Number. Please try again.';
+          if (err && err.serverError && err.message) msg = err.message;
+          else if (err && err.message) msg = 'Connection or network error. Make sure the app server is running.';
+          Swal.fire({ icon:'error', title:'Error', text: msg });
           setLocked(true);
         });
     }
