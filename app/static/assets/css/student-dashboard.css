@@ -176,10 +176,10 @@ body {
 /* Enhanced Document Information Styles */
 .document-info-container {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 24px;
-  padding: 2.5rem;
+  border-radius: 20px;
+  padding: 2rem 2.25rem;
   margin-bottom: 2rem;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
   position: relative;
   overflow: hidden;
 }
@@ -261,11 +261,11 @@ body {
 
 .info-card {
   background: rgba(255, 255, 255, 0.98);
-  border-radius: 20px;
-  padding: 2rem;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  border-radius: 16px;
+  padding: 1.75rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.4);
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: visible;
@@ -359,23 +359,35 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.75px;
   margin: 0;
+  text-align: center;
 }
 
+/* Minimal: label + value only, no heavy textbox look */
 .document-info-container .input-group input,
 .document-info-container .input-group textarea.doc-info-textarea {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  padding: 0.875rem 1rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
+  padding: 0.5rem 0 0.75rem;
+  border: none;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 0;
   font-size: 0.9375rem;
   font-weight: 500;
-  transition: all 0.3s ease;
-  background: #f8fafc;
+  transition: border-color 0.2s ease;
+  background: transparent;
   color: #1e293b;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   font-family: inherit;
+  box-shadow: none;
+  text-align: center;
+}
+
+.document-info-container .input-group input:read-only,
+.document-info-container .input-group textarea.doc-info-textarea:read-only {
+  background: transparent;
+  color: #475569;
+  cursor: default;
+  border-bottom-color: #e2e8f0;
 }
 
 .document-info-container .input-group textarea.doc-info-textarea {
@@ -384,11 +396,36 @@ body {
   line-height: 1.5;
 }
 
-.document-info-container .input-group textarea.doc-info-textarea:read-only {
-  background: #f1f5f9;
-  color: #64748b;
-  cursor: default;
-  border-color: #d1d5db;
+/* Address & Course: no scroll, auto height, same minimal style */
+.document-info-container .doc-info-display {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0.5rem 0 0.75rem;
+  border: none;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.5;
+  background: transparent;
+  color: #1e293b;
+  font-family: inherit;
+  min-height: 1.5rem;
+  overflow: visible;
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-align: center;
+}
+
+.document-info-container .doc-info-display:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.document-info-container .doc-info-display:not(:empty) {
+  color: #475569;
 }
 
 .input-group {

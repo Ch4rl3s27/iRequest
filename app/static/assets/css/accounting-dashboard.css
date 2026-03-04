@@ -483,6 +483,19 @@ body {
   background: var(--danger-500);
 }
 
+.stat-card[data-type="deactivated"]::before {
+  background: var(--gray-500);
+}
+
+.stat-card[data-type="deactivated"] .stat-card-icon {
+  background: linear-gradient(135deg, var(--gray-500), var(--gray-600));
+}
+
+.stat-card.active[data-type="deactivated"] {
+  border-color: var(--gray-300);
+  background: var(--gray-50);
+}
+
 .stat-card.active[data-type="pending"] {
   border-color: var(--warning-300);
   background: var(--warning-50);
@@ -595,6 +608,32 @@ body {
   font-size: var(--font-size-lg);
 }
 
+.table-header h2 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.table-header-success {
+  background: linear-gradient(135deg, var(--success-500), var(--success-600));
+}
+
+.table-header-danger {
+  background: linear-gradient(135deg, var(--danger-500), var(--danger-600));
+}
+
+.table-header-deactivated {
+  background: linear-gradient(135deg, var(--gray-500), var(--gray-600));
+}
+
+.staff-search {
+  display: block;
+  margin-bottom: var(--space-6);
+}
+
+.staff-stats-grid {
+  margin-bottom: var(--space-6);
+}
+
 .table-responsive {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -658,6 +697,11 @@ body {
   color: var(--danger-700);
 }
 
+.status-deactivated {
+  background: var(--gray-200);
+  color: var(--gray-700);
+}
+
 /* Action Buttons */
 .action-buttons {
   display: flex;
@@ -683,6 +727,27 @@ body {
 
 .btn-sign:hover {
   background: var(--success-600);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-deactivate {
+  background: var(--gray-500);
+  color: white;
+  border: none;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.btn-deactivate:hover {
+  background: var(--gray-600);
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
 }
@@ -924,6 +989,10 @@ body {
 @media (min-width: 992px) {
   .stats-grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+
+  .staff-stats-grid {
+    grid-template-columns: repeat(4, 1fr);
   }
 
   .table-responsive {

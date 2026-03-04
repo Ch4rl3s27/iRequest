@@ -4536,13 +4536,13 @@
             options: {
               responsive: true,
               maintainAspectRatio: true,
-              indexAxis: 'y',
+              indexAxis: 'x',
               stacked: true,
               plugins: {
                 legend: {
                   display: true,
                   position: 'top',
-                  labels: { boxWidth: 12, padding: 8, font: { size: 11 } }
+                  labels: { boxWidth: 12, padding: 10, font: { size: 11 } }
                 },
                 tooltip: {
                   mode: 'index',
@@ -4555,7 +4555,7 @@
                       return courseLabels[idx] + ' — ' + total + ' request' + (total !== 1 ? 's' : '') + ' total';
                     },
                     label: function(context) {
-                      const count = context.parsed.x != null ? context.parsed.x : 0;
+                      const count = context.parsed.y != null ? context.parsed.y : 0;
                       if (count === 0) return null;
                       const idx = context.dataIndex;
                       const total = courseTotals[idx];
@@ -4569,14 +4569,14 @@
               scales: {
                 x: {
                   stacked: true,
-                  beginAtZero: true,
-                  title: { display: true, text: 'Number of requests', font: { size: 12, weight: 'bold' } },
-                  ticks: { font: { size: 10 }, stepSize: 1 }
+                  title: { display: true, text: 'Course', font: { size: 12, weight: 'bold' } },
+                  ticks: { font: { size: 10 }, autoSkip: false }
                 },
                 y: {
                   stacked: true,
-                  title: { display: true, text: 'Course', font: { size: 12, weight: 'bold' } },
-                  ticks: { font: { size: 10 }, autoSkip: false }
+                  beginAtZero: true,
+                  title: { display: true, text: 'Number of requests', font: { size: 12, weight: 'bold' } },
+                  ticks: { font: { size: 10 }, stepSize: 1 }
                 }
               },
               interaction: { mode: 'index', intersect: false }

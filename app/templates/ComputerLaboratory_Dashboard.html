@@ -52,6 +52,16 @@
             <span class="link-text">Dashboard</span>
           </a>
 
+          <a class="nav-link" onclick="setActive(this); loadContent('staff')" tabindex="0">
+            <i class="fa-solid fa-users-cog" aria-hidden="true"></i> 
+            <span class="link-text">Staff Approval</span>
+          </a>
+
+          <a class="nav-link" onclick="setActive(this); loadContent('activity')" tabindex="0">
+            <i class="fa-solid fa-history" aria-hidden="true"></i> 
+            <span class="link-text">User Activity</span>
+          </a>
+
           <a class="nav-link" onclick="setActive(this); loadContent('profile')" tabindex="0">
             <i class="fa-solid fa-id-badge" aria-hidden="true"></i> 
             <span class="link-text">Profile</span>
@@ -666,7 +676,7 @@
        Sidebar active & dynamic page loads (profile / password)
        ============================================================ */
     function setActive(elem) {
-      document.querySelectorAll('#sidebarMenu .nav-link').forEach(l => l.classList.remove('active'));
+      document.querySelectorAll('.sidebar-nav .nav-link').forEach(l => l.classList.remove('active'));
       if(elem) elem.classList.add('active');
     }
 
@@ -689,6 +699,136 @@
         if (window.hideFullScreenLoading) {
           window.hideFullScreenLoading();
         }
+      }
+
+      if(type === 'staff') {
+        container.innerHTML = `
+          <div class="staff-approval-section">
+            <section class="stats-grid staff-stats-grid" aria-label="Staff approval statistics">
+              <article class="stat-card" data-type="pending" data-staff-tab="pending" onclick="showStaffTab('pending')" role="button" tabindex="0">
+                <div class="stat-card-header">
+                  <div class="stat-card-icon">
+                    <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>
+                  </div>
+                  <h3 class="stat-card-title">Pending</h3>
+                </div>
+                <p class="stat-card-value" id="staffPendingCount" aria-label="Pending count">0</p>
+              </article>
+              <article class="stat-card" data-type="approved" data-staff-tab="approved" onclick="showStaffTab('approved')" role="button" tabindex="0">
+                <div class="stat-card-header">
+                  <div class="stat-card-icon">
+                    <i class="fa-solid fa-check" aria-hidden="true"></i>
+                  </div>
+                  <h3 class="stat-card-title">Approved</h3>
+                </div>
+                <p class="stat-card-value" id="staffApprovedCount" aria-label="Approved count">0</p>
+              </article>
+              <article class="stat-card" data-type="rejected" data-staff-tab="rejected" onclick="showStaffTab('rejected')" role="button" tabindex="0">
+                <div class="stat-card-header">
+                  <div class="stat-card-icon">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                  </div>
+                  <h3 class="stat-card-title">Rejected</h3>
+                </div>
+                <p class="stat-card-value" id="staffRejectedCount" aria-label="Rejected count">0</p>
+              </article>
+              <article class="stat-card" data-type="deactivated" data-staff-tab="deactivated" onclick="showStaffTab('deactivated')" role="button" tabindex="0">
+                <div class="stat-card-header">
+                  <div class="stat-card-icon">
+                    <i class="fa-solid fa-user-slash" aria-hidden="true"></i>
+                  </div>
+                  <h3 class="stat-card-title">Deactivated</h3>
+                </div>
+                <p class="stat-card-value" id="staffDeactivatedCount" aria-label="Deactivated count">0</p>
+              </article>
+            </section>
+            <div class="search-container staff-search" role="search">
+              <label for="staffSearchInput" class="form-label">Search Staff</label>
+              <input id="staffSearchInput" class="search-input" placeholder="Search by name, department, or position..." aria-label="Search staff" autocomplete="off">
+            </div>
+            <div id="staffTablesContainer" role="region">
+              <section id="staffPendingTable" class="data-table-container" aria-labelledby="staffPendingTitle">
+                <div class="table-header">
+                  <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>
+                  <h2 id="staffPendingTitle">Pending Staff Approvals</h2>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-mobile-cards" role="table">
+                    <thead><tr><th>Name</th><th>Department</th><th>Position</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody id="staffApprovalsBody"></tbody>
+                  </table>
+                </div>
+              </section>
+              <section id="staffApprovedTable" class="data-table-container d-none" aria-labelledby="staffApprovedTitle">
+                <div class="table-header table-header-success">
+                  <i class="fa-solid fa-check-circle" aria-hidden="true"></i>
+                  <h2 id="staffApprovedTitle">Approved Staff</h2>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-mobile-cards" role="table">
+                    <thead><tr><th>Name</th><th>Department</th><th>Position</th><th>Status</th><th>Approved By</th><th>Date</th><th>Action</th></tr></thead>
+                    <tbody id="staffApprovedBody"></tbody>
+                  </table>
+                </div>
+              </section>
+              <section id="staffRejectedTable" class="data-table-container d-none" aria-labelledby="staffRejectedTitle">
+                <div class="table-header table-header-danger">
+                  <i class="fa-solid fa-times-circle" aria-hidden="true"></i>
+                  <h2 id="staffRejectedTitle">Rejected Staff</h2>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-mobile-cards" role="table">
+                    <thead><tr><th>Name</th><th>Department</th><th>Position</th><th>Status</th><th>Rejected By</th><th>Reason</th><th>Date</th><th>Action</th></tr></thead>
+                    <tbody id="staffRejectedBody"></tbody>
+                  </table>
+                </div>
+              </section>
+              <section id="staffDeactivatedTable" class="data-table-container d-none" aria-labelledby="staffDeactivatedTitle">
+                <div class="table-header table-header-deactivated">
+                  <i class="fa-solid fa-user-slash" aria-hidden="true"></i>
+                  <h2 id="staffDeactivatedTitle">Deactivated Staff (Resigned / Inactive)</h2>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-mobile-cards" role="table">
+                    <thead><tr><th>Name</th><th>Department</th><th>Position</th><th>Status</th><th>Deactivated By</th><th>Date</th></tr></thead>
+                    <tbody id="staffDeactivatedBody"></tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+          </div>
+        `;
+        refreshStaffCounts();
+        showStaffTab('pending');
+        document.getElementById('staffSearchInput').addEventListener('keyup', function() {
+          const q = this.value.toLowerCase();
+          const visible = document.querySelector('#staffTablesContainer .data-table-container:not(.d-none) tbody');
+          if (visible) Array.from(visible.children).forEach(tr => { tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none'; });
+        });
+        if (window.hideFullScreenLoading) window.hideFullScreenLoading();
+        return;
+      }
+
+      if(type === 'activity') {
+        container.innerHTML = `
+          <div class="card shadow-sm">
+            <div class="card-header bg-secondary text-white">
+              <h5 class="mb-0"><i class="fa-solid fa-history"></i> User Activity Monitoring</h5>
+              <small>Recent user activities in the system</small>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                  <thead class="table-light"><tr><th>Date & Time</th><th>User</th><th>Role</th><th>Action</th></tr></thead>
+                  <tbody id="activityLogBody"><tr><td colspan="4" class="text-center py-4">Loading...</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        `;
+        fetchActivityLog();
+        if (window.hideFullScreenLoading) window.hideFullScreenLoading();
+        return;
       }
 
       if(type === 'profile') {
@@ -808,7 +948,7 @@ async function handlePasswordChange(e) {
     Swal.fire({
       icon: 'error',
       title: 'Network Error',
-      text: 'Unable to connect to server. Please check your connection and try again.',
+      text: 'Unable to connect to server. Your internet connection may be slow or unstable. Please check your internet and try again.',
       confirmButtonText: 'OK'
     });
   }
@@ -892,7 +1032,7 @@ async function handlePasswordChange(e) {
           Swal.fire({
             icon: 'error',
             title: 'Error Loading Data',
-            text: 'Failed to load pending clearances. Please check your connection and try again.',
+            text: 'Failed to load pending clearances. Your internet connection may be slow or unstable. Please check your internet and try again.',
             confirmButtonText: 'Retry',
             showCancelButton: true,
             cancelButtonText: 'Cancel'
@@ -969,7 +1109,7 @@ async function handlePasswordChange(e) {
           Swal.fire({
             icon: 'error',
             title: 'Error Loading Data',
-            text: 'Failed to load approved clearances. Please check your connection and try again.',
+            text: 'Failed to load approved clearances. Your internet connection may be slow or unstable. Please check your internet and try again.',
             confirmButtonText: 'Retry',
             showCancelButton: true,
             cancelButtonText: 'Cancel'
@@ -1048,7 +1188,7 @@ tr.dataset.studentId = student.student_id || student.id || '';
           Swal.fire({
             icon: 'error',
             title: 'Error Loading Data',
-            text: 'Failed to load rejected clearances. Please check your connection and try again.',
+            text: 'Failed to load rejected clearances. Your internet connection may be slow or unstable. Please check your internet and try again.',
             confirmButtonText: 'Retry',
             showCancelButton: true,
             cancelButtonText: 'Cancel'
@@ -1065,6 +1205,232 @@ tr.dataset.studentId = student.student_id || student.id || '';
     }
   }
 }
+
+    function isLabAdmin() { return true; }
+    async function safeFetchJson(url, opts) {
+      const r = await fetch(url, opts || {});
+      const ct = r.headers.get('content-type') || '';
+      if (ct.includes('application/json')) return { ok: true, json: await r.json(), status: r.status };
+      return { ok: false, text: await r.text(), status: r.status };
+    }
+    function showStaffTab(which) {
+      ['staffPendingTable','staffApprovedTable','staffRejectedTable','staffDeactivatedTable'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('d-none', id !== 'staff' + which.charAt(0).toUpperCase() + which.slice(1) + 'Table');
+      });
+      document.querySelectorAll('.staff-stats-grid .stat-card').forEach(c => {
+        c.classList.toggle('active', c.dataset.staffTab === which);
+      });
+      const searchEl = document.querySelector('.staff-search');
+      if (searchEl) searchEl.style.display = 'block';
+      if (which === 'pending') fetchStaffApprovals();
+      else if (which === 'approved') fetchStaffApproved();
+      else if (which === 'rejected') fetchStaffRejected();
+      else if (which === 'deactivated') fetchStaffDeactivated();
+    }
+    async function refreshStaffCounts() {
+      try {
+        const r = await safeFetchJson('/api/admin/staff/counts');
+        if (r.ok && r.json?.ok) {
+          const c = r.json.data || {};
+          const p = document.getElementById('staffPendingCount');
+          const a = document.getElementById('staffApprovedCount');
+          const rj = document.getElementById('staffRejectedCount');
+          const d = document.getElementById('staffDeactivatedCount');
+          if (p) p.textContent = c.Pending ?? 0;
+          if (a) a.textContent = c.Approved ?? 0;
+          if (rj) rj.textContent = c.Rejected ?? 0;
+          if (d) d.textContent = c.Deactivated ?? 0;
+        }
+      } catch (e) { console.error(e); }
+    }
+    async function fetchStaffApprovals() {
+      const tbody = document.getElementById('staffApprovalsBody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center">Loading...</td></tr>';
+      try {
+        const r = await safeFetchJson('/api/admin/staff?status=Pending');
+        if (!r.ok || !r.json?.ok) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Failed to load</td></tr>'; return; }
+        const data = r.json.data || [];
+        if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No pending approvals</td></tr>'; return; }
+        tbody.innerHTML = data.map(row => `
+          <tr>
+            <td>${row.first_name} ${row.last_name}</td>
+            <td>${row.department || '-'}</td>
+            <td>${row.position || row.department || '-'}</td>
+            <td><span class="status-badge status-pending">${row.status}</span></td>
+            <td>
+              <div class="action-buttons">
+                <button class="btn-sign" onclick="doApproveStaff(${row.id})"><i class="fa-solid fa-check"></i> Approve</button>
+                <select class="reason-dropdown" onchange="if(this.value)doRejectStaff(${row.id},this.value);this.value=''">
+                  <option value="">Reject...</option>
+                  <option value="Incomplete Requirements">Incomplete Requirements</option>
+                  <option value="Invalid Information">Invalid Information</option>
+                  <option value="Duplicate Account">Duplicate Account</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+      } catch (e) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error loading</td></tr>'; }
+    }
+    async function fetchStaffApproved() {
+      const tbody = document.getElementById('staffApprovedBody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center">Loading...</td></tr>';
+      try {
+        const r = await safeFetchJson('/api/admin/staff?status=Approved');
+        if (!r.ok || !r.json?.ok) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Failed to load</td></tr>'; return; }
+        const data = r.json.data || [];
+        if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No approved staff</td></tr>'; return; }
+        tbody.innerHTML = data.map(row => `
+          <tr>
+            <td>${row.first_name} ${row.last_name}</td>
+            <td>${row.department || '-'}</td>
+            <td>${row.position || row.department || '-'}</td>
+            <td><span class="status-badge status-signed">${row.status}</span></td>
+            <td>${row.approved_by || '-'}</td>
+            <td>${row.approved_date ? new Date(row.approved_date).toLocaleDateString() : (row.created_at ? new Date(row.created_at).toLocaleDateString() : '-')}</td>
+            <td>
+              <button class="btn-deactivate" onclick="doDeactivateStaff(${row.id})" title="Deactivate (e.g. resigned)">
+                <i class="fa-solid fa-user-slash"></i> Deactivate
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (e) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error loading</td></tr>'; }
+    }
+    async function fetchStaffRejected() {
+      const tbody = document.getElementById('staffRejectedBody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center">Loading...</td></tr>';
+      try {
+        const r = await safeFetchJson('/api/admin/staff?status=Rejected');
+        if (!r.ok || !r.json?.ok) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Failed to load</td></tr>'; return; }
+        const data = r.json.data || [];
+        if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No rejected staff</td></tr>'; return; }
+        tbody.innerHTML = data.map(row => `
+          <tr>
+            <td>${row.first_name} ${row.last_name}</td>
+            <td>${row.department || '-'}</td>
+            <td>${row.position || row.department || '-'}</td>
+            <td><span class="status-badge status-rejected">${row.status}</span></td>
+            <td>${row.approved_by || '-'}</td>
+            <td>${row.rejection_reason || '-'}</td>
+            <td>${(row.rejected_date || row.created_at) ? new Date(row.rejected_date || row.created_at).toLocaleDateString() : '-'}</td>
+            <td>
+              <button type="button" class="btn btn-success btn-sm" onclick="doApproveStaff(${row.id})" title="Approve this staff">
+                <i class="fa-solid fa-check"></i> Approve
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (e) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Error loading</td></tr>'; }
+    }
+    async function fetchStaffDeactivated() {
+      const tbody = document.getElementById('staffDeactivatedBody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center">Loading...</td></tr>';
+      try {
+        const r = await safeFetchJson('/api/admin/staff?status=Deactivated');
+        if (!r.ok || !r.json?.ok) { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Failed to load</td></tr>'; return; }
+        const data = r.json.data || [];
+        if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No deactivated staff</td></tr>'; return; }
+        tbody.innerHTML = data.map(row => {
+          const dateVal = row.deactivated_at || row.created_at;
+          return `
+          <tr>
+            <td>${row.first_name} ${row.last_name}</td>
+            <td>${row.department || '-'}</td>
+            <td>${row.position || row.department || '-'}</td>
+            <td><span class="status-badge status-deactivated">${row.status}</span></td>
+            <td>${row.deactivated_by || row.approved_by || '-'}</td>
+            <td>${dateVal ? new Date(dateVal).toLocaleDateString() : '-'}</td>
+          </tr>
+        `}).join('');
+      } catch (e) { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error loading</td></tr>'; }
+    }
+    async function doDeactivateStaff(id) {
+      const { value: confirmed } = await Swal.fire({
+        title: 'Deactivate Staff?',
+        html: 'This staff has resigned or is no longer active. Deactivate this account?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Deactivate',
+        cancelButtonText: 'Cancel'
+      });
+      if (!confirmed) return;
+      Swal.fire({ title: 'Deactivating...', allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
+      try {
+        const r = await safeFetchJson('/admin/staff/deactivate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, deactivator: document.getElementById('staffName')?.textContent || 'Computer Lab' }) });
+        if (!r.ok || !r.json?.ok) throw new Error(r.json?.message || r.text || 'Deactivate failed');
+        Swal.fire({ icon: 'success', title: 'Deactivated', text: 'Staff has been deactivated.', confirmButtonText: 'OK' });
+        await refreshStaffCounts();
+        fetchStaffApproved();
+        fetchStaffDeactivated();
+      } catch (e) { Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'Deactivate failed', confirmButtonText: 'OK' }); }
+    }
+    async function doApproveStaff(id) {
+      Swal.fire({ title: 'Approving...', allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
+      try {
+        const r = await safeFetchJson('/admin/staff/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, approver: document.getElementById('staffName')?.textContent || 'Computer Lab' }) });
+        if (!r.ok || !r.json?.ok) throw new Error(r.json?.message || r.text || 'Approve failed');
+        Swal.fire({ icon: 'success', title: 'Success', text: 'Staff approved!', confirmButtonText: 'OK' });
+        await refreshStaffCounts();
+        fetchStaffApprovals();
+        fetchStaffApproved();
+        fetchStaffRejected();
+      } catch (e) { Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'Approve failed', confirmButtonText: 'OK' }); }
+    }
+    async function doRejectStaff(id, reason) {
+      if (!reason) return;
+      Swal.fire({ title: 'Rejecting...', allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
+      try {
+        const r = await safeFetchJson('/admin/staff/reject', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, reason, approver: document.getElementById('staffName')?.textContent || 'Computer Lab' }) });
+        if (!r.ok || !r.json?.ok) throw new Error(r.json?.message || r.text || 'Reject failed');
+        Swal.fire({ icon: 'warning', title: 'Rejected', text: 'Staff rejected.', confirmButtonText: 'OK' });
+        await refreshStaffCounts(); fetchStaffApprovals();
+      } catch (e) { Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'Reject failed', confirmButtonText: 'OK' }); }
+    }
+    function formatActivityDateTime(dateStr) {
+      if (!dateStr) return '-';
+      try {
+        let s = String(dateStr).trim().replace(' ', 'T');
+        if (!/Z|[+-]\d{2}:?\d{2}$/.test(s)) s += 'Z';
+        const d = new Date(s);
+        if (isNaN(d.getTime())) return dateStr;
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const datePart = `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+        let h = d.getHours(), m = d.getMinutes();
+        const ampm = h >= 12 ? 'pm' : 'am';
+        h = h % 12 || 12;
+        return `${datePart}, ${h}:${String(m).padStart(2,'0')} ${ampm}`;
+      } catch (_) { return dateStr; }
+    }
+    function actionToEnglish(action) {
+      if (!action) return '-';
+      const map = { 'Nag-log in sa system': 'Logged in', 'Nag-log out sa system': 'Logged out', 'In-approve ang staff': 'Approved staff', 'Ni-reject ang staff': 'Rejected staff', 'Deactivated staff': 'Deactivated staff', 'Nag-submit ng clearance request': 'Submitted clearance' };
+      return map[action] || action;
+    }
+    async function fetchActivityLog() {
+      const tbody = document.getElementById('activityLogBody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center">Loading...</td></tr>';
+      try {
+        const r = await safeFetchJson('/api/admin/activity-log');
+        if (!r.ok || !r.json?.ok) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">' + (r.json?.message || 'Failed to load') + '</td></tr>'; return; }
+        const data = r.json.data || [];
+        if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No activity yet</td></tr>'; return; }
+        tbody.innerHTML = data.map(row => {
+          const typeLabel = row.user_type === 'admin' ? 'Admin' : row.user_type === 'staff' ? 'Staff' : 'Student';
+          const typeBadge = row.user_type === 'admin' ? 'bg-primary' : row.user_type === 'staff' ? 'bg-info' : 'bg-success';
+          const name = (row.user_display_name && String(row.user_display_name).trim()) ? row.user_display_name : '—';
+          const email = row.user_identifier || '—';
+          return `<tr><td class="text-nowrap">${formatActivityDateTime(row.created_at)}</td><td><div>${name}</div><small class="text-muted">${email}</small></td><td><span class="badge ${typeBadge}">${typeLabel}</span></td><td>${actionToEnglish(row.action)}</td></tr>`;
+        }).join('');
+      } catch (e) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error loading</td></tr>'; }
+    }
 
     function logout() {
       Swal.fire({

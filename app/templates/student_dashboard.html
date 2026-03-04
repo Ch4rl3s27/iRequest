@@ -2164,6 +2164,114 @@
       color: var(--primary-500);
     }
 
+    /* Change Password – larger, professional card */
+    #passwordSection .profile-container {
+      max-width: 560px;
+      margin: 0 auto;
+    }
+    #passwordSection .profile-card {
+      margin-top: 0;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+      border: 1px solid #e5e7eb;
+      overflow: hidden;
+    }
+    #passwordSection .profile-header {
+      padding: 1.5rem 2rem;
+      background: #f8fafc;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    #passwordSection .profile-header-content {
+      display: block;
+    }
+    #passwordSection .profile-header-content i {
+      display: none;
+    }
+    #passwordSection .profile-header-content h2 {
+      font-size: 1.375rem;
+      font-weight: 600;
+      color: #0f172a;
+      margin: 0;
+      letter-spacing: -0.02em;
+    }
+    #passwordSection .profile-body {
+      padding: 2rem;
+    }
+    #passwordSection .profile-grid {
+      gap: 1.5rem;
+      margin-bottom: 0;
+    }
+    #passwordSection .profile-label {
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      color: #334155;
+      margin-bottom: 0.5rem;
+    }
+    #passwordSection .profile-input {
+      background: #fff;
+      cursor: text;
+      padding: 0.875rem 3rem 0.875rem 1rem;
+      border-radius: 10px;
+      border: 1px solid #d1d5db;
+      font-size: 1rem;
+      width: 100%;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    #passwordSection .profile-input::placeholder {
+      color: #94a3b8;
+    }
+    #passwordSection .profile-input:hover {
+      border-color: #9ca3af;
+    }
+    #passwordSection .profile-input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    #passwordSection .password-input-wrap {
+      position: relative;
+    }
+    #passwordSection .password-toggle {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      user-select: none;
+      color: #64748b;
+      font-size: 1.0625rem;
+    }
+    #passwordSection .password-toggle:hover {
+      color: #334155;
+    }
+    #passwordSection .password-hint {
+      display: none;
+    }
+    #passwordSection .btn-password-update {
+      width: 100%;
+      margin-top: 2rem;
+      padding: 0.875rem 1.25rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 10px;
+      background: #2563eb;
+      border: none;
+      color: #fff;
+      display: block;
+      text-align: center;
+      transition: background 0.2s ease, transform 0.1s ease;
+      cursor: pointer;
+    }
+    #passwordSection .btn-password-update:hover {
+      background: #1d4ed8;
+    }
+    #passwordSection .btn-password-update:active {
+      transform: scale(0.99);
+    }
+
     /* Clearance Status Section */
     .clearance-status-section {
       margin-top: var(--space-8);
@@ -2789,6 +2897,7 @@
      
       
       <a id="profileLink"><i class="fas fa-user"></i> <span class="link-text">Profile</span></a>
+      <a id="passwordLink"><i class="fas fa-lock"></i> <span class="link-text">Change Password</span></a>
     </div>
     
     <div class="logout">
@@ -2870,11 +2979,6 @@
         <div id="pendingRequestsPanel" style="display:none; margin-top: 1.5rem; position: relative; z-index: 1;">
           <div class="pending-requests-header">
             <div class="request-card-title" id="requestsHeaderTitle"><i class="fas fa-folder-open"></i> Pending Requests</div>
-            <div class="pending-requests-actions">
-              <button id="refreshRequestsBtn" class="btn btn-outline-primary btn-sm" onclick="refreshAllRequests()" title="Refresh Data">
-                <i class="fas fa-sync-alt"></i> Refresh
-              </button>
-            </div>
           </div>
           <div class="pending-requests-card">
             <!-- Table (desktop) -->
@@ -2962,6 +3066,48 @@
         </div>
       </div>
 
+      <!-- Change Password Section -->
+      <div id="passwordSection" style="display:none;">
+        <div class="profile-container">
+          <div class="profile-card">
+            <div class="profile-header">
+              <div class="profile-header-content">
+                <i class="fas fa-lock"></i>
+                <h2>Change Password</h2>
+              </div>
+            </div>
+            <div class="profile-body">
+              <form id="passwordForm" autocomplete="off">
+                <div class="profile-grid">
+                  <div class="profile-field full-width">
+                    <label class="profile-label" for="currentPassword">Old Password</label>
+                    <div class="password-input-wrap">
+                      <input id="currentPassword" type="password" class="profile-input" required placeholder="Enter your old password">
+                      <i id="toggleCurrentPassword" class="fas fa-eye password-toggle" aria-label="Show password"></i>
+                    </div>
+                  </div>
+                  <div class="profile-field full-width">
+                    <label class="profile-label" for="newPassword">New Password</label>
+                    <div class="password-input-wrap">
+                      <input id="newPassword" type="password" class="profile-input" required minlength="8" maxlength="30" placeholder="Enter new password">
+                      <i id="toggleNewPassword" class="fas fa-eye password-toggle" aria-label="Show password"></i>
+                    </div>
+                  </div>
+                  <div class="profile-field full-width">
+                    <label class="profile-label" for="confirmPassword">Confirm New Password</label>
+                    <div class="password-input-wrap">
+                      <input id="confirmPassword" type="password" class="profile-input" required placeholder="Enter your confirm new password">
+                      <i id="toggleConfirmPassword" class="fas fa-eye password-toggle" aria-label="Show password"></i>
+                    </div>
+                  </div>
+                </div>
+                <button type="submit" class="btn-password-update">Change Password</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Document Section -->
       <div id="documentSection" style="display:none;">
         
@@ -3023,7 +3169,7 @@
                 <div class="card-content">
                   <div class="input-group">
                     <label>Address</label>
-                    <textarea id="docAddress" placeholder="Address" readonly rows="2" class="doc-info-textarea"></textarea>
+                    <div id="docAddress" class="doc-info-display" data-placeholder="Address"></div>
                   </div>
                   <div class="input-group">
                     <label>Nationality</label>
@@ -3043,7 +3189,7 @@
                 <div class="card-content">
                   <div class="input-group">
                     <label>Course</label>
-                    <textarea id="docCourse" placeholder="Course" readonly rows="2" class="doc-info-textarea"></textarea>
+                    <div id="docCourse" class="doc-info-display" data-placeholder="Course"></div>
                   </div>
                   <div class="input-group">
                     <label>Year Level</label>
@@ -3214,6 +3360,8 @@
       // Profile Section logic (not modal)
       const profileLink = document.getElementById("profileLink");
       const profileSection = document.getElementById("profileSection");
+      const passwordLink = document.getElementById("passwordLink");
+      const passwordSection = document.getElementById("passwordSection");
       function showProfileSection(student) {
         document.getElementById("profileFirstName").value = student.first_name || "";
         document.getElementById("profileLastName").value = student.last_name || "";
@@ -3258,6 +3406,73 @@
           }
         }
       });
+
+      // Change Password section - show/hide password toggles
+      function wirePasswordToggle(inputId, iconId) {
+        const input = document.getElementById(inputId);
+        const icon = document.getElementById(iconId);
+        if (!input || !icon) return;
+        icon.addEventListener("click", function () {
+          const isPassword = input.type === "password";
+          input.type = isPassword ? "text" : "password";
+          icon.classList.toggle("fa-eye", !isPassword);
+          icon.classList.toggle("fa-eye-slash", isPassword);
+          icon.setAttribute("aria-label", isPassword ? "Hide password" : "Show password");
+        });
+      }
+      wirePasswordToggle("currentPassword", "toggleCurrentPassword");
+      wirePasswordToggle("newPassword", "toggleNewPassword");
+      wirePasswordToggle("confirmPassword", "toggleConfirmPassword");
+
+      passwordLink.addEventListener("click", function () {
+        setActive(passwordLink);
+        pageTitle.textContent = "Change Password";
+        hideAllSections();
+        passwordSection.style.display = "block";
+        document.getElementById("passwordForm").reset();
+      });
+      document.getElementById("passwordForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+        const currentPassword = document.getElementById("currentPassword").value.trim();
+        const newPassword = document.getElementById("newPassword").value.trim();
+        const confirmPassword = document.getElementById("confirmPassword").value.trim();
+        if (!currentPassword || !newPassword || !confirmPassword) {
+          SweetAlertUtils.error("Error", "All fields are required.");
+          return;
+        }
+        if (newPassword !== confirmPassword) {
+          SweetAlertUtils.error("Error", "New password and confirm password do not match.");
+          return;
+        }
+        if (newPassword.length < 8 || newPassword.length > 30) {
+          SweetAlertUtils.error("Error", "New password must be 8 to 30 characters long.");
+          return;
+        }
+        if (window.showFullScreenLoading) window.showFullScreenLoading("Updating password...");
+        try {
+          const response = await fetch("/api/student/change-password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              current_password: currentPassword,
+              new_password: newPassword,
+              confirm_password: confirmPassword
+            })
+          });
+          const data = await response.json();
+          if (window.hideFullScreenLoading) window.hideFullScreenLoading();
+          if (data.ok) {
+            SweetAlertUtils.success("Password Updated", "Your password has been updated successfully.");
+            document.getElementById("passwordForm").reset();
+          } else {
+            SweetAlertUtils.error("Error", data.message || "Failed to update password.");
+          }
+        } catch (err) {
+          if (window.hideFullScreenLoading) window.hideFullScreenLoading();
+          SweetAlertUtils.error("Error", "Unable to connect. Please try again.");
+        }
+      });
+
       // Update notification badges for status buttons
       async function updateStatusBadges() {
         // Show skeleton loading on badges
@@ -3369,6 +3584,7 @@
   documentSection.style.display = "none";
   if (pendingRequestsPanel) pendingRequestsPanel.style.display = "none";
   if (profileSection) profileSection.style.display = "none";
+  if (passwordSection) passwordSection.style.display = "none";
       }
 
       dashboardLink.addEventListener("click", async function () {
@@ -3666,9 +3882,9 @@
             if (l) l.value = student.last_name || '';
             if (m) m.value = student.middle_name || '';
             if (sid) sid.value = student.student_no || '';
-            if (addr) addr.value = student.address || '';
+            if (addr) addr.textContent = student.address || '';
             if (nat) nat.value = student.nationality || 'Filipino';
-            if (c) c.value = student.course_name || student.course || '';
+            if (c) c.textContent = student.course_name || student.course || '';
             if (yl) yl.value = student.year_level_name || (student.year_level ? `Year ${student.year_level}` : '');
           }
         } catch (error) {
@@ -3733,9 +3949,9 @@
             if (docLastName) docLastName.value = student.last_name || "";
             if (docMiddleName) docMiddleName.value = student.middle_name || "";
             if (docStudentId) docStudentId.value = student.student_no || "";
-            if (docAddress) docAddress.value = student.address || "";
+            if (docAddress) docAddress.textContent = student.address || "";
             if (docNationality) docNationality.value = student.nationality || "Filipino";
-            if (docCourse) docCourse.value = student.course_name || student.course || "Computer Science";
+            if (docCourse) docCourse.textContent = student.course_name || student.course || "Computer Science";
             if (docYearLevel) docYearLevel.value = student.year_level_name || (student.year_level ? `Year ${student.year_level}` : "");
 
             // Update the topbar with real user name
@@ -3747,9 +3963,9 @@
             document.getElementById("docLastName").value = student.last_name || "";
             document.getElementById("docMiddleName").value = student.middle_name || "";
             document.getElementById("docStudentId").value = student.student_no || "";
-            document.getElementById("docAddress").value = student.address || "";
+            document.getElementById("docAddress").textContent = student.address || "";
             document.getElementById("docNationality").value = student.nationality || "Filipino";
-            document.getElementById("docCourse").value = student.course_name || student.course || "";
+            document.getElementById("docCourse").textContent = student.course_name || student.course || "";
             document.getElementById("docYearLevel").value = student.year_level_name || (student.year_level ? `Year ${student.year_level}` : "");
             
             console.log("Document form fields populated successfully");
@@ -3826,11 +4042,11 @@
         if (docFirstName) docFirstName.value = "Juan";
         if (docLastName) docLastName.value = "Dela Cruz";
         if (docStudentId) docStudentId.value = "2025-0001";
-        if (docAddress) docAddress.value = "Sample Address, City";
+        if (docAddress) docAddress.textContent = "Sample Address, City";
         if (docNationality) docNationality.value = "Filipino";
         // Apply signatory rules using current course field value
         const docCourse = document.getElementById("docCourse");
-        const sampleCourseName = docCourse ? docCourse.value : "Computer Science";
+        const sampleCourseName = docCourse ? docCourse.textContent : "Computer Science";
         applyCourseSignatoryRules(sampleCourseName);
       }
 

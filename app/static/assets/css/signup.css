@@ -210,6 +210,21 @@ label.form-label {
   color: #ffc107;
 }
 
+/* Student number autocomplete dropdown - black text for readability on white bg */
+#studentNoDropdown {
+  background: #fff;
+}
+#studentNoDropdown .list-group-item {
+  color: #000 !important;
+  background: #fff;
+  border-color: #dee2e6;
+}
+#studentNoDropdown .list-group-item:hover,
+#studentNoDropdown .list-group-item:focus {
+  color: #000 !important;
+  background: #e9ecef;
+}
+
 /* Password visibility toggle icons - make them black */
 .fa-eye, .fa-eye-slash {
   color: #000000 !important;

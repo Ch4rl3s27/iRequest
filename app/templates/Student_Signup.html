@@ -23,21 +23,23 @@
     <div class="card-body">
       <h3 class="signup-title">Student Signup Form</h3>
       <form id="studentSignupForm" action="/student/signup" method="POST">
-        <!-- Student Number -->
-        <div class="mb-3">
+        <!-- Student Number - Fill this FIRST (with autocomplete) -->
+        <div class="mb-3 position-relative">
           <label for="studentNo" class="form-label">Student No. (0000-0000)</label>
-          <input type="text" class="form-control" id="studentNo" name="student_no" placeholder="0000-0000" pattern="\d{4}-\d{4}" required>
+          <input type="text" class="form-control" id="studentNo" name="student_no" pattern="\d{4}-\d{4}" required autocomplete="off" inputmode="numeric" maxlength="9">
+          <div id="studentNoDropdown" class="list-group position-absolute w-100 border rounded shadow-sm" style="top: 100%; z-index: 1000; max-height: 200px; overflow-y: auto; display: none;"></div>
         </div>
 
-        <!-- Name -->
+        <!-- Name (auto-filled from registry, readonly) -->
+        <div id="signupLockedSection">
         <div class="row g-2">
           <div class="col-md-3">
             <label class="form-label">First Name</label>
-            <input type="text" class="form-control" name="first_name" required>
+            <input type="text" class="form-control" id="stu_first_name" name="first_name" required readonly>
           </div>
           <div class="col-md-3">
             <label class="form-label">Middle Name</label>
-            <input type="text" class="form-control" id="stu_middle_name" name="middle_name">
+            <input type="text" class="form-control" id="stu_middle_name" name="middle_name" readonly>
             <div class="form-check mt-1">
               <input class="form-check-input" type="checkbox" id="stu_no_middlename">
               <label class="form-check-label" for="stu_no_middlename">No Middle Name</label>
@@ -45,7 +47,7 @@
           </div>
           <div class="col-md-3">
             <label class="form-label">Last Name</label>
-            <input type="text" class="form-control" name="last_name" required>
+            <input type="text" class="form-control" id="stu_last_name" name="last_name" required readonly>
           </div>
           <div class="col-md-3">
             <label class="form-label">Suffix</label>
@@ -100,7 +102,7 @@
           <div class="col-md-6">
             <label class="form-label">Password</label>
             <div class="position-relative">
-              <input type="password" class="form-control" id="stu_password" name="password" required style="padding-right: 42px;">
+              <input type="password" class="form-control" id="stu_password" name="password" required maxlength="30" style="padding-right: 42px;">
               <i id="toggleStuPwd" class="fa-solid fa-eye position-absolute" style="right:12px; top:50%; transform: translateY(-50%); cursor:pointer; user-select:none;"></i>
             </div>
             <div id="stu_pwd_strength" class="mt-1" style="font-size:13px;">Strength: <span id="stu_pwd_strength_label">Weak</span></div>
@@ -108,7 +110,7 @@
           <div class="col-md-6">
             <label class="form-label">Confirm Password</label>
             <div class="position-relative">
-              <input type="password" class="form-control" id="stu_confirm_password" name="confirm_password" required style="padding-right: 42px;">
+              <input type="password" class="form-control" id="stu_confirm_password" name="confirm_password" required maxlength="30" style="padding-right: 42px;">
               <i id="toggleStuConfirmPwd" class="fa-solid fa-eye position-absolute" style="right:12px; top:50%; transform: translateY(-50%); cursor:pointer; user-select:none;"></i>
             </div>
           </div>
@@ -117,7 +119,7 @@
         <!-- Mobile -->
         <div class="mt-3">
           <label class="form-label">Mobile No.</label>
-          <input type="text" id="mobile" name="mobile" class="form-control" placeholder="09XXXXXXXXX" required>
+          <input type="text" id="mobile" name="mobile" class="form-control" required>
           <div id="mobileError">Invalid mobile number. Format: 09XXXXXXXXX</div>
         </div>
 
@@ -160,11 +162,11 @@
           <div class="row g-2 mt-2">
             <div class="col-md-8">
               <label class="form-label">Street</label>
-              <input type="text" class="form-control" id="street" name="street" placeholder="Street / Subdivision / Purok" required>
+              <input type="text" class="form-control" id="street" name="street" required>
             </div>
             <div class="col-md-4">
               <label class="form-label">Block/Lot/Unit</label>
-              <input type="text" class="form-control" id="block" name="block" placeholder="e.g., Blk 1 Lot 2">
+              <input type="text" class="form-control" id="block" name="block">
             </div>
           </div>
           <input type="hidden" id="full_address" name="address">
@@ -186,8 +188,9 @@
 
         <!-- Submit -->
         <div class="d-grid mt-4">
-          <button type="submit" class="btn btn-primary">Sign Up</button>
+          <button type="submit" class="btn btn-primary" id="signupSubmitBtn" disabled>Sign Up</button>
         </div>
+        </div><!-- /signupLockedSection -->
 
         <!-- Already have account -->
         <div class="login-link">
@@ -425,6 +428,168 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
+  // Student Number lookup with autocomplete - options appear while typing
+  (function(){
+    var studentNo = document.getElementById('studentNo');
+    var dropdown = document.getElementById('studentNoDropdown');
+    var firstEl = document.getElementById('stu_first_name');
+    var middleEl = document.getElementById('stu_middle_name');
+    var lastEl = document.getElementById('stu_last_name');
+    var noMiddleCb = document.getElementById('stu_no_middlename');
+    var lockedSection = document.getElementById('signupLockedSection');
+    var submitBtn = document.getElementById('signupSubmitBtn');
+    var searchTimer = null;
+
+    function setLocked(locked){
+      if(!lockedSection) return;
+      var els = lockedSection.querySelectorAll('input, select, button');
+      els.forEach(function(el){
+        if(el.id === 'stu_no_middlename') return;
+        el.disabled = locked;
+      });
+      if(submitBtn) submitBtn.disabled = locked;
+      if(locked){
+        if(firstEl) firstEl.value = '', firstEl.removeAttribute('readonly');
+        if(middleEl) middleEl.value = '', middleEl.removeAttribute('readonly');
+        if(lastEl) lastEl.value = '', lastEl.removeAttribute('readonly');
+        if(noMiddleCb) noMiddleCb.checked = false;
+      }
+    }
+
+    function applyStudent(data){
+      if(firstEl) firstEl.value = data.first_name || '';
+      if(lastEl) lastEl.value = data.last_name || '';
+      if(middleEl) middleEl.value = data.middle_name || '';
+      if(firstEl) firstEl.setAttribute('readonly','readonly');
+      if(middleEl) middleEl.setAttribute('readonly','readonly');
+      if(lastEl) lastEl.setAttribute('readonly','readonly');
+      if(noMiddleCb) noMiddleCb.checked = !(data.middle_name && data.middle_name.trim());
+      window.signupFormUnlocked = true;
+      setLocked(false);
+    }
+
+    function showDropdown(items){
+      if(!dropdown) return;
+      if(!items || items.length === 0){
+        dropdown.style.display = 'none';
+        dropdown.innerHTML = '';
+        return;
+      }
+      var esc = function(x){ return String(x||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+      dropdown.innerHTML = items.map(function(s){
+        var label = s.student_no + ' — ' + (s.first_name || '') + ' ' + (s.last_name || '');
+        return '<a href="#" class="list-group-item list-group-item-action" data-sno="'+esc(s.student_no)+'" data-fn="'+esc(s.first_name)+'" data-ln="'+esc(s.last_name)+'" data-mn="'+esc(s.middle_name)+'">'+esc(label)+'</a>';
+      }).join('');
+      dropdown.style.display = 'block';
+    }
+
+    function hideDropdown(){
+      if(dropdown){
+        dropdown.style.display = 'none';
+        dropdown.innerHTML = '';
+      }
+    }
+
+    function doSearch(){
+      var raw = (studentNo && studentNo.value || '').trim();
+      var digits = raw.replace(/\D/g,'');
+      if(digits.length < 2) {
+        hideDropdown();
+        return;
+      }
+      var q = digits.length >= 4 ? (digits.slice(0,4) + '-' + digits.slice(4)) : digits;
+      fetch('/api/student/search?q=' + encodeURIComponent(q))
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          if(data.ok && data.students) showDropdown(data.students);
+          else hideDropdown();
+        })
+        .catch(function(){ hideDropdown(); });
+    }
+
+    function doLookup(){
+      var val = (studentNo && studentNo.value || '').trim();
+      if(!/^\d{4}-\d{4}$/.test(val)){
+        hideDropdown();
+        return;
+      }
+      fetch('/api/student/lookup?student_no=' + encodeURIComponent(val))
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          hideDropdown();
+          if(data.found){
+            applyStudent(data);
+          } else {
+            Swal.fire({
+              icon:'error',
+              title:'Student ID Not Found',
+              text: (data.message || 'Student ID not found in enrollment list. Please verify your Student Number.')
+            });
+            if(firstEl) firstEl.value = '';
+            if(middleEl) middleEl.value = '';
+            if(lastEl) lastEl.value = '';
+            setLocked(true);
+          }
+        })
+        .catch(function(){
+          hideDropdown();
+          Swal.fire({ icon:'error', title:'Error', text:'Unable to verify Student Number. Please try again.' });
+          setLocked(true);
+        });
+    }
+
+    if(studentNo){
+      window.signupFormUnlocked = false;
+      setLocked(true);
+
+      studentNo.addEventListener('input', function(){
+        var v = this.value;
+        var digits = v.replace(/\D/g,'');
+        if(digits.length <= 4){
+          this.value = digits;
+        } else {
+          this.value = digits.slice(0,4) + '-' + digits.slice(4,8);
+        }
+        var val = (this.value || '').trim();
+        if(!val || !/^\d{4}-\d{4}$/.test(val)){
+          if(window.signupFormUnlocked){
+            window.signupFormUnlocked = false;
+            setLocked(true);
+          }
+        }
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(doSearch, 200);
+      });
+
+      studentNo.addEventListener('blur', function(){
+        setTimeout(function(){
+          hideDropdown();
+          doLookup();
+        }, 150);
+      });
+
+      studentNo.addEventListener('focus', function(){
+        var val = (this.value || '').trim();
+        if(val && val.length >= 2) doSearch();
+      });
+
+      if(dropdown){
+        dropdown.addEventListener('click', function(e){
+          e.preventDefault();
+          var a = e.target.closest('a[data-sno]');
+          if(!a) return;
+          var sno = a.getAttribute('data-sno');
+          var fn = a.getAttribute('data-fn') || '';
+          var ln = a.getAttribute('data-ln') || '';
+          var mn = a.getAttribute('data-mn') || '';
+          studentNo.value = sno;
+          applyStudent({ student_no: sno, first_name: fn, last_name: ln, middle_name: mn });
+          hideDropdown();
+        });
+      }
+    }
+  })();
+
   const mobileInput = document.getElementById('mobile');
   const mobileError = document.getElementById('mobileError');
 
@@ -544,7 +709,7 @@
         provinceSel.innerHTML = '<option selected disabled>Choose...</option>' + provinces.map(function(p){
           return '<option data-code="'+p.code+'">'+p.name+'</option>';
         }).join('');
-        provinceSel.disabled = false;
+        provinceSel.disabled = !(window.signupFormUnlocked === true);
       }catch(err){
         provinceSel.innerHTML = '<option selected disabled>Failed to load provinces</option>';
       }
@@ -636,6 +801,10 @@
       }
       var pwd = document.getElementById('stu_password').value;
       var cpwd = document.getElementById('stu_confirm_password').value;
+      if(pwd.length > 30){
+        Swal.fire({ icon:'error', title:'Password too long', text:'Password must be at most 30 characters.' });
+        return;
+      }
       var ok = pwd.length >= 8 && /[A-Z]/.test(pwd) && /[a-z]/.test(pwd) && /\d/.test(pwd) && /[@#$%&*!]/.test(pwd);
       if(!ok){
         Swal.fire({ icon:'error', title:'Weak password', text:'Please meet all password requirements.' });

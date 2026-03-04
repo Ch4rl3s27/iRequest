@@ -1322,6 +1322,72 @@ def create_app() -> Flask:
       """
     )
 
+    cur.execute(
+      """
+      CREATE TABLE IF NOT EXISTS student_registry (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        student_no VARCHAR(16) NOT NULL UNIQUE,
+        first_name VARCHAR(100) NOT NULL,
+        last_name VARCHAR(100) NOT NULL,
+        middle_name VARCHAR(50) NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      """
+    )
+
+    # Seed student_registry with enrolled students (INSERT IGNORE to skip duplicates)
+    REGISTRY_STUDENTS = [
+      ('2022-0527', 'Jerico', 'Abrazado', 'S.D.'), ('2022-0465', 'Edjennelle', 'Adriano', 'I.'),
+      ('2022-0362', 'Mark Angel', 'Agravante', 'S.'), ('2022-0181', 'Charles Edison', 'Andres', 'P.'),
+      ('2022-0403', 'Arnel', 'Angeles', 'R.'), ('2022-0152', 'Kevin Dean', 'Arceo', 'S.'),
+      ('2022-0273', 'Jay', 'Aycardo', 'A.'), ('2022-0187', 'Ginessa Mae', 'Borja', 'M.'),
+      ('2022-0165', 'Janalyn', 'Carpio', 'C.'), ('2022-0148', 'Beejay', 'Castillo', None),
+      ('2022-0478', 'Nick Joven', 'Cruz', 'M.'), ('2022-0183', 'Diether', 'De Leon', 'C.'),
+      ('2022-0174', 'Andrew', 'Dela Cruz', 'J.'), ('2022-0540', 'Ram Quelvic', 'Dela Peña', 'N.'),
+      ('2022-0209', 'John Ray', 'Donor', 'D.'), ('2022-0177', 'Johnzel', 'Esteban', None),
+      ('2019-0353', 'Jenny Rose', 'Estella', None), ('2022-0155', 'J.P F', 'Fabian', None),
+      ('2022-0175', 'Jonald', 'Legaspi', 'F.'), ('2022-0145', 'Reylee', 'Guanzon', 'C.'),
+      ('2022-0489', 'Jericho', 'Llanaza', 'A.'), ('2022-0241', 'Ken John Emil', 'Navos', 'L.'),
+      ('2022-0369', 'Mary Joy', 'Oniot', 'R.'), ('2021-0446', 'Jerryson', 'Palmaria', 'C.'),
+      ('2022-0199', 'Jiovanni', 'Pareja', 'M.'), ('2022-0160', 'Clarence', 'Pedoc', None),
+      ('2022-0375', 'Jhon Lenon', 'Perez', 'B.'), ('2022-0389', 'John Lloyd', 'Perez', 'P.'),
+      ('2022-0173', 'Froilan', 'Principe', 'O.'), ('2022-0424', 'John Carlo', 'Ragas', 'O.'),
+      ('2022-0521', 'Jhonalyn Ann', 'Ramos', 'D.'), ('2022-0399', 'Nathaniel Ashley', 'Rodelas', 'P.'),
+      ('2022-0189', 'Maui', 'Roxas', 'V.'), ('2022-0200', 'Marvin', 'Salvador', 'O.'),
+      ('2022-0180', 'Princess Micaella', 'Samson', 'B.'), ('2020-0134', 'Christian', 'San Pedro', 'D.'),
+      ('2022-0522', 'John Marvin', 'San Pedro', 'V.'), ('2022-0193', 'Joash Ephrain', 'Santos', 'B.'),
+      ('2022-0455', 'Edwin', 'Solayao', 'O.'), ('2022-0171', 'John Lorence', 'Tagoctoc', 'V.'),
+      ('2022-0159', 'Nhelvin', 'Talam', 'P.'), ('2021-0241', 'Jomar', 'Templanza', 'R.'),
+      ('2022-0163', 'Earl Joshua', 'Uy', 'L.'), ('2022-0185', 'Jan Kamille', 'Yap', None),
+      ('2022-0178', 'Daryl James', 'Almonte', 'T.'), ('2022-0154', 'Glenn Julius', 'Almonte', None),
+      ('2022-0150', 'Tristan', 'Alvaran', 'B.'), ('2022-0164', 'John Mathew', 'Arcega', 'C.'),
+      ('2022-0386', 'Rex Allen', 'Balonio', 'J.'), ('2022-0196', 'Marc Andrew', 'Barroga', None),
+      ('2022-0161', 'Mary Jane', 'Barrun', 'B.'), ('2021-0443', 'Marcel', 'Bartolome', 'D.'),
+      ('2021-0442', 'Renato Jr', 'Bautista', 'SD'), ('2022-0167', 'Rachel', 'Cadacio', 'Q.'),
+      ('2022-0186', 'Rotcher A. Jr', 'Cadorna', None), ('2022-0286', 'Trisha Mae', 'Castillo', None),
+      ('2022-0151', 'Christian', 'Constantino', 'S.'), ('2022-0168', 'Arlyn', 'Cruz', 'M.'),
+      ('2022-0169', 'John Roed', 'De Guzman', 'E.'), ('2022-0520', 'Joseph', 'Dela Victoria', 'C.'),
+      ('2022-0198', 'Abigail', 'Diao', 'C.'), ('2021-0380', 'Joseph', 'Espiritu', 'E.'),
+      ('2022-0149', 'Marl Allen', 'Fausto', 'D.'), ('2022-0158', 'Cruz Nico', 'Gole', 'C.'),
+      ('2022-0218', 'Orly', 'Gonzales', 'B.'), ('2022-0472', 'Marian', 'Ipo', 'P.'),
+      ('2022-0215', 'Aaron Joseph', 'Jimenez', 'A.'), ('2022-0219', 'Cyrus', 'Labitoria', 'O.'),
+      ('2022-0220', 'Nizaniel Kate', 'Lamadora', 'A.'), ('2022-0206', 'Daniel', 'Mangahas', 'P.'),
+      ('2022-0007', 'Troy Jan', 'Marcial', 'T.'), ('2022-0179', 'Angela Danielle', 'Montefalco', None),
+      ('2022-0157', 'Jomel', 'Mosquera', None), ('2022-0221', 'Jomar', 'Pajares', 'A.'),
+      ('2022-0201', 'Mary Joyce', 'Pineda', 'C.'), ('2022-0205', 'Jennifer', 'Pleno', None),
+      ('2022-0471', 'Mark Jhun', 'Ramirez', 'A.'), ('2019-0234', 'Reese Daniel', 'San Diego', 'M.'),
+      ('2021-0218', 'Jessica', 'San Pedro', 'P.'), ('2022-0526', 'Mark Joseph', 'San Pedro', None),
+      ('2022-0176', 'Matthew John', 'Santos', 'R.'), ('2022-0516', 'Jeniebeth', 'Sopeña', 'S.'),
+    ]
+    for sn, fn, ln, mn in REGISTRY_STUDENTS:
+      try:
+        cur.execute(
+          "INSERT IGNORE INTO student_registry (student_no, first_name, last_name, middle_name) VALUES (%s, %s, %s, %s)",
+          (sn, fn, ln, mn)
+        )
+      except Exception:
+        pass
+
     # Comprehensive migration for students table - add all missing columns
     # This handles cases where table was created with an old schema
     def add_column_if_not_exists(table_name, column_name, column_definition):
@@ -1858,6 +1924,20 @@ def create_app() -> Flask:
     except Exception:
       pass
 
+    # Add Deactivated status for resigned staff
+    try:
+      cur.execute("ALTER TABLE staff MODIFY COLUMN status ENUM('Pending','Approved','Rejected','Deactivated') NOT NULL DEFAULT 'Pending'")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE staff ADD COLUMN deactivated_by VARCHAR(255) NULL")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE staff ADD COLUMN deactivated_at DATETIME NULL")
+    except Exception:
+      pass
+
     # Note: Table creation code moved to init_db() function above
 
   @app.route('/')
@@ -1875,7 +1955,60 @@ def create_app() -> Flask:
   @app.route('/Student_Signup.html')
   def student_signup_page():
     return render_template('Student_Signup.html')
-  
+
+  @app.route('/api/student/search')
+  def api_student_search():
+    """Search students by partial student_no (for autocomplete while typing)."""
+    q = request.args.get('q', '').strip().replace('%', '')
+    if len(q) < 2:
+      return jsonify({"ok": True, "students": []})
+    try:
+      cur, conn = mysql.cursor()
+      cur.execute(
+        """SELECT student_no, first_name, last_name, middle_name
+           FROM student_registry WHERE student_no LIKE %s
+           ORDER BY student_no LIMIT 15""",
+        (q + '%',)
+      )
+      rows = cur.fetchall()
+      cur.close()
+      conn.close()
+      students = [
+        {"student_no": r['student_no'], "first_name": r['first_name'] or '', "last_name": r['last_name'] or '', "middle_name": r['middle_name'] or ''}
+        for r in rows
+      ]
+      return jsonify({"ok": True, "students": students})
+    except Exception as err:
+      return jsonify({"ok": False, "students": [], "message": str(err)}), 500
+
+  @app.route('/api/student/lookup')
+  def api_student_lookup():
+    """Lookup student by student_no from student_registry (for signup pre-fill)."""
+    student_no = request.args.get('student_no', '').strip()
+    if not student_no:
+      return jsonify({"ok": False, "found": False, "message": "Student number required"}), 400
+    try:
+      cur, conn = mysql.cursor()
+      cur.execute(
+        "SELECT student_no, first_name, last_name, middle_name FROM student_registry WHERE student_no = %s",
+        (student_no,)
+      )
+      row = cur.fetchone()
+      cur.close()
+      conn.close()
+      if row:
+        return jsonify({
+          "ok": True,
+          "found": True,
+          "student_no": row['student_no'],
+          "first_name": row['first_name'] or '',
+          "last_name": row['last_name'] or '',
+          "middle_name": row['middle_name'] or ''
+        })
+      return jsonify({"ok": True, "found": False, "message": "Student ID not found in enrollment list."})
+    except Exception as err:
+      return jsonify({"ok": False, "found": False, "message": str(err)}), 500
+
   @app.route(STAFF_SIGNUP_PATH)
   def staff_signup_page():
     if session.get('student_email'):
@@ -1885,10 +2018,6 @@ def create_app() -> Flask:
   @app.route('/student_dashboard.html')
   def student_dashboard_page():
     return render_template('student_dashboard.html')
-  
-  @app.route('/Admin_Dashboard.html')
-  def admin_dashboard_page():
-    return render_template('Admin_Dashboard.html')
   
   @app.route('/Registrar_Dashboard.html')
   def registrar_dashboard_page():
@@ -2035,10 +2164,28 @@ def create_app() -> Flask:
     gender = form.get('gender', '').strip()
     address = form.get('address', '').strip()
 
+    # Validate student_no is in enrollment registry
+    try:
+      cur, conn = mysql.cursor()
+      cur.execute("SELECT first_name, last_name, middle_name FROM student_registry WHERE student_no = %s", (student_no,))
+      reg = cur.fetchone()
+      cur.close()
+      conn.close()
+      if not reg:
+        return jsonify({"ok": False, "message": "Student ID not found in enrollment list. Please verify your Student Number."}), 400
+      # Use registry data to ensure consistency (override any client-submitted name)
+      first_name = reg['first_name'] or first_name
+      last_name = reg['last_name'] or last_name
+      middle_name = reg['middle_name'] or middle_name
+    except Exception as err:
+      return jsonify({"ok": False, "message": "Unable to verify student. Please try again."}), 500
+
     if not all([student_no, first_name, last_name, course, year_level, email, password, confirm_password, mobile, gender, address]):
       return jsonify({"ok": False, "message": "Please fill out all required fields."}), 400
     if password != confirm_password:
       return jsonify({"ok": False, "message": "Passwords do not match."}), 400
+    if len(password) > 30:
+      return jsonify({"ok": False, "message": "Password must be at most 30 characters."}), 400
 
     # Parse course and year level
     course_code = ''
@@ -2159,12 +2306,12 @@ def create_app() -> Flask:
 
     password_hash = generate_password_hash(password)
 
-    is_admin_signup = department.strip().lower() == 'admin'
+    is_admin_signup = department.strip().lower() in ('admin', 'computer laboratory')
 
     try:
       cur, conn = mysql.cursor()
       if is_admin_signup:
-        # Auto-approve Admin signups
+        # Auto-approve Admin/Computer Lab signups (admin roles)
         cur.execute(
           """
           INSERT INTO staff (department, first_name, middle_name, last_name, suffix,
@@ -2191,8 +2338,8 @@ def create_app() -> Flask:
       return jsonify({"ok": False, "message": f"Database error: {err}"}), 500
 
     if is_admin_signup:
-      return jsonify({"ok": True, "message": "Admin account created and auto-approved. You can log in now."})
-    return jsonify({"ok": True, "message": "Staff registered successfully! Please wait for admin approval before logging in."})
+      return jsonify({"ok": True, "message": "Account created and auto-approved. You can log in now."})
+    return jsonify({"ok": True, "message": "Staff registered successfully! Please wait for Computer Laboratory approval before logging in."})
 
   @app.route('/health', methods=['GET'])
   def health_check():
@@ -2288,7 +2435,7 @@ def create_app() -> Flask:
             # Login should not send or require OTP. Allow if credentials match.
             session['student_email'] = email
             session.permanent = True  # Make session permanent
-            log_user_activity(mysql, 'student', email, f"{student.get('first_name','')} {student.get('last_name','')}".strip() or email, 'Logged in to the system')
+            log_user_activity(mysql, 'student', email, f"{student.get('first_name','')} {student.get('last_name','')}".strip() or email, 'Logged in to the system', details=f"IP: {request.remote_addr}")
             cur.close()
             conn.close()
             return jsonify({"ok": True, "redirect": "/student_dashboard.html"})
@@ -2298,14 +2445,15 @@ def create_app() -> Flask:
         cur.close()
         conn.close()
         if staff and check_password_hash(staff['password_hash'], password):
-            # Admin department bypasses approval
+            if staff.get('status') == 'Deactivated':
+                return jsonify({"ok": False, "message": "This account has been deactivated. Please contact the administrator."}), 403
             department_lower = (staff.get('department') or '').strip().lower()
-            if department_lower != 'admin' and staff.get('status') != 'Approved':
-                return jsonify({"ok": False, "message": "Your account is not approved yet. Please wait for admin approval."}), 403
-            # Save admin name in session for audit trails
-            if department_lower == 'admin':
+            if department_lower not in ('admin', 'computer laboratory') and staff.get('status') != 'Approved':
+                return jsonify({"ok": False, "message": "Your account is not approved yet. Please wait for Computer Laboratory approval."}), 403
+            # Computer Laboratory and Admin: save admin name for staff approval / audit
+            if department_lower in ('admin', 'computer laboratory'):
                 admin_name = f"{staff.get('first_name','').strip()} {staff.get('last_name','').strip()}".strip()
-                session['admin_name'] = admin_name or 'Admin'
+                session['admin_name'] = admin_name or ('Admin' if department_lower == 'admin' else 'Computer Lab')
             # Save dean email in session for dean dashboards
             elif 'dean' in department_lower:
                 session['dean_email'] = email
@@ -2319,11 +2467,11 @@ def create_app() -> Flask:
             # Make session permanent for staff members
             session.permanent = True
             staff_display = f"{staff.get('first_name','')} {staff.get('last_name','')}".strip() or email
-            log_user_activity(mysql, 'admin' if department_lower == 'admin' else 'staff', email, staff_display, 'Logged in to the system')
-            # Redirect by department
+            log_user_activity(mysql, 'admin' if department_lower == 'admin' else 'staff', email, staff_display, 'Logged in to the system', details=f"IP: {request.remote_addr} | Department: {staff.get('department', '')}")
+            # Redirect by department (Admin redirects to Computer Lab Dashboard)
             department = department_lower
             dept_to_page = {
-                'admin': '/Admin_Dashboard.html',
+                'admin': '/ComputerLaboratory_Dashboard.html',
                 'computer laboratory': '/ComputerLaboratory_Dashboard.html',
                 'guidance office': '/GuidanceOffice_Dashboard.html',
                 'student affairs': '/StudentAffairs_dashboard.html',
@@ -2335,7 +2483,7 @@ def create_app() -> Flask:
                 'property custodian': '/PropertyCustodian_Dashboard.html',
                 'registrar': '/Registrar_Dashboard.html',
             }
-            return jsonify({"ok": True, "redirect": dept_to_page.get(department, '/Admin_Dashboard.html')})
+            return jsonify({"ok": True, "redirect": dept_to_page.get(department, '/ComputerLaboratory_Dashboard.html')})
         return jsonify({"ok": False, "message": "Invalid email or password."}), 401
     except Exception as err:
         print(f"Login error details: {err}")
@@ -2713,7 +2861,7 @@ def create_app() -> Flask:
             <thead><tr><th>Name</th><th>Department</th><th>Email</th><th>Status</th><th>Action</th></tr></thead>
             <tbody>{{ rows_html|safe }}</tbody>
           </table>
-          <a class='btn btn-link' href='/Admin_Dashboard.html'>Back to Admin Dashboard</a>
+          <a class='btn btn-link' href='/ComputerLaboratory_Dashboard.html'>Back to Computer Lab Dashboard</a>
         </div>
         """,
         rows_html=rows_html,
@@ -2775,15 +2923,67 @@ def create_app() -> Flask:
         return jsonify({"ok": False, "message": f"Error: {err}"}), 500
       return _message_and_back(f"Error: {err}")
 
+  @app.route('/admin/staff/deactivate', methods=['POST'])
+  def admin_deactivate_staff():
+    """Deactivate staff (e.g. resigned). Only Approved staff can be deactivated."""
+    body = request.get_json(silent=True) or {}
+    staff_id = request.form.get('id') or body.get('id')
+    deactivator = session.get('admin_name') or request.form.get('deactivator') or body.get('deactivator') or 'Computer Lab'
+    if not staff_id:
+      if request.is_json:
+        return jsonify({"ok": False, "message": "Missing staff id."}), 400
+      return _message_and_back('Missing staff id.')
+    try:
+      from datetime import datetime
+      cur, conn = mysql.cursor()
+      cur.execute("SELECT first_name, last_name, status FROM staff WHERE id=%s", (staff_id,))
+      staff_row = cur.fetchone()
+      if not staff_row:
+        cur.close()
+        conn.close()
+        if request.is_json:
+          return jsonify({"ok": False, "message": "Staff not found."}), 404
+        return _message_and_back('Staff not found.')
+      if staff_row.get('status') != 'Approved':
+        cur.close()
+        conn.close()
+        if request.is_json:
+          return jsonify({"ok": False, "message": "Only approved staff can be deactivated."}), 400
+        return _message_and_back('Only approved staff can be deactivated.')
+      cur.execute("UPDATE staff SET status='Deactivated', deactivated_by=%s, deactivated_at=%s WHERE id=%s",
+                  (deactivator, datetime.now(), staff_id))
+      cur.close()
+      conn.close()
+      staff_name = f"{staff_row.get('first_name','')} {staff_row.get('last_name','')}".strip() or f"ID {staff_id}"
+      log_user_activity(mysql, 'admin', session.get('staff_email') or deactivator, deactivator, 'Deactivated staff', details=staff_name)
+      if request.is_json:
+        return jsonify({"ok": True})
+      return redirect('/ComputerLaboratory_Dashboard.html')
+    except Exception as err:
+      if request.is_json:
+        return jsonify({"ok": False, "message": f"Error: {err}"}), 500
+      return _message_and_back(f"Error: {err}")
+
   @app.route('/api/admin/staff')
   def api_admin_staff_list():
+    dept = (session.get('staff_department') or '').strip().lower()
+    if not session.get('admin_name') and dept not in ('admin', 'computer laboratory'):
+      return jsonify({"ok": False, "message": "Unauthorized"}), 403
     status = (request.args.get('status') or '').strip()
     try:
       cur, conn = mysql.cursor()
-      if status:
-        cur.execute("SELECT id, first_name, last_name, department, email, status, approved_by, rejection_reason, created_at FROM staff WHERE status = %s ORDER BY created_at DESC", (status,))
-      else:
-        cur.execute("SELECT id, first_name, last_name, department, email, status, approved_by, rejection_reason, created_at FROM staff ORDER BY created_at DESC")
+      base_cols = "id, first_name, last_name, department, email, status, approved_by, rejection_reason, created_at"
+      extra_cols = ", deactivated_by, deactivated_at"
+      try:
+        if status:
+          cur.execute(f"SELECT {base_cols}{extra_cols} FROM staff WHERE status = %s ORDER BY created_at DESC", (status,))
+        else:
+          cur.execute(f"SELECT {base_cols}{extra_cols} FROM staff ORDER BY created_at DESC")
+      except Exception:
+        if status:
+          cur.execute(f"SELECT {base_cols} FROM staff WHERE status = %s ORDER BY created_at DESC", (status,))
+        else:
+          cur.execute(f"SELECT {base_cols} FROM staff ORDER BY created_at DESC")
       rows = cur.fetchall()
       cur.close()
       conn.close()
@@ -2793,6 +2993,9 @@ def create_app() -> Flask:
 
   @app.route('/api/admin/staff/counts')
   def api_admin_staff_counts():
+    dept = (session.get('staff_department') or '').strip().lower()
+    if not session.get('admin_name') and dept not in ('admin', 'computer laboratory'):
+      return jsonify({"ok": False, "message": "Unauthorized"}), 403
     try:
       cur, conn = mysql.cursor()
       cur.execute("SELECT status, COUNT(*) AS c FROM staff GROUP BY status")
@@ -2801,7 +3004,7 @@ def create_app() -> Flask:
       total_row = cur.fetchone()
       cur.close()
       conn.close()
-      counts = { 'Pending': 0, 'Approved': 0, 'Rejected': 0 }
+      counts = { 'Pending': 0, 'Approved': 0, 'Rejected': 0, 'Deactivated': 0 }
       for r in rows:
         counts[r['status']] = r['c']
       counts['Total'] = total_row['total'] if total_row else 0
@@ -2815,7 +3018,8 @@ def create_app() -> Flask:
 
   @app.route('/api/admin/activity-log')
   def api_admin_activity_log():
-    if not session.get('admin_name') and session.get('staff_department') != 'admin':
+    dept = (session.get('staff_department') or '').strip().lower()
+    if not session.get('admin_name') and dept not in ('admin', 'computer laboratory'):
       return jsonify({"ok": False, "message": "Unauthorized"}), 403
     limit = min(int(request.args.get('limit', 100)), 500)
     try:
@@ -2834,6 +3038,73 @@ def create_app() -> Flask:
         if r.get('created_at'):
           r['created_at'] = r['created_at'].strftime('%Y-%m-%d %H:%M:%S') if hasattr(r['created_at'], 'strftime') else str(r['created_at'])
       return jsonify({"ok": True, "data": rows})
+    except Exception as err:
+      return jsonify({"ok": False, "message": str(err)}), 500
+
+  @app.route('/api/admin/students')
+  def api_admin_list_students():
+    """List students for admin (id, name, email) so admin can remove one if needed."""
+    dept = (session.get('staff_department') or '').strip().lower()
+    if not session.get('admin_name') and dept not in ('admin', 'computer laboratory'):
+      return jsonify({"ok": False, "message": "Unauthorized"}), 403
+    try:
+      cur, conn = mysql.cursor()
+      cur.execute("""
+        SELECT id, COALESCE(first_name,'') AS first_name, COALESCE(last_name,'') AS last_name,
+               COALESCE(email,'') AS email, COALESCE(student_no,'') AS student_no, created_at
+        FROM students ORDER BY created_at DESC LIMIT 500
+      """)
+      rows = cur.fetchall()
+      cur.close()
+      conn.close()
+      for r in rows:
+        if r.get('created_at'):
+          r['created_at'] = r['created_at'].strftime('%Y-%m-%d %H:%M:%S') if hasattr(r['created_at'], 'strftime') else str(r['created_at'])
+      return jsonify({"ok": True, "data": rows})
+    except Exception as err:
+      return jsonify({"ok": False, "message": str(err)}), 500
+
+  @app.route('/api/admin/students/<int:student_id>', methods=['DELETE', 'POST'])
+  def api_admin_delete_student(student_id):
+    """Remove a student from the database (admin/Computer Lab only)."""
+    dept = (session.get('staff_department') or '').strip().lower()
+    if not session.get('admin_name') and dept not in ('admin', 'computer laboratory'):
+      return jsonify({"ok": False, "message": "Unauthorized"}), 403
+    try:
+      cur, conn = mysql.cursor()
+      cur.execute("SELECT id, first_name, last_name, email FROM students WHERE id = %s", (student_id,))
+      row = cur.fetchone()
+      if not row:
+        cur.close()
+        conn.close()
+        return jsonify({"ok": False, "message": "Student not found"}), 404
+      student_name = f"{row.get('first_name', '')} {row.get('last_name', '')}".strip()
+      # Delete in dependency order (works with or without FK CASCADE)
+      cur.execute("DELETE FROM notifications WHERE student_id = %s", (student_id,))
+      cur.execute("SELECT id FROM document_requests WHERE student_id = %s", (student_id,))
+      doc_ids = [r['id'] for r in cur.fetchall()]
+      if doc_ids:
+        placeholders = ','.join(['%s'] * len(doc_ids))
+        cur.execute(f"DELETE FROM document_files WHERE document_request_id IN ({placeholders})", tuple(doc_ids))
+      cur.execute("SELECT id FROM clearance_requests WHERE student_id = %s", (student_id,))
+      cr_ids = [r['id'] for r in cur.fetchall()]
+      if cr_ids:
+        placeholders = ','.join(['%s'] * len(cr_ids))
+        cur.execute(f"DELETE FROM clearance_signatories WHERE request_id IN ({placeholders})", tuple(cr_ids))
+        cur.execute(f"DELETE FROM clearance_files WHERE clearance_request_id IN ({placeholders})", tuple(cr_ids))
+      cur.execute("DELETE FROM document_requests WHERE student_id = %s", (student_id,))
+      cur.execute("DELETE FROM clearance_requests WHERE student_id = %s", (student_id,))
+      cur.execute("DELETE FROM students WHERE id = %s", (student_id,))
+      try:
+        cur.execute("DELETE FROM users WHERE external_type = 'student' AND external_id = %s", (student_id,))
+      except Exception:
+        pass
+      conn.commit()
+      cur.close()
+      conn.close()
+      log_user_activity(mysql, 'admin', session.get('staff_email') or session.get('admin_name') or 'Admin',
+                        session.get('admin_name') or 'Admin', 'Removed student from database', details=f"{student_name} (id={student_id})")
+      return jsonify({"ok": True, "message": "Student removed from database."})
     except Exception as err:
       return jsonify({"ok": False, "message": str(err)}), 500
 
@@ -4248,9 +4519,9 @@ def create_app() -> Flask:
           cur.close()
           conn.close()
           display = f"{row.get('first_name', '')} {row.get('last_name', '')}".strip() if row else student_email
-          log_user_activity(mysql, 'student', student_email, display, 'Logged out of the system')
+          log_user_activity(mysql, 'student', student_email, display, 'Logged out of the system', details=f"IP: {request.remote_addr}")
         except Exception:
-          log_user_activity(mysql, 'student', student_email, student_email, 'Logged out of the system')
+          log_user_activity(mysql, 'student', student_email, student_email, 'Logged out of the system', details=f"IP: {request.remote_addr}")
       elif staff_email:
         display = session.get('admin_name')
         if not display:
@@ -4264,7 +4535,8 @@ def create_app() -> Flask:
           except Exception:
             display = staff_email
         user_type = 'admin' if session.get('staff_department') == 'admin' else 'staff'
-        log_user_activity(mysql, user_type, staff_email, display or staff_email, 'Logged out of the system')
+        dept = session.get('staff_department', '')
+        log_user_activity(mysql, user_type, staff_email, display or staff_email, 'Logged out of the system', details=f"IP: {request.remote_addr} | Department: {dept}")
       session.clear()
       return jsonify({"ok": True})
     except Exception as err:
@@ -4333,8 +4605,8 @@ def create_app() -> Flask:
       if new_password != confirm_password:
         return jsonify({"ok": False, "message": "New password and confirm password do not match"}), 400
       
-      if len(new_password) < 6:
-        return jsonify({"ok": False, "message": "New password must be at least 6 characters long"}), 400
+      if len(new_password) < 8 or len(new_password) > 30:
+        return jsonify({"ok": False, "message": "New password must be 8 to 30 characters long"}), 400
       
       # Get dean email from session
       dean_email = session.get('dean_email')
@@ -4378,8 +4650,8 @@ def create_app() -> Flask:
       if new_password != confirm_password:
         return jsonify({"ok": False, "message": "New password and confirm password do not match"}), 400
       
-      if len(new_password) < 6:
-        return jsonify({"ok": False, "message": "New password must be at least 6 characters long"}), 400
+      if len(new_password) < 8 or len(new_password) > 30:
+        return jsonify({"ok": False, "message": "New password must be 8 to 30 characters long"}), 400
       
       staff_email = session.get('dean_email') or session.get('staff_email')
       if not staff_email:
@@ -4399,6 +4671,44 @@ def create_app() -> Flask:
       cur.close()
       conn.close()
       
+      return jsonify({"ok": True, "message": "Password updated successfully"})
+    except Exception as err:
+      return jsonify({"ok": False, "message": f"Error: {err}"}), 500
+
+  @app.route('/api/student/change-password', methods=['POST'])
+  def api_student_change_password():
+    try:
+      data = request.get_json()
+      current_password = (data.get('current_password', '') or '').strip()
+      new_password = (data.get('new_password', '') or '').strip()
+      confirm_password = (data.get('confirm_password', '') or '').strip()
+
+      if not all([current_password, new_password, confirm_password]):
+        return jsonify({"ok": False, "message": "All fields are required"}), 400
+
+      if new_password != confirm_password:
+        return jsonify({"ok": False, "message": "New password and confirm password do not match"}), 400
+
+      if len(new_password) < 8 or len(new_password) > 30:
+        return jsonify({"ok": False, "message": "New password must be 8 to 30 characters long"}), 400
+
+      student_email = session.get('student_email')
+      if not student_email:
+        return jsonify({"ok": False, "message": "Not logged in as student"}), 401
+
+      cur, conn = mysql.cursor()
+      cur.execute("SELECT password_hash FROM students WHERE email = %s", (student_email,))
+      student = cur.fetchone()
+      if not student or not check_password_hash(student['password_hash'], current_password):
+        cur.close()
+        conn.close()
+        return jsonify({"ok": False, "message": "Current password is incorrect"}), 400
+
+      new_password_hash = generate_password_hash(new_password)
+      cur.execute("UPDATE students SET password_hash = %s WHERE email = %s", (new_password_hash, student_email))
+      cur.close()
+      conn.close()
+
       return jsonify({"ok": True, "message": "Password updated successfully"})
     except Exception as err:
       return jsonify({"ok": False, "message": f"Error: {err}"}), 500
