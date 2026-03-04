@@ -17,16 +17,25 @@
   <link rel="stylesheet" href="/static/assets/css/signup.css">
 </head>
 <body>
+<script>
+  window.APP_BASE = "{{ (base_path or '')|e }}";
+  if (!window.APP_BASE && typeof window.location !== 'undefined') {
+    var p = window.location.pathname;
+    var idx = p.indexOf('/Student_Signup');
+    window.APP_BASE = idx >= 0 ? p.substring(0, idx) : '';
+  }
+</script>
 
 <div class="container signup-container d-flex align-items-center justify-content-center min-vh-100">
   <div class="card signup-card">
     <div class="card-body">
       <h3 class="signup-title">Student Signup Form</h3>
-      <form id="studentSignupForm" action="/student/signup" method="POST">
+      <form id="studentSignupForm" action="{{ (base_path or '') }}/student/signup" method="POST">
         <!-- Student Number - Fill this FIRST (with autocomplete) -->
         <div class="mb-3 position-relative">
           <label for="studentNo" class="form-label">Student No. (0000-0000)</label>
           <input type="text" class="form-control" id="studentNo" name="student_no" pattern="\d{4}-\d{4}" required autocomplete="off" inputmode="numeric" maxlength="9">
+          <div id="studentNoSearching" style="display:none; font-size:0.85rem; color:#6c757d; margin-top:4px;"><span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> <span id="studentNoSearchingText">Searching...</span></div>
           <div id="studentNoDropdown" class="list-group position-absolute w-100 border rounded shadow-sm" style="top: 100%; z-index: 1000; max-height: 200px; overflow-y: auto; display: none;"></div>
         </div>
 
@@ -492,30 +501,46 @@
       }
     }
 
+    function showSearching(text){
+      var el = document.getElementById('studentNoSearching');
+      var textEl = document.getElementById('studentNoSearchingText');
+      if(el){ el.style.display = 'block'; }
+      if(textEl){ textEl.textContent = text || 'Searching...'; }
+    }
+    function hideSearching(){
+      var el = document.getElementById('studentNoSearching');
+      if(el){ el.style.display = 'none'; }
+    }
+
     function doSearch(){
       var raw = (studentNo && studentNo.value || '').trim();
       var digits = raw.replace(/\D/g,'');
       if(digits.length < 2) {
         hideDropdown();
+        hideSearching();
         return;
       }
       var q = digits.length >= 4 ? (digits.slice(0,4) + '-' + digits.slice(4)) : digits;
-      fetch('/api/student/search?q=' + encodeURIComponent(q))
+      showSearching('Searching...');
+      fetch((window.APP_BASE || '') + '/api/student/search?q=' + encodeURIComponent(q))
         .then(function(r){ return r.json(); })
         .then(function(data){
+          hideSearching();
           if(data.ok && data.students) showDropdown(data.students);
           else hideDropdown();
         })
-        .catch(function(){ hideDropdown(); });
+        .catch(function(){ hideSearching(); hideDropdown(); });
     }
 
     function doLookup(){
       var val = (studentNo && studentNo.value || '').trim();
       if(!/^\d{4}-\d{4}$/.test(val)){
         hideDropdown();
+        hideSearching();
         return;
       }
-      fetch('/api/student/lookup?student_no=' + encodeURIComponent(val))
+      showSearching('Verifying...');
+      fetch((window.APP_BASE || '') + '/api/student/lookup?student_no=' + encodeURIComponent(val))
         .then(function(r){
           if (!r.ok) {
             return r.text().then(function(t){
@@ -526,6 +551,7 @@
           return r.json();
         })
         .then(function(data){
+          hideSearching();
           hideDropdown();
           if(data.found){
             applyStudent(data);
@@ -542,6 +568,7 @@
           }
         })
         .catch(function(err){
+          hideSearching();
           hideDropdown();
           var msg = 'Unable to verify Student Number. Please try again.';
           if (err && err.serverError && err.message) msg = err.message;
@@ -571,7 +598,7 @@
           }
         }
         clearTimeout(searchTimer);
-        searchTimer = setTimeout(doSearch, 200);
+        searchTimer = setTimeout(doSearch, 120);
       });
 
       studentNo.addEventListener('blur', function(){
@@ -836,13 +863,16 @@
 
       try{
         var formData = new FormData(form);
-        var res = await fetch(form.action, { method:'POST', body: formData });
+        var signupUrl = (window.APP_BASE || '') + '/student/signup';
+        var res = await fetch(signupUrl, { method:'POST', body: formData });
         var data = null;
         try { data = await res.json(); } catch(_) { /* non-JSON response */ }
 
         if(res.ok && data && data.ok){
+          var redir = data.redirect || '/otp';
+          if (redir.charAt(0) === '/') redir = (window.APP_BASE || '') + redir;
           Swal.fire({ icon:'success', title:'Signup successful!', text:'We sent a verification code to your email.' })
-            .then(()=>{ window.location.href = (data.redirect || '/otp'); });
+            .then(()=>{ window.location.href = redir; });
           return;
         }
 

@@ -1954,7 +1954,8 @@ def create_app() -> Flask:
   
   @app.route('/Student_Signup.html')
   def student_signup_page():
-    return render_template('Student_Signup.html')
+    base_path = (request.environ.get('SCRIPT_NAME') or '').rstrip('/') if request else ''
+    return render_template('Student_Signup.html', base_path=base_path)
 
   @app.route('/api/student/search')
   def api_student_search():
