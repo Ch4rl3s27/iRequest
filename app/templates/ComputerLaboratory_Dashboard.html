@@ -1410,7 +1410,16 @@ tr.dataset.studentId = student.student_id || student.id || '';
     }
     function actionToEnglish(action) {
       if (!action) return '-';
-      const map = { 'Nag-log in sa system': 'Logged in', 'Nag-log out sa system': 'Logged out', 'In-approve ang staff': 'Approved staff', 'Ni-reject ang staff': 'Rejected staff', 'Deactivated staff': 'Deactivated staff', 'Nag-submit ng clearance request': 'Submitted clearance' };
+      // Backward compatibility: map legacy Tagalog activity strings to English
+      const map = {
+        'Nag-log in sa system': 'Logged in',
+        'Nag-log out sa system': 'Logged out',
+        'In-approve ang staff': 'Approved staff',
+        'Ni-reject ang staff': 'Rejected staff',
+        'Nag-submit ng clearance request': 'Submitted clearance',
+        'Logged in to the system': 'Logged in',
+        'Logged out of the system': 'Logged out'
+      };
       return map[action] || action;
     }
     async function fetchActivityLog() {
