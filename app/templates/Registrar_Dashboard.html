@@ -2866,7 +2866,7 @@
       });
     }
 
-    // Move a pending item to processing (clearance at certificates — iisang API, backend na bahala)
+    // Move a pending item to processing (clearance at certificates — single API, backend handles it)
     async function moveToProcessing(btn) {
       const row = btn.closest('tr');
       const requestId = row.dataset.requestId;
