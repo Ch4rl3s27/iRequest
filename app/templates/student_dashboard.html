@@ -3772,7 +3772,7 @@
           if (pendingSet.has(val)) {
             cb.disabled = true;
             cb.checked = false;
-            cb.setAttribute('title', 'Nasa pending/processing na ang dokumentong ito.');
+            cb.setAttribute('title', 'This document is already in a pending or processing request.');
             cb.closest('label')?.classList.add('document-in-pending');
           }
         });
@@ -3826,8 +3826,13 @@
               title: 'Request Submitted',
               text: 'Your document request has been submitted successfully. It will appear in the Registrar\'s pending documents once all required clearances are approved.',
               confirmButtonText: 'OK'
-            }).then(() => {
-              // Automatically switch to dashboard and refresh content
+            }).then(async () => {
+              // Refresh document tab data first
+              try {
+                await loadAllRequests();
+                updateStatusBadges();
+              } catch (_) {}
+              // Then switch to dashboard
               dashboardLink.click();
             });
             
@@ -4927,42 +4932,29 @@
               const paymentReceiptFile = document.getElementById('paymentReceipt').files[0];
               const referenceNumber = document.getElementById('referenceNumber').value.trim();
               
-              for (const certDoc of nonClearanceDocs) {
+              // Submit all certificate requests in parallel so none are blocked by "pending" from a previous one
+              const certPromises = nonClearanceDocs.map(async (certDoc) => {
                 try {
-                  // Create FormData for certificate requests with payment
                   const certFormData = new FormData();
                   certFormData.append('document_type', certDoc);
                   certFormData.append('purpose', purposeText);
-                  
-                  // Calculate price for this certificate
                   const certPrice = certPricing[certDoc] || 50;
                   certFormData.append('payment_amount', certPrice.toString());
                   certFormData.append('payment_method', 'cash');
-                  
-                  // Add payment receipt if available
-                  if (paymentReceiptFile) {
-                    certFormData.append('payment_receipt', paymentReceiptFile);
-                  }
-                  
-                  // Add reference number if available
-                  if (referenceNumber) {
-                    certFormData.append('reference_number', referenceNumber);
-                  }
-                  
-                  const certResponse = await fetch('/api/document/request', {
-                    method: 'POST',
-                    body: certFormData
-                  });
+                  if (paymentReceiptFile) certFormData.append('payment_receipt', paymentReceiptFile);
+                  if (referenceNumber) certFormData.append('reference_number', referenceNumber);
+                  const certResponse = await fetch('/api/document/request', { method: 'POST', body: certFormData });
                   const certResult = await certResponse.json();
-                  if (certResult.ok) {
-                    results.push({ type: 'certificate', doc: certDoc, success: true });
-                  } else {
-                    errors.push({ type: 'certificate', doc: certDoc, error: certResult.message || 'Unknown error' });
-                  }
+                  return { doc: certDoc, ok: certResult.ok, error: certResult.message || 'Unknown error' };
                 } catch (error) {
-                  errors.push({ type: 'certificate', doc: certDoc, error: error.message || 'Network error' });
+                  return { doc: certDoc, ok: false, error: error.message || 'Network error' };
                 }
-              }
+              });
+              const certResults = await Promise.all(certPromises);
+              certResults.forEach(r => {
+                if (r.ok) results.push({ type: 'certificate', doc: r.doc, success: true });
+                else errors.push({ type: 'certificate', doc: r.doc, error: r.error });
+              });
             }
             
             // 2. Submit Diploma/Transcript to clearance endpoint (if any)
@@ -5080,6 +5072,12 @@
               try {
                 await loadAllRequests();
               } catch(_) {}
+              // Switch to dashboard so user sees their new request
+              setActive(dashboardLink);
+              pageTitle.textContent = "Dashboard";
+              hideAllSections();
+              dashboardSection.style.display = "block";
+              updatePendingPagination();
             } else {
               // Some failed
               let errorMessage = '<strong>Some requests failed:</strong><br/>';
@@ -5108,6 +5106,12 @@
               try {
                 await loadAllRequests();
               } catch(_) {}
+              // Switch to dashboard so user sees successful requests
+              setActive(dashboardLink);
+              pageTitle.textContent = "Dashboard";
+              hideAllSections();
+              dashboardSection.style.display = "block";
+              updatePendingPagination();
             }
           }catch(err){
             Swal.fire({ icon:'error', title:'Error', text: String(err) });
