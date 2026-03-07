@@ -1,14 +1,14 @@
-# Paano i-Update ang Instance (44.223.68.230)
+# How to update the instance (44.223.68.230)
 
-Para mawala ang Dark Mode button sa student dashboard sa server, kailangan ma-deploy ang updated na `student_dashboard.html`.
+To deploy changes (e.g. remove the Dark Mode button from the student dashboard on the server), you need to deploy the updated `student_dashboard.html`.
 
 ---
 
-## Paraan 1: Git (kung naka-git ang project sa server)
+## Method 1: Git (if the project on the server uses git)
 
-### Step 1 – Sa PC mo (local)
+### Step 1 – On your PC (local)
 
-1. I-commit at i-push ang changes:
+1. Commit and push your changes:
    ```powershell
    cd c:\Users\Abel\Desktop\iRequest
    git add app/templates/student_dashboard.html
@@ -16,22 +16,22 @@ Para mawala ang Dark Mode button sa student dashboard sa server, kailangan ma-de
    git push origin main
    ```
 
-### Step 2 – Sa server (44.223.68.230)
+### Step 2 – On the server (44.223.68.230)
 
-1. SSH sa server:
+1. SSH into the server:
    ```bash
    ssh ubuntu@44.223.68.230
    ```
-   (Palitan ang `ubuntu` kung iba ang username.)
+   (Replace `ubuntu` if your username is different.)
 
-2. Pumunta sa folder ng app at mag-pull:
+2. Go to the app folder and pull:
    ```bash
    cd /home/ubuntu/iRequest
    git pull origin main
    ```
-   (Palitan ang path kung iba ang location ng project.)
+   (Replace the path if the project is in a different location.)
 
-3. I-restart ang app. Depende kung paano naka-run:
+3. Restart the app. Depends on how it is run:
    - **Systemd:**
      ```bash
      sudo systemctl restart irequest
@@ -40,26 +40,26 @@ Para mawala ang Dark Mode button sa student dashboard sa server, kailangan ma-de
      ```bash
      sudo systemctl restart gunicorn
      ```
-   - **Manual (python):** Patayin ang process (Ctrl+C) tapos start ulit, hal. `python app.py` o `gunicorn ...`.
+   - **Manual (python):** Stop the process (Ctrl+C) then start again, e.g. `python app.py` or `gunicorn ...`.
 
 ---
 
-## Paraan 2: Copy file (kung walang git sa server)
+## Method 2: Copy file (if there is no git on the server)
 
-### Sa PC mo
+### On your PC
 
-1. I-copy ang file papunta sa server gamit SCP (palitan ang `ubuntu` at path kung iba):
+1. Copy the file to the server using SCP (replace `ubuntu` and path if different):
    ```powershell
    scp "c:\Users\Abel\Desktop\iRequest\app\templates\student_dashboard.html" ubuntu@44.223.68.230:/home/ubuntu/iRequest/app/templates/
    ```
 
-### Sa server
+### On the server
 
-1. I-restart ang app (same options sa Step 2 sa Paraan 1).
+1. Restart the app (same options as Step 2 in Method 1).
 
 ---
 
-## Pagkatapos
+## After updating
 
-Buksan sa browser: `http://44.223.68.230:5000/student_dashboard.html`  
-Gawin hard refresh: **Ctrl + Shift + R**. Dapat wala na ang Dark Mode button sa sidebar.
+Open in your browser: `http://44.223.68.230:5000/student_dashboard.html`  
+Do a hard refresh: **Ctrl + Shift + R**. The Dark Mode button should no longer appear in the sidebar.
