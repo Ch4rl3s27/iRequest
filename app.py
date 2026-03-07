@@ -1632,9 +1632,13 @@ def create_app() -> Flask:
       cur.execute("ALTER TABLE document_requests ADD COLUMN reference_number VARCHAR(32) NULL")
     except Exception:
       pass
-    # Add unique constraint to reference_number column to prevent duplicates
+    # Allow same reference number for multiple document types per student; unique per (ref, student, document_type)
     try:
-      cur.execute("ALTER TABLE document_requests ADD UNIQUE INDEX idx_unique_reference_number (reference_number)")
+      cur.execute("ALTER TABLE document_requests DROP INDEX idx_unique_reference_number")
+    except Exception:
+      pass
+    try:
+      cur.execute("ALTER TABLE document_requests ADD UNIQUE INDEX idx_unique_ref_student_doctype (reference_number, student_id, document_type(100))")
     except Exception:
       pass
     # Add receipt columns for document requests (similar to clearance_requests)
@@ -4937,14 +4941,8 @@ def create_app() -> Flask:
       # Get student name for email notifications
       student_name = f"{stu.get('first_name', '')} {stu.get('middle_name', '')} {stu.get('last_name', '')}".strip()
       
-      # Block new request if student still has a pending request
-      if _student_has_pending_request(cur, student_id):
-        cur.close()
-        conn.close()
-        return jsonify({
-          "ok": False,
-          "message": "May pending request ka pa. Hintayin mo muna na ma-process o ma-complete ang iyong current request bago makapag-request ng bagong dokumento."
-        }), 400
+      # Allow multiple pending requests (e.g. Certificate - Weighted Average pending + submit Certificate - Cross Enroll)
+      # Removed: block that prevented any new request when student had one pending.
       
       if request.is_json:
         print(f"🔍 CLEARANCE REQUEST: Processing JSON request")
@@ -5109,7 +5107,16 @@ def create_app() -> Flask:
         import traceback
         traceback.print_exc()
 
-      log_user_activity(mysql, 'student', student_email, student_name, 'Submitted clearance request', details=f"Request ID: {request_id}")
+      # Activity text: show what was actually requested (documents/purposes) instead of generic "Submitted clearance request"
+      doc_list = documents if isinstance(documents, list) else (json.loads(documents) if isinstance(documents, str) else [])
+      purpose_list = purposes if isinstance(purposes, list) else (json.loads(purposes) if isinstance(purposes, str) else [])
+      parts = []
+      if doc_list:
+        parts.append(", ".join(str(d) for d in doc_list))
+      if purpose_list:
+        parts.append(" (" + ", ".join(str(p) for p in purpose_list) + ")")
+      action_text = "Submitted request for " + ("".join(parts) if parts else (document_type or "clearance"))
+      log_user_activity(mysql, 'student', student_email, student_name, action_text, details=f"Request ID: {request_id}")
       
       return jsonify({
         "ok": True, 
@@ -7587,8 +7594,8 @@ def create_app() -> Flask:
         return jsonify({"ok": False, "message": "No student session found (HTTP 401)"}), 401
       
       cur, conn = mysql.cursor()
-      # Get student id
-      cur.execute("SELECT id FROM students WHERE email = %s", (student_email,))
+      # Get student id and name for activity log
+      cur.execute("SELECT id, first_name, middle_name, last_name FROM students WHERE email = %s", (student_email,))
       stu = cur.fetchone()
       if not stu:
         cur.close()
@@ -7596,15 +7603,10 @@ def create_app() -> Flask:
         return jsonify({"ok": False, "message": "Student not found"}), 404
       
       student_id = stu['id']
+      student_name = f"{stu.get('first_name', '')} {stu.get('middle_name', '')} {stu.get('last_name', '')}".strip() or student_email
       
-      # Block new request if student still has a pending request
-      if _student_has_pending_request(cur, student_id):
-        cur.close()
-        conn.close()
-        return jsonify({
-          "ok": False,
-          "message": "May pending request ka pa. Hintayin mo muna na ma-process o ma-complete ang iyong current request bago makapag-request ng bagong dokumento."
-        }), 400
+      # Allow multiple pending requests (e.g. different document types can be requested while another is pending)
+      # Removed: block that prevented any new request when student had one pending.
       
       # Check if request is JSON or FormData
       is_json = request.content_type and 'application/json' in request.content_type
@@ -7635,6 +7637,7 @@ def create_app() -> Flask:
         return jsonify({"ok": False, "message": "Document type is required"}), 400
       
       # Validate reference number format and check for duplicates if provided
+      # Allow same reference number for multiple document types (one receipt for multiple certificates)
       if reference_number:
         import re
         if not re.fullmatch(r'\d{7,16}', reference_number):
@@ -7642,13 +7645,16 @@ def create_app() -> Flask:
           conn.close()
           return jsonify({"ok": False, "message": "Reference number must be 7-16 digits only"}), 400
         
-        # Check for duplicate reference number
-        cur.execute("SELECT id FROM document_requests WHERE reference_number = %s", (reference_number,))
+        # Only reject if same student already used this reference for the SAME document type (true duplicate)
+        cur.execute(
+          "SELECT id FROM document_requests WHERE reference_number = %s AND student_id = %s AND document_type = %s",
+          (reference_number, student_id, document_type)
+        )
         existing_request = cur.fetchone()
         if existing_request:
           cur.close()
           conn.close()
-          return jsonify({"ok": False, "message": f"Reference number '{reference_number}' has already been used. Please use a different reference number."}), 400
+          return jsonify({"ok": False, "message": f"Reference number '{reference_number}' has already been used for this document type. Please use a different reference number."}), 400
       
       # Handle payment receipt upload (FormData only) - similar to clearance requests
       receipt_data = None
@@ -7699,10 +7705,18 @@ def create_app() -> Flask:
            VALUES (%s, %s, %s, 'Pending', %s, %s, %s, %s, %s, %s)""",
         (student_id, document_type, purpose, payment_method, payment_amount, reference_number, receipt_data, receipt_s3_url, receipt_s3_key)
       )
+      document_request_id = cur.lastrowid
       
       # No need to commit with autocommit=True
       cur.close()
       conn.close()
+      
+      # Log for User Activity Monitoring: show what was requested (e.g. certificate type)
+      action_text = f"Submitted request for {document_type}"
+      if purpose:
+        action_text += f" ({purpose})"
+      log_user_activity(mysql, 'student', student_email, student_name, action_text, details=f"Request ID: {document_request_id}")
+      
       return jsonify({"ok": True, "message": "Document request submitted successfully"})
       
     except Exception as err:
@@ -8128,7 +8142,7 @@ def test_database_connection():
     print("  1. Database server is running")
     print("  2. Network connectivity to the database")
     print("  3. Database credentials are correct")
-    print("  4. Firewall/security group settings")
+    print("  4. Firewall/security group settings")                  
     return False
   except Exception as e:
     print(f"✗ Unexpected error: {e}")
