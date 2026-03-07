@@ -1,36 +1,36 @@
-# SSH access sa 44.223.68.230 (Permission denied fix)
+# SSH access to 44.223.68.230 (Permission denied fix)
 
-Ang server ay naka-configure para sa **key-based login** lang. Gamitin ang **.pem key** na nasa project folder.
+The server is configured for **key-based login** only. Use the **.pem key** in the project folder.
 
 ---
 
-## 1. Key file sa project
+## 1. Key file in the project
 
-Ang SSH key ay naka-save na sa project:
+The SSH key is already saved in the project:
 
 - **`C:\Users\Abel\Desktop\iRequest\irequest.pem`**
 
-(Huwag i-commit ang .pem — naka-ignore na sa `.gitignore`.)
+(Do not commit the .pem file — it is already in `.gitignore`.)
 
 ---
 
-## 2. Gamitin ang key sa SSH
+## 2. Using the key for SSH
 
-Sa PowerShell:
+In PowerShell:
 
 ```powershell
 ssh -i "C:\Users\Abel\Desktop\iRequest\irequest.pem" ubuntu@44.223.68.230
 ```
 
-**Kung "key too open" / "bad permissions" ang error**, ayusin muna ang permissions:
+**If you get "key too open" / "bad permissions"**, fix the permissions first:
 
 ```powershell
 icacls "C:\Users\Abel\Desktop\iRequest\irequest.pem" /inheritance:r /grant:r "Abel:(R)"
 ```
 
-(Palitan ang `Abel` kung iba ang username mo sa Windows. Para malaman: `whoami`)
+(Replace `Abel` with your Windows username if different. To check: `whoami`)
 
-O patakbuhin ang script:
+Or run the script:
 
 ```powershell
 cd C:\Users\Abel\Desktop\iRequest
@@ -39,11 +39,11 @@ cd C:\Users\Abel\Desktop\iRequest
 
 ---
 
-## 3. (Optional) SSH config para hindi na type lagi
+## 3. (Optional) SSH config so you don't have to type the key path every time
 
-Buksan o gawa: `C:\Users\Abel\.ssh\config` (walang extension).
+Open or create: `C:\Users\Abel\.ssh\config` (no file extension).
 
-Idagdag:
+Add:
 
 ```
 Host irequest
@@ -52,7 +52,7 @@ Host irequest
     IdentityFile C:\Users\Abel\Desktop\iRequest\irequest.pem
 ```
 
-Pagkatapos, pwede na lang:
+Then you can simply run:
 
 ```powershell
 ssh irequest
@@ -60,14 +60,14 @@ ssh irequest
 
 ---
 
-## Kung wala ka na talagang .pem key
+## If you no longer have the .pem key
 
-1. **AWS Console** → EC2 → Instances → piliin ang instance → **Connect**.
-2. Gamitin **EC2 Instance Connect** (browser) para makapasok nang walang .pem sa PC.
-3. Sa loob ng server, idagdag ang bagong public key mo sa `~/.ssh/authorized_keys` (kung may bagong key ka na), o gumawa ng bagong key pair sa AWS at i-associate sa instance (mas masinsinan ang steps).
+1. **AWS Console** → EC2 → Instances → select the instance → **Connect**.
+2. Use **EC2 Instance Connect** (browser) to connect without the .pem on your PC.
+3. On the server, add your new public key to `~/.ssh/authorized_keys` (if you have a new key), or create a new key pair in AWS and associate it with the instance (see AWS docs for steps).
 
 ---
 
-## Access key (iba sa .pem)
+## Access key (different from .pem)
 
-Ang **`irequest_accessKeys.csv`** ay para sa **AWS API** (S3, etc.), hindi sa SSH. Ilagay ang laman nito sa **`.env`** bilang `AWS_ACCESS_KEY_ID` at `AWS_SECRET_ACCESS_KEY`. Huwag i-commit ang CSV.
+The **`irequest_accessKeys.csv`** file is for **AWS API** (S3, etc.), not for SSH. Put its contents in **`.env`** as `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. Do not commit the CSV.
