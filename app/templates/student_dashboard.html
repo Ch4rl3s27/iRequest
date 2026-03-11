@@ -3217,7 +3217,7 @@
                 <div class="documents-grid">
                   <label><input type="checkbox" name="requestedDocument" value="Transcript of Record"> <span class="document-name">Transcript of Record</span></label>
                   <label><input type="checkbox" name="requestedDocument" value="Diploma"> <span class="document-name">Diploma</span></label>
-                  <label><input type="checkbox" name="requestedDocument" value="Transfer Credential"> <span class="document-name">Transfer Credential</span></label>
+                  <label><input type="checkbox" name="requestedDocument" value="Units Earned"> <span class="document-name">Units Earned</span></label>
                   <label><input type="checkbox" name="requestedDocument" value="Certificate - Enrollment"> <span class="document-name">Certificate - Enrollment</span></label>
                   <label><input type="checkbox" name="requestedDocument" value="Certificate - Cross Enroll"> <span class="document-name">Certificate - Cross Enroll</span></label>
                   <label><input type="checkbox" name="requestedDocument" value="Certificate - Candidacy / Completion of Academic Requirements"> <span class="document-name">Certificate - Candidacy / Completion of Academic Requirements</span></label>
@@ -3324,6 +3324,10 @@
                   <label><input type="checkbox" name="clearancePurpose" value="Transfer"> <span class="purpose-option">Transfer to Another School</span></label>
                   <label><input type="checkbox" name="clearancePurpose" value="Employment"> <span class="purpose-option">Employment Requirements</span></label>
                   <label><input type="checkbox" name="clearancePurpose" value="Scholarship"> <span class="purpose-option">Scholarship Application</span></label>
+                  <label><input type="checkbox" name="clearancePurpose" value="For Employment Purposes"> <span class="purpose-option">For Employment Purposes</span></label>
+                  <label><input type="checkbox" name="clearancePurpose" value="For Verification Purposes"> <span class="purpose-option">For Verification Purposes</span></label>
+                  <label><input type="checkbox" name="clearancePurpose" value="For Board Examination Purposes"> <span class="purpose-option">For Board Examination Purposes</span></label>
+                  <label><input type="checkbox" name="clearancePurpose" value="Transfer Credential"> <span class="purpose-option">Transfer Credential</span></label>
                   <label class="other-purpose">
                     <input type="checkbox" name="clearancePurpose" value="Other"> 
                     <span class="purpose-option">Other: </span>
@@ -4104,7 +4108,7 @@
       const documentPricing = {
         'Transcript of Record': 300,
         'Diploma': 200,
-        'Transfer Credential': 150,
+        'Units Earned': 50,
         'Certificate - Enrollment': 50,
         'Certificate - Cross Enroll': 50,
         'Certificate - Candidacy / Completion of Academic Requirements': 50,
@@ -4919,7 +4923,7 @@
               
               // Calculate total price for certificates
               const certPricing = {
-                'Transfer Credential': 150,
+                'Units Earned': 50,
                 'Certificate - Enrollment': 50,
                 'Certificate - Cross Enroll': 50,
                 'Certificate - Candidacy / Completion of Academic Requirements': 50,
@@ -5025,7 +5029,7 @@
               
               const certTotal = nonClearanceDocs.reduce((sum, doc) => {
                 const certPricing = {
-                  'Transfer Credential': 150,
+                  'Units Earned': 50,
                   'Certificate - Enrollment': 50,
                   'Certificate - Cross Enroll': 50,
                   'Certificate - Candidacy / Completion of Academic Requirements': 50,

@@ -669,7 +669,7 @@ _DOCUMENT_NAME_TO_FORM_VALUE = {
   "transcript": "Transcript of Record",
   "transcript of record": "Transcript of Record",
   "diploma": "Diploma",
-  "transfer credential": "Transfer Credential",
+  "units earned": "Units Earned",
   "certificate - enrollment": "Certificate - Enrollment",
   "certificate - cross enroll": "Certificate - Cross Enroll",
   "certificate - candidacy / completion of academic requirements": "Certificate - Candidacy / Completion of Academic Requirements",
@@ -1012,9 +1012,9 @@ def send_reset_otp(mysql, email, full_name, role, user_id):
   otp = str(random.randint(100000, 999999))
   cur, conn = mysql.cursor()
   if role == 'student':
-    cur.execute("UPDATE students SET reset_code=%s, reset_expires_at=DATE_ADD(NOW(), INTERVAL 10 MINUTE) WHERE id=%s", (otp, user_id))
+    cur.execute("UPDATE students SET reset_code=%s, reset_expires_at=DATE_ADD(NOW(), INTERVAL 30 MINUTE) WHERE id=%s", (otp, user_id))
   else:
-    cur.execute("UPDATE staff SET reset_code=%s, reset_expires_at=DATE_ADD(NOW(), INTERVAL 10 MINUTE) WHERE id=%s", (otp, user_id))
+    cur.execute("UPDATE staff SET reset_code=%s, reset_expires_at=DATE_ADD(NOW(), INTERVAL 30 MINUTE) WHERE id=%s", (otp, user_id))
   # No need to commit with autocommit=True
   cur.close()
   conn.close()
@@ -1457,6 +1457,11 @@ def create_app() -> Flask:
     # Backfill columns in case table already existed without the new fields
     try:
       cur.execute("ALTER TABLE clearance_requests ADD COLUMN fulfillment_status ENUM('Pending','Processing','Released','Rejected') NOT NULL DEFAULT 'Pending'")
+    except Exception:
+      pass
+    # Ensure fulfillment_status enum includes 'Completed' and 'Approved' (used by registrar flow)
+    try:
+      cur.execute("ALTER TABLE clearance_requests MODIFY COLUMN fulfillment_status ENUM('Pending','Processing','Approved','Completed','Released','Rejected') NOT NULL DEFAULT 'Pending'")
     except Exception:
       pass
     try:
@@ -2071,10 +2076,156 @@ def create_app() -> Flask:
   @app.route('/forgot_password.html')
   def forgot_password_page():
     return render_template('forgot_password.html')
-  
-  @app.route('/reset_password.html')
+
+  @app.route('/forgot', methods=['POST'])
+  def forgot_password_send_otp():
+    """Send password reset OTP to the given email (student or staff)."""
+    try:
+      data = request.get_json(silent=True) or {}
+      email = (data.get('email') or '').strip()
+      if not email:
+        return jsonify({"ok": False, "message": "Please enter your email address."}), 400
+      cur, conn = mysql.cursor()
+      cur.execute("SELECT id, first_name, last_name FROM students WHERE email = %s", (email,))
+      row = cur.fetchone()
+      role = None
+      user_id = None
+      full_name = None
+      if row:
+        role = 'student'
+        user_id = row['id']
+        full_name = (row.get('first_name') or '') + ' ' + (row.get('last_name') or '')
+      else:
+        cur.execute("SELECT id, first_name, last_name FROM staff WHERE email = %s", (email,))
+        row = cur.fetchone()
+        if row:
+          role = 'staff'
+          user_id = row['id']
+          full_name = (row.get('first_name') or '') + ' ' + (row.get('last_name') or '')
+      cur.close()
+      conn.close()
+      if not role or not user_id:
+        return jsonify({"ok": False, "message": "No account found with this email address."}), 404
+      try:
+        send_reset_otp(mysql, email, (full_name or 'User').strip(), role, user_id)
+      except Exception as e:
+        print("[EMAIL ERROR] Forgot password OTP failed:", e)
+        return jsonify({"ok": False, "message": "Unable to send OTP. Please try again later or contact support."}), 500
+      session['forgot_email'] = email
+      session['forgot_role'] = role
+      return jsonify({"ok": True, "message": "OTP sent successfully! Please check your email."})
+    except Exception as err:
+      print("[FORGOT] Error:", err)
+      return jsonify({"ok": False, "message": "Something went wrong. Please try again."}), 500
+
+  @app.route('/forgot/verify')
+  def forgot_verify_redirect():
+    """Redirect to reset password page with email from session."""
+    from urllib.parse import quote
+    email = session.get('forgot_email', '')
+    if not email:
+      return redirect('/forgot_password.html')
+    return redirect('/reset_password.html?email=' + quote(email))
+
+  @app.route('/reset_password.html', methods=['GET'])
   def reset_password_page():
     return render_template('reset_password.html')
+
+  @app.route('/verify-reset-otp', methods=['POST'])
+  def verify_reset_otp():
+    """Verify OTP only; then redirect to update password page."""
+    from urllib.parse import quote as url_quote
+    email = (request.form.get('email') or request.args.get('email') or session.get('forgot_email') or '').strip()
+    otp_code = (request.form.get('otp') or '').strip()
+
+    def err_redirect(msg):
+      return redirect('/reset_password.html?email=' + url_quote(email) + '&error=' + url_quote(msg)) if email else redirect('/forgot_password.html')
+
+    if not email:
+      return redirect('/forgot_password.html')
+    if not otp_code or len(otp_code) != 6:
+      return err_redirect('Please enter a valid 6-digit OTP code.')
+
+    cur, conn = mysql.cursor()
+    cur.execute("SELECT id, reset_code, reset_expires_at FROM students WHERE email = %s", (email,))
+    row = cur.fetchone()
+    role = 'student'
+    if not row:
+      cur.execute("SELECT id, reset_code, reset_expires_at FROM staff WHERE email = %s", (email,))
+      row = cur.fetchone()
+      role = 'staff'
+    if not row:
+      cur.close()
+      conn.close()
+      return err_redirect('Account not found. Please use Forgot Password again.')
+    if (row.get('reset_code') or '').strip() != otp_code:
+      cur.close()
+      conn.close()
+      return err_redirect('Invalid OTP code.')
+    # Check expiry in SQL with MySQL NOW() so timezone matches (avoids "expired immediately" bug)
+    if role == 'student':
+      cur.execute(
+        "SELECT id FROM students WHERE email = %s AND reset_code = %s AND (reset_expires_at IS NULL OR reset_expires_at > NOW())",
+        (email, otp_code)
+      )
+    else:
+      cur.execute(
+        "SELECT id FROM staff WHERE email = %s AND reset_code = %s AND (reset_expires_at IS NULL OR reset_expires_at > NOW())",
+        (email, otp_code)
+      )
+    if not cur.fetchone():
+      cur.close()
+      conn.close()
+      return err_redirect('OTP has expired. Please request a new one.')
+
+    session['reset_verified_email'] = email
+    session['reset_verified_role'] = role
+    session['reset_verified_user_id'] = row['id']
+    cur.close()
+    conn.close()
+    return redirect('/update_password.html')
+
+  @app.route('/update_password.html', methods=['GET'])
+  def update_password_page():
+    """Separate page: set new password (OTP already verified)."""
+    if not session.get('reset_verified_email'):
+      return redirect('/forgot_password.html')
+    return render_template('update_password.html')
+
+  @app.route('/update-password', methods=['POST'])
+  def update_password_submit():
+    """Set new password (after OTP verified; email from session)."""
+    from urllib.parse import quote as url_quote
+    email = session.get('reset_verified_email', '').strip()
+    user_id = session.get('reset_verified_user_id')
+    role = session.get('reset_verified_role', 'student')
+    new_password = (request.form.get('new_password') or '').strip()
+    confirm_password = (request.form.get('confirm_password') or '').strip()
+
+    if not email or not user_id:
+      session.pop('reset_verified_email', None)
+      session.pop('reset_verified_role', None)
+      session.pop('reset_verified_user_id', None)
+      return redirect('/forgot_password.html')
+    if not new_password or len(new_password) < 6:
+      return redirect('/update_password.html?error=' + url_quote('Password must be at least 6 characters.'))
+    if new_password != confirm_password:
+      return redirect('/update_password.html?error=' + url_quote('Passwords do not match.'))
+
+    password_hash = generate_password_hash(new_password)
+    cur, conn = mysql.cursor()
+    if role == 'student':
+      cur.execute("UPDATE students SET password_hash = %s, reset_code = NULL, reset_expires_at = NULL WHERE id = %s", (password_hash, user_id))
+    else:
+      cur.execute("UPDATE staff SET password_hash = %s, reset_code = NULL, reset_expires_at = NULL WHERE id = %s", (password_hash, user_id))
+    cur.close()
+    conn.close()
+    session.pop('reset_verified_email', None)
+    session.pop('reset_verified_role', None)
+    session.pop('reset_verified_user_id', None)
+    session.pop('forgot_email', None)
+    session.pop('forgot_role', None)
+    return redirect('/login.html?reset=success')
 
   @app.route('/otp', methods=['GET', 'POST'])
   def otp_verification():
@@ -5408,7 +5559,18 @@ def create_app() -> Flask:
       rows = cur.fetchall()
       cur.close()
       conn.close()
-      # Ensure documents and purposes are parsed to readable fields
+      # One row per clearance request (dedupe by request_id so same student + same request appears once)
+      seen_request_ids = set()
+      deduped = []
+      for r in (rows or []):
+        rid = r.get('request_id')
+        if rid is not None and rid in seen_request_ids:
+          continue
+        if rid is not None:
+          seen_request_ids.add(rid)
+        deduped.append(r)
+      rows = deduped
+      # Ensure documents and purposes are parsed; add documents_list for one-row-per-document display
       for r in rows or []:
         try:
           docs = json.loads(r.get('documents') or '[]')
@@ -5416,7 +5578,8 @@ def create_app() -> Flask:
           docs = []
         r['document'] = ", ".join(docs) if docs else '—'
         r['document_name'] = r['document']
-        
+        r['documents_list'] = docs if docs else []
+
         try:
           purposes = json.loads(r.get('purposes') or '[]')
         except Exception:
@@ -5871,58 +6034,107 @@ def create_app() -> Flask:
   def api_registrar_mark_processing():
     data = request.get_json(silent=True) or {}
     request_id = data.get('request_id')
+    request_type = (data.get('request_type') or '').strip().lower()
     try:
       if not request_id:
         return jsonify({"ok": False, "message": "Missing request_id"}), 400
       cur, conn = mysql.cursor()
-      # Check if this is a clearance_requests id
+      # Use request_type so we update the correct table (pending list has both document and clearance rows with possibly overlapping ids)
+      if request_type == 'document':
+        cur.execute("""
+          SELECT id, clearance_request_id, student_id FROM document_requests WHERE id=%s
+        """, (request_id,))
+        doc_row = cur.fetchone()
+        if not doc_row:
+          cur.close()
+          conn.close()
+          return jsonify({"ok": False, "message": "Request not found"}), 404
+        if doc_row.get('clearance_request_id'):
+          cur.execute("""
+            SELECT COUNT(*) AS total_signatories,
+                   SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) AS approved_count,
+                   SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) AS rejected_count,
+                   SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS pending_count
+            FROM clearance_signatories WHERE request_id = %s
+          """, (doc_row['clearance_request_id'],))
+          st = cur.fetchone()
+          rejected = (st.get('rejected_count') or 0)
+          pending = (st.get('pending_count') or 0)
+          approved = (st.get('approved_count') or 0)
+          total = (st.get('total_signatories') or 0)
+          if rejected > 0:
+            cur.close()
+            conn.close()
+            return jsonify({"ok": False, "message": "Cannot process — some clearances have been rejected.", "clearance_status": "rejected"}), 400
+          if pending > 0:
+            cur.close()
+            conn.close()
+            return jsonify({"ok": False, "message": "Cannot process yet — some clearances are still pending.", "clearance_status": "pending"}), 400
+          if total and approved != total:
+            cur.close()
+            conn.close()
+            return jsonify({"ok": False, "message": "Cannot process — not all clearances are approved.", "clearance_status": "incomplete"}), 400
+        cur.execute("UPDATE document_requests SET status='Processing', updated_at=NOW() WHERE id=%s", (request_id,))
+        if doc_row.get('student_id'):
+          create_notification(doc_row['student_id'], 'Registrar', 'processing', 'Processing', 'Your request is now in the Processing Phase.')
+        cur.close()
+        conn.close()
+        # Only say "clearances approved" when this document actually had clearances; certificate-only gets generic success
+        return jsonify({"ok": True, "clearance_status": "approved" if doc_row.get('clearance_request_id') else "no_clearance"})
+      if request_type == 'clearance':
+        cur.execute("SELECT id FROM clearance_requests WHERE id=%s", (request_id,))
+        if cur.fetchone():
+          cur.execute("UPDATE clearance_requests SET status='Processing', fulfillment_status='Processing', registrar_status='Processing' WHERE id=%s", (request_id,))
+          cur.close()
+          conn.close()
+          return jsonify({"ok": True})
+        cur.close()
+        conn.close()
+        return jsonify({"ok": False, "message": "Request not found"}), 404
+      # Legacy: no request_type — try document_requests first (pending list often has document rows), then clearance
+      cur.execute("SELECT id, clearance_request_id, student_id FROM document_requests WHERE id=%s", (request_id,))
+      doc_row = cur.fetchone()
+      if doc_row:
+        if doc_row.get('clearance_request_id'):
+          cur.execute("""
+            SELECT COUNT(*) AS total_signatories,
+                   SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) AS approved_count,
+                   SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) AS rejected_count,
+                   SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS pending_count
+            FROM clearance_signatories WHERE request_id = %s
+          """, (doc_row['clearance_request_id'],))
+          st = cur.fetchone()
+          rejected = (st.get('rejected_count') or 0)
+          pending = (st.get('pending_count') or 0)
+          approved = (st.get('approved_count') or 0)
+          total = (st.get('total_signatories') or 0)
+          if rejected > 0:
+            cur.close()
+            conn.close()
+            return jsonify({"ok": False, "message": "Cannot process — some clearances have been rejected.", "clearance_status": "rejected"}), 400
+          if pending > 0:
+            cur.close()
+            conn.close()
+            return jsonify({"ok": False, "message": "Cannot process yet — some clearances are still pending.", "clearance_status": "pending"}), 400
+          if total and approved != total:
+            cur.close()
+            conn.close()
+            return jsonify({"ok": False, "message": "Cannot process — not all clearances are approved.", "clearance_status": "incomplete"}), 400
+        cur.execute("UPDATE document_requests SET status='Processing', updated_at=NOW() WHERE id=%s", (request_id,))
+        if doc_row.get('student_id'):
+          create_notification(doc_row['student_id'], 'Registrar', 'processing', 'Processing', 'Your request is now in the Processing Phase.')
+        cur.close()
+        conn.close()
+        return jsonify({"ok": True, "clearance_status": "approved" if doc_row.get('clearance_request_id') else "no_clearance"})
       cur.execute("SELECT id FROM clearance_requests WHERE id=%s", (request_id,))
       if cur.fetchone():
-        # Same as before: clearance flow
         cur.execute("UPDATE clearance_requests SET status='Processing', fulfillment_status='Processing', registrar_status='Processing' WHERE id=%s", (request_id,))
         cur.close()
         conn.close()
         return jsonify({"ok": True})
-      # Else treat as document_requests id (certificates / document-only) — same behavior as clearance
-      cur.execute("""
-        SELECT id, clearance_request_id, student_id FROM document_requests WHERE id=%s
-      """, (request_id,))
-      doc_row = cur.fetchone()
-      if not doc_row:
-        cur.close()
-        conn.close()
-        return jsonify({"ok": False, "message": "Request not found"}), 404
-      if doc_row.get('clearance_request_id'):
-        cur.execute("""
-          SELECT COUNT(*) AS total_signatories,
-                 SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) AS approved_count,
-                 SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) AS rejected_count,
-                 SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS pending_count
-          FROM clearance_signatories WHERE request_id = %s
-        """, (doc_row['clearance_request_id'],))
-        st = cur.fetchone()
-        rejected = (st.get('rejected_count') or 0)
-        pending = (st.get('pending_count') or 0)
-        approved = (st.get('approved_count') or 0)
-        total = (st.get('total_signatories') or 0)
-        if rejected > 0:
-          cur.close()
-          conn.close()
-          return jsonify({"ok": False, "message": "Cannot process — some clearances have been rejected.", "clearance_status": "rejected"}), 400
-        if pending > 0:
-          cur.close()
-          conn.close()
-          return jsonify({"ok": False, "message": "Cannot process yet — some clearances are still pending.", "clearance_status": "pending"}), 400
-        if total and approved != total:
-          cur.close()
-          conn.close()
-          return jsonify({"ok": False, "message": "Cannot process — not all clearances are approved.", "clearance_status": "incomplete"}), 400
-      cur.execute("UPDATE document_requests SET status='Processing', updated_at=NOW() WHERE id=%s", (request_id,))
-      if doc_row.get('student_id'):
-        create_notification(doc_row['student_id'], 'Registrar', 'processing', 'Processing', 'Your request is now in the Processing Phase.')
       cur.close()
       conn.close()
-      return jsonify({"ok": True, "clearance_status": "approved"})
+      return jsonify({"ok": False, "message": "Request not found"}), 404
     except Exception as err:
       return jsonify({"ok": False, "message": f"Error: {err}"}), 500
 
@@ -6044,9 +6256,11 @@ def create_app() -> Flask:
     data = request.get_json(silent=True) or {}
     request_id = data.get('request_id')
     reason = (data.get('reason') or '').strip()
+    remarks = (data.get('remarks') or '').strip() or None
     if not request_id or not reason:
       return jsonify({"ok": False, "message": "Missing request_id or reason"}), 400
-    remarks = (data.get('remarks') or '').strip() or None
+    if not remarks:
+      return jsonify({"ok": False, "message": "Remarks are required when rejecting. Please provide a reason or details."}), 400
     try:
       cur, conn = mysql.cursor()
       # Find registrar signatory for request
@@ -6536,33 +6750,33 @@ def create_app() -> Flask:
       cur, conn = mysql.cursor()
       
       if status == 'pending':
-        # Get pending documents from both clearance_requests and document_requests tables
+        # Get pending documents from both clearance_requests and document_requests tables.
+        # Use scalar subquery for student_name so each row gets the name for its own student_id (avoids wrong name in UNION).
         try:
           cur.execute(
             """
-            SELECT dr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name, 
+            SELECT dr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name,
+                   (SELECT CONCAT(COALESCE(st.first_name,''), ' ', COALESCE(st.last_name,'')) FROM students st WHERE st.id = dr.student_id LIMIT 1) AS student_name,
                    s.course_code, s.course_name, s.year_level, s.year_level_name,
-                   dr.document_type, dr.document_type as documents, dr.purpose as purposes, dr.purpose, dr.status, 
+                   dr.document_type, dr.document_type as documents, dr.purpose as purposes, dr.purpose, dr.status,
                    'Pending' as fulfillment_status,
                    dr.created_at, dr.updated_at, dr.pickup_date,
                    'document' as request_type, dr.clearance_request_id, 'Approved' as clearance_status, dr.auto_transferred_at
             FROM document_requests dr
             JOIN students s ON s.id = dr.student_id
             WHERE dr.status = 'Pending'
-            
             UNION ALL
-            
-            SELECT cr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name, 
+            SELECT cr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name,
+                   (SELECT CONCAT(COALESCE(st.first_name,''), ' ', COALESCE(st.last_name,'')) FROM students st WHERE st.id = cr.student_id LIMIT 1) AS student_name,
                    s.course_code, s.course_name, s.year_level, s.year_level_name,
-                   cr.document_type, cr.documents, cr.purposes, NULL as purpose, cr.status, 
+                   cr.document_type, cr.documents, cr.purposes, NULL as purpose, cr.status,
                    COALESCE(cr.fulfillment_status, 'Pending') as fulfillment_status,
                    cr.created_at, cr.updated_at, cr.pickup_date,
                    'clearance' as request_type, NULL as clearance_request_id, NULL as clearance_status, NULL as auto_transferred_at
             FROM clearance_requests cr
             JOIN students s ON s.id = cr.student_id
-            WHERE (cr.status = 'Approved' OR cr.status IS NULL OR cr.status = '') 
+            WHERE (cr.status = 'Approved' OR cr.status IS NULL OR cr.status = '')
               AND (cr.fulfillment_status = 'Pending' OR cr.fulfillment_status IS NULL)
-            
             ORDER BY created_at DESC
             """
           )
@@ -6572,9 +6786,10 @@ def create_app() -> Flask:
           try:
             cur.execute(
               """
-              SELECT dr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name, 
+              SELECT dr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name,
+                     (SELECT CONCAT(COALESCE(st.first_name,''), ' ', COALESCE(st.last_name,'')) FROM students st WHERE st.id = dr.student_id LIMIT 1) AS student_name,
                      s.course_code, s.course_name, s.year_level, s.year_level_name,
-                     dr.document_type, dr.document_type as documents, dr.purpose as purposes, dr.purpose, dr.status, 
+                     dr.document_type, dr.document_type as documents, dr.purpose as purposes, dr.purpose, dr.status,
                      'Pending' as fulfillment_status,
                      dr.created_at, dr.updated_at, dr.pickup_date,
                      'document' as request_type, dr.clearance_request_id, 'Approved' as clearance_status
@@ -6582,9 +6797,10 @@ def create_app() -> Flask:
               JOIN students s ON s.id = dr.student_id
               WHERE dr.status = 'Pending'
               UNION ALL
-              SELECT cr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name, 
+              SELECT cr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name,
+                     (SELECT CONCAT(COALESCE(st.first_name,''), ' ', COALESCE(st.last_name,'')) FROM students st WHERE st.id = cr.student_id LIMIT 1) AS student_name,
                      s.course_code, s.course_name, s.year_level, s.year_level_name,
-                     cr.document_type, cr.documents, cr.purposes, NULL as purpose, cr.status, 
+                     cr.document_type, cr.documents, cr.purposes, NULL as purpose, cr.status,
                      COALESCE(cr.fulfillment_status, 'Pending') as fulfillment_status,
                      cr.created_at, cr.updated_at, cr.pickup_date,
                      'clearance' as request_type, NULL as clearance_request_id, NULL as clearance_status
@@ -6600,9 +6816,10 @@ def create_app() -> Flask:
             print(f"Registrar pending fallback 2: {e2}")
             cur.execute(
               """
-              SELECT dr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name, 
+              SELECT dr.id AS request_id, s.id AS student_id, s.student_no, s.first_name, s.last_name,
+                     (SELECT CONCAT(COALESCE(st.first_name,''), ' ', COALESCE(st.last_name,'')) FROM students st WHERE st.id = dr.student_id LIMIT 1) AS student_name,
                      s.course_code, s.course_name, s.year_level, s.year_level_name,
-                     dr.document_type, dr.document_type as documents, dr.purpose as purposes, dr.purpose, dr.status, 
+                     dr.document_type, dr.document_type as documents, dr.purpose as purposes, dr.purpose, dr.status,
                      'Pending' as fulfillment_status,
                      dr.created_at, dr.updated_at, dr.pickup_date,
                      'document' as request_type, dr.clearance_request_id, 'Approved' as clearance_status
@@ -6783,12 +7000,16 @@ def create_app() -> Flask:
           if isinstance(purpose_value, str):
             purposes = [purpose_value] if purpose_value.strip() else []
         
+        # Prefer explicit student_name from query (used in pending to avoid UNION name mix-up)
+        _first = (row.get('first_name') or '').strip()
+        _last = (row.get('last_name') or '').strip()
+        _student_name = (row.get('student_name') or '').strip() or f"{_first} {_last}".strip() or '—'
         data.append({
           "request_id": row['request_id'],
           "student_id": row['student_id'],
-          "student_name": f"{row['first_name']} {row['last_name']}",
-          "first_name": row['first_name'],
-          "last_name": row['last_name'],
+          "student_name": _student_name,
+          "first_name": row.get('first_name'),
+          "last_name": row.get('last_name'),
           "course_code": row['course_code'],
           "course_name": row['course_name'],
           "year_level": row['year_level'],
@@ -6817,43 +7038,84 @@ def create_app() -> Flask:
 
   @app.route('/api/registrar/analytics')
   def api_registrar_analytics():
-    """Get analytics data grouped by month and document type:
-    - Document requests by month and document type
-    - Includes data from both clearance_requests and document_requests tables
-    - Percentage calculations
+    """Get analytics data grouped by month and document type.
+    Query params: range=6|12 (months), year=this|last. Default: last 12 months.
+    Returns: months, datasets, by_course (sorted by total desc), by_status, date_range_label, this_month vs last_month.
     """
     try:
       cur, conn = mysql.cursor()
-      
-      # Get document requests from document_requests table (last 12 months)
+      range_param = (request.args.get('range') or '12').strip()
+      year_param = (request.args.get('year') or '').strip().lower()
+
+      # Build date filter and labels
+      if year_param == 'this':
+        date_from = "DATE_FORMAT(CURRENT_DATE(), '%Y-01-01')"
+        date_to = "CURRENT_DATE()"
+        cur.execute("SELECT DATE_FORMAT(CURRENT_DATE(), '%Y-01-01') AS dfrom, CURRENT_DATE() AS dto")
+        row = cur.fetchone()
+        from_label = row['dfrom'].strftime('%b %Y') if hasattr(row['dfrom'], 'strftime') else str(row['dfrom'])[:7]
+        to_label = row['dto'].strftime('%b %Y') if hasattr(row['dto'], 'strftime') else str(row['dto'])[:7]
+      elif year_param == 'last':
+        date_from = "DATE_FORMAT(DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR), '%Y-01-01')"
+        date_to = "DATE_SUB(DATE_FORMAT(CURRENT_DATE(), '%Y-01-01'), INTERVAL 1 DAY)"
+        cur.execute("SELECT DATE_FORMAT(DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR), '%Y-01-01') AS dfrom, DATE_SUB(DATE_FORMAT(CURRENT_DATE(), '%Y-01-01'), INTERVAL 1 DAY) AS dto")
+        row = cur.fetchone()
+        from_label = row['dfrom'].strftime('%b %Y') if hasattr(row['dfrom'], 'strftime') else str(row['dfrom'])[:7]
+        to_label = row['dto'].strftime('%b %Y') if hasattr(row['dto'], 'strftime') else str(row['dto'])[:7]
+      else:
+        months_int = 6 if range_param == '6' else 12
+        date_from = "DATE_SUB(CURRENT_DATE(), INTERVAL %s MONTH)" % months_int
+        date_to = "CURRENT_DATE()"
+        cur.execute("SELECT DATE_SUB(CURRENT_DATE(), INTERVAL %s MONTH) AS dfrom, CURRENT_DATE() AS dto", (months_int,))
+        row = cur.fetchone()
+        from_label = row['dfrom'].strftime('%b %Y') if hasattr(row['dfrom'], 'strftime') else str(row['dfrom'])[:7]
+        to_label = row['dto'].strftime('%b %Y') if hasattr(row['dto'], 'strftime') else str(row['dto'])[:7]
+
+      # Build interval filter for all queries
+      if year_param == 'this':
+        interval_sql = "created_at >= DATE_FORMAT(CURRENT_DATE(), '%%Y-01-01')"
+        interval_params = ()
+      elif year_param == 'last':
+        interval_sql = "created_at >= DATE_FORMAT(DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR), '%%Y-01-01') AND created_at < DATE_FORMAT(CURRENT_DATE(), '%%Y-01-01')"
+        interval_params = ()
+      else:
+        months_int = 6 if range_param == '6' else 12
+        interval_sql = "created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL %s MONTH)"
+        interval_params = (months_int,)
+
+      # When used inside JOIN queries, "created_at" can be ambiguous (e.g., both tables have the column).
+      # Keep the unqualified version for single-table queries, and use qualified variants for aliased tables.
+      interval_sql_cr = interval_sql.replace("created_at", "cr.created_at")
+      interval_sql_dr = interval_sql.replace("created_at", "dr.created_at")
+
+      # Get document requests from document_requests table
       cur.execute("""
         SELECT 
-          DATE_FORMAT(created_at, '%Y-%m') as month,
-          DATE_FORMAT(created_at, '%b %Y') as month_label,
+          DATE_FORMAT(created_at, '%%Y-%%m') as month,
+          DATE_FORMAT(created_at, '%%b %%Y') as month_label,
           document_type,
           COUNT(*) as count
         FROM document_requests
-        WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)
+        WHERE """ + interval_sql + """
           AND document_type IS NOT NULL
           AND document_type != ''
-        GROUP BY DATE_FORMAT(created_at, '%Y-%m'), DATE_FORMAT(created_at, '%b %Y'), document_type
+        GROUP BY DATE_FORMAT(created_at, '%%Y-%%m'), DATE_FORMAT(created_at, '%%b %%Y'), document_type
         ORDER BY month ASC, count DESC
-      """)
+      """, interval_params)
       
       document_requests_data = cur.fetchall()
       
-      # Get data from clearance_requests table (last 12 months)
-      # Only use documents JSON column, not document_type field
+      # Get data from clearance_requests table
       cur.execute("""
         SELECT 
-          DATE_FORMAT(created_at, '%Y-%m') as month,
-          DATE_FORMAT(created_at, '%b %Y') as month_label,
+          DATE_FORMAT(created_at, '%%Y-%%m') as month,
+          DATE_FORMAT(created_at, '%%b %%Y') as month_label,
           documents
         FROM clearance_requests
-        WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)
+        WHERE """ + interval_sql + """
           AND documents IS NOT NULL
           AND documents != ''
-      """)
+      """, interval_params)
       
       clearance_requests_data = cur.fetchall()
       
@@ -6969,18 +7231,26 @@ def create_app() -> Flask:
       
       monthly_totals_arr = [monthly_totals[m] for m in sorted(data_by_month.keys())]
       
-      # By course with document breakdown (so frontend can show which docs each course requested)
+      # By course with document breakdown (same date range as above)
       cur.execute("""
         SELECT COALESCE(NULLIF(TRIM(s.course_name), ''), NULLIF(TRIM(s.course_code), ''), 'Unknown') AS course,
+               NULLIF(TRIM(s.course_name), '') AS course_name,
+               NULLIF(TRIM(s.course_code), '') AS course_code,
                cr.documents
         FROM clearance_requests cr
         JOIN students s ON s.id = cr.student_id
-        WHERE cr.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)
+        WHERE """ + interval_sql_cr + """
           AND cr.documents IS NOT NULL AND cr.documents != ''
-      """)
+      """, interval_params)
       course_doc_counts = {}
+      course_info = {}
       for row in (cur.fetchall() or []):
         course = row['course'] or 'Unknown'
+        if course not in course_info:
+          course_info[course] = {
+            'course_name': row.get('course_name'),
+            'course_code': row.get('course_code')
+          }
         docs_json = row['documents']
         doc_list = []
         if docs_json:
@@ -6998,17 +7268,24 @@ def create_app() -> Flask:
             course_doc_counts[course][doc_type] = course_doc_counts[course].get(doc_type, 0) + 1
       cur.execute("""
         SELECT COALESCE(NULLIF(TRIM(s.course_name), ''), NULLIF(TRIM(s.course_code), ''), 'Unknown') AS course,
+               MAX(NULLIF(TRIM(s.course_name), '')) AS course_name,
+               MAX(NULLIF(TRIM(s.course_code), '')) AS course_code,
                dr.document_type AS doc_type,
                COUNT(*) AS cnt
         FROM document_requests dr
         JOIN students s ON s.id = dr.student_id
-        WHERE dr.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)
+        WHERE """ + interval_sql_dr + """
           AND dr.clearance_request_id IS NULL
           AND dr.document_type IS NOT NULL AND dr.document_type != ''
-        GROUP BY 1, 2
-      """)
+        GROUP BY 1, 4
+      """, interval_params)
       for row in (cur.fetchall() or []):
         course = row['course'] or 'Unknown'
+        if course not in course_info:
+          course_info[course] = {
+            'course_name': row.get('course_name'),
+            'course_code': row.get('course_code')
+          }
         doc_type = (row['doc_type'] or '').strip()
         if not doc_type:
           continue
@@ -7021,15 +7298,47 @@ def create_app() -> Flask:
         all_doc_types_course.update(doc_dict.keys())
       course_document_types = sorted(all_doc_types_course)
       by_course = []
-      for course in sorted(course_doc_counts.keys()):
+      for course in course_doc_counts.keys():
         doc_dict = course_doc_counts[course]
         total = sum(doc_dict.values())
         documents = [{'type': t, 'count': doc_dict[t]} for t in sorted(doc_dict.keys())]
-        by_course.append({'course': course, 'total': total, 'documents': documents})
-      
+        info = course_info.get(course, {})
+        course_name = info.get('course_name') or info.get('course_code') or course
+        course_code = info.get('course_code') or info.get('course_name') or course
+        by_course.append({
+          'course': course_name,
+          'course_code': course_code,
+          'total': total,
+          'documents': documents
+        })
+      by_course.sort(key=lambda x: x['total'], reverse=True)
+
+      # Requests by status (document_requests in same period)
+      cur.execute("""
+        SELECT status, COUNT(*) AS cnt
+        FROM document_requests
+        WHERE """ + interval_sql + """
+        GROUP BY status
+      """, interval_params)
+      by_status = {'Pending': 0, 'Processing': 0, 'Completed': 0, 'Released': 0, 'Unclaimed': 0, 'Rejected': 0}
+      for row in (cur.fetchall() or []):
+        s = (row['status'] or '').strip()
+        if s in by_status:
+          by_status[s] = row['cnt']
+
+      # This month vs last month (same "request" count as monthly_totals)
+      from datetime import date, timedelta
+      today = date.today()
+      cur_ym = today.strftime('%Y-%m')
+      last_month_end = today.replace(day=1) - timedelta(days=1)
+      last_ym = last_month_end.strftime('%Y-%m')
+      this_month_count = monthly_totals.get(cur_ym, 0)
+      last_month_count = monthly_totals.get(last_ym, 0)
+      change_percent = round((this_month_count - last_month_count) / last_month_count * 100, 1) if last_month_count else (100 if this_month_count else 0)
+
       cur.close()
       conn.close()
-      
+
       return jsonify({
         'ok': True,
         'data': {
@@ -7039,7 +7348,12 @@ def create_app() -> Flask:
           'monthly_totals': {k: v for k, v in monthly_totals.items()},
           'monthly_totals_arr': monthly_totals_arr,
           'by_course': by_course,
-          'course_document_types': course_document_types
+          'course_document_types': course_document_types,
+          'date_range_label': {'from': from_label, 'to': to_label},
+          'by_status': by_status,
+          'this_month': this_month_count,
+          'last_month': last_month_count,
+          'change_percent': change_percent
         }
       })
     except Exception as err:
@@ -7573,12 +7887,16 @@ def create_app() -> Flask:
   def api_registrar_document_reject():
     data = request.get_json(silent=True) or {}
     request_id = data.get('request_id')
-    reason = data.get('reason')
+    reason = (data.get('reason') or '').strip()
+    remarks = (data.get('remarks') or '').strip() or None
     if not request_id or not reason:
       return jsonify({"ok": False, "message": "Missing request_id or reason"}), 400
+    if not remarks:
+      return jsonify({"ok": False, "message": "Remarks are required when rejecting. Please provide a reason or details."}), 400
+    rejection_reason = f"{reason}: {remarks}" if remarks else reason
     try:
       cur, conn = mysql.cursor()
-      cur.execute("UPDATE document_requests SET status='Rejected', rejection_reason=%s, updated_at=NOW() WHERE id=%s", (reason, request_id))
+      cur.execute("UPDATE document_requests SET status='Rejected', rejection_reason=%s, updated_at=NOW() WHERE id=%s", (rejection_reason, request_id))
       # No need to commit with autocommit=True
       cur.close()
       conn.close()
@@ -7740,9 +8058,10 @@ def create_app() -> Flask:
       clearance_id = None
 
       # Update the pickup_date in clearance_requests table (request_id may be clearance id)
+      # Also set fulfillment_status and registrar_status so it appears under Completed
       cur.execute("""
           UPDATE clearance_requests 
-          SET pickup_date = %s 
+          SET pickup_date = %s, fulfillment_status = 'Completed', registrar_status = 'Complete', updated_at = NOW()
           WHERE id = %s
       """, (pickup_date, request_id))
       
@@ -7759,15 +8078,15 @@ def create_app() -> Flask:
           if clearance_id:
             cur.execute("""
                 UPDATE clearance_requests 
-                SET pickup_date = %s 
+                SET pickup_date = %s, fulfillment_status = 'Completed', registrar_status = 'Complete', updated_at = NOW()
                 WHERE id = %s
             """, (pickup_date, clearance_id))
-          # Update this document_request row (standalone or linked)
+          # Update this document_request row (standalone or linked) and mark as Completed
           cur.execute("""
               UPDATE document_requests 
-              SET pickup_date = %s 
+              SET pickup_date = %s, status = 'Completed', completed_at = COALESCE(%s, NOW()), updated_at = NOW()
               WHERE id = %s
-          """, (pickup_date, request_id))
+          """, (pickup_date, pickup_date, request_id))
           if cur.rowcount == 0 and not clearance_id:
             cur.close()
             conn.close()
@@ -7778,12 +8097,13 @@ def create_app() -> Flask:
           return jsonify({"ok": False, "message": "Request not found"}), 404
       
       # Update document_requests linked to this clearance (when we have a clearance_id)
+      # Also set status = Completed and completed_at so they appear under Completed tab
       if clearance_id:
         cur.execute("""
             UPDATE document_requests 
-            SET pickup_date = %s 
+            SET pickup_date = %s, status = 'Completed', completed_at = COALESCE(%s, NOW()), updated_at = NOW()
             WHERE clearance_request_id = %s
-        """, (pickup_date, clearance_id))
+        """, (pickup_date, pickup_date, clearance_id))
       
       cur.close()
       conn.close()

@@ -854,6 +854,50 @@
       border-radius: var(--radius-full);
       font-size: var(--text-xs);
     }
+
+    /* Pending Documents card - professional layout */
+    .pending-documents-card {
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .pending-documents-header {
+      background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+      color: #fff;
+      font-weight: 600;
+      font-size: 1.05rem;
+      padding: 1rem 1.25rem;
+      border: none;
+      display: flex;
+      align-items: center;
+    }
+    #pendingTable .documents-table thead tr {
+      background: #f8fafc;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    #pendingTable .documents-table thead th {
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #475569;
+      padding: 0.875rem 1rem;
+    }
+    #pendingTable .documents-table tbody td {
+      padding: 0.875rem 1rem;
+      vertical-align: middle;
+    }
+    #pendingTable .documents-table tbody tr:hover {
+      background: #f8fafc;
+    }
+    #pendingTable .documents-table tbody tr:nth-child(even) {
+      background: #fafafa;
+    }
+    #pendingTable .documents-table tbody tr:nth-child(even):hover {
+      background: #f1f5f9;
+    }
+    #pendingTable .documents-table .btn { border-radius: 8px; font-weight: 500; }
+    .status-badge-inline { display: inline-flex; align-items: center; }
     
     .status-signed { 
       color: var(--success-600); 
@@ -984,6 +1028,123 @@
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
+    }
+
+    /* ===== Professional Clearance Section ===== */
+    #clearanceContent .card-counter {
+      border-radius: 12px;
+      border: 1px solid var(--gray-200);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    #clearanceContent .card-counter:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    #clearanceContent .card-counter .card-body {
+      padding: 1.25rem 1rem;
+    }
+    #clearanceContent .card-counter h5 {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--gray-600);
+      letter-spacing: 0.02em;
+      margin-bottom: 0.5rem;
+    }
+    #clearanceContent .card-counter h3 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--gray-800);
+      letter-spacing: -0.02em;
+    }
+    #searchContainerClearance .form-control {
+      border-radius: 10px;
+      border: 1px solid var(--gray-200);
+      padding: 0.625rem 1rem;
+      font-size: 0.9375rem;
+    }
+    #searchContainerClearance .form-control:focus {
+      border-color: var(--primary-500);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+    /* Pending Clearances: same format as Pending Documents (blue title bar + white column header row) */
+    #clPendingTable .documents-table thead tr {
+      background: #f8fafc;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    #clPendingTable .documents-table thead th {
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #475569;
+      padding: 0.875rem 1rem;
+      border: none;
+      white-space: nowrap;
+    }
+    #clPendingTable .documents-table tbody td {
+      padding: 0.875rem 1rem;
+      font-size: 0.875rem;
+      color: var(--gray-700);
+      border-bottom: 1px solid var(--gray-100);
+      vertical-align: middle;
+    }
+    #clPendingTable .documents-table tbody tr:hover {
+      background: #f8fafc;
+    }
+    #clPendingTable .documents-table tbody tr:nth-child(even) {
+      background: #fafafa;
+    }
+    #clPendingTable .documents-table tbody tr:nth-child(even):hover {
+      background: #f1f5f9;
+    }
+    #clPendingTable .documents-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .clearance-tables-pro .clearance-table tbody tr:hover {
+      background: #f8fafc;
+    }
+    .clearance-tables-pro .clearance-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .clearance-tables-pro .clearance-table tbody td:nth-child(2),
+    .clearance-tables-pro .clearance-table tbody td:nth-child(3) {
+      max-width: 220px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .clearance-tables-pro .clearance-status-cell {
+      gap: 0.5rem;
+    }
+    .clearance-tables-pro .btn-outline-primary {
+      border-radius: 8px;
+      font-weight: 500;
+      font-size: 0.8125rem;
+    }
+    .clearance-tables-pro .btn-sign {
+      border-radius: 8px;
+      padding: 0.375rem 0.875rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+    }
+    .clearance-tables-pro .reason-dropdown {
+      border-radius: 8px;
+      font-size: 0.8125rem;
+      min-width: 140px;
+      padding: 0.375rem 0.75rem;
+    }
+    .clearance-tables-pro .status-pending {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+    }
+    .clearance-tables-pro .clearance-table tbody td:first-child {
+      font-weight: 600;
+      color: var(--gray-800);
+    }
+    .clearance-tables-pro .view-receipt-btn {
+      border-radius: 8px;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.8125rem;
     }
     
     /* Status Column */
@@ -1465,6 +1626,149 @@
       max-height: 300px;
     }
 
+    /* Analytics page header */
+    .analytics-header {
+      margin-bottom: var(--space-8);
+    }
+    .analytics-header h2 {
+      font-size: var(--text-2xl);
+      font-weight: var(--font-semibold);
+      color: var(--gray-800);
+      margin: 0 0 var(--space-2) 0;
+    }
+    .analytics-header .analytics-subtitle {
+      font-size: var(--text-sm);
+      color: var(--gray-600);
+      margin: 0;
+    }
+
+    /* Analytics summary cards (report-style) */
+    .analytics-summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--space-4);
+      margin-bottom: var(--space-8);
+    }
+    .analytics-summary-card {
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--secondary-200);
+      background: var(--surface);
+      padding: var(--space-5);
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      min-height: 90px;
+    }
+    .analytics-summary-card .summary-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      flex-shrink: 0;
+    }
+    .analytics-summary-card[data-stat="total"] .summary-icon { background: rgba(59, 130, 246, 0.12); color: var(--primary-600); }
+    .analytics-summary-card[data-stat="avg"] .summary-icon { background: rgba(34, 197, 94, 0.12); color: var(--success-600); }
+    .analytics-summary-card[data-stat="top-doc"] .summary-icon { background: rgba(168, 85, 247, 0.12); color: #7c3aed; }
+    .analytics-summary-card[data-stat="top-course"] .summary-icon { background: rgba(14, 165, 233, 0.12); color: #0ea5e9; }
+    .analytics-summary-card[data-stat="month-compare"] .summary-icon { background: rgba(245, 158, 11, 0.12); color: #d97706; }
+    .analytics-toolbar .form-select-sm { max-width: 180px; }
+    .analytics-by-status .analytics-status-cards { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+    .analytics-status-card {
+      display: inline-flex; align-items: center; gap: var(--space-2);
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--secondary-200);
+      background: var(--surface);
+      font-size: var(--text-sm);
+    }
+    .analytics-status-card .status-count { font-weight: var(--font-bold); margin-right: 4px; }
+    .analytics-status-card[data-status="Pending"] .status-count { color: #d97706; }
+    .analytics-status-card[data-status="Processing"] .status-count { color: var(--primary-600); }
+    .analytics-status-card[data-status="Completed"] .status-count { color: #059669; }
+    .analytics-status-card[data-status="Released"] .status-count { color: var(--success-600); }
+    .analytics-status-card[data-status="Unclaimed"] .status-count { color: var(--gray-600); }
+    .analytics-status-card[data-status="Rejected"] .status-count { color: var(--error-600); }
+    .analytics-summary-card .summary-value {
+      font-size: var(--text-xl);
+      font-weight: var(--font-bold);
+      color: var(--gray-800);
+      margin: 0 0 var(--space-1) 0;
+      line-height: 1.2;
+    }
+    .analytics-summary-card .summary-label {
+      font-size: var(--text-xs);
+      color: var(--gray-600);
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Analytics loading skeleton */
+    .analytics-loading-skeleton {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--space-4);
+      margin-bottom: var(--space-8);
+    }
+    .analytics-skeleton-card {
+      height: 90px;
+      border-radius: var(--radius-xl);
+      background: linear-gradient(90deg, var(--gray-200) 25%, var(--gray-100) 50%, var(--gray-200) 75%);
+      background-size: 200% 100%;
+      animation: analytics-skeleton-shimmer 1.2s ease-in-out infinite;
+    }
+    .analytics-skeleton-chart {
+      height: 280px;
+      border-radius: var(--radius-xl);
+      background: linear-gradient(90deg, var(--gray-200) 25%, var(--gray-100) 50%, var(--gray-200) 75%);
+      background-size: 200% 100%;
+      animation: analytics-skeleton-shimmer 1.2s ease-in-out infinite;
+    }
+    @keyframes analytics-skeleton-shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* Analytics empty state */
+    .analytics-empty-state {
+      text-align: center;
+      padding: var(--space-12);
+      background: var(--gray-50);
+      border-radius: var(--radius-xl);
+      border: 1px dashed var(--gray-300);
+    }
+    .analytics-empty-state i {
+      font-size: 3rem;
+      color: var(--gray-400);
+      margin-bottom: var(--space-4);
+    }
+    .analytics-empty-state p {
+      font-size: var(--text-base);
+      color: var(--gray-600);
+      margin: 0;
+    }
+
+    /* Analytics chart cards - report style */
+    .analytics-section .card {
+      border: 1px solid var(--secondary-200);
+    }
+    .analytics-section .card-header {
+      font-size: var(--text-base);
+      color: var(--gray-800);
+      background: var(--gray-50);
+    }
+    .analytics-section .card-header.bg-primary {
+      background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+      color: #fff;
+    }
+    .analytics-section .card-header:not(.bg-primary) {
+      border-bottom: 1px solid var(--secondary-200);
+    }
+
     /* Modal canvas */
     .modal-content canvas { border:1px solid #ddd; border-radius:6px; cursor:crosshair; }
 
@@ -1704,15 +2008,15 @@
             <span class="nav-badge" id="dashboardBadge" style="display: none;">0</span>
           </a>
 
-          <a class="nav-link" onclick="setActive(this); loadContent('analytics')" tabindex="0">
-            <i class="fa-solid fa-chart-line" aria-hidden="true"></i> 
-            <span class="link-text">Analytics</span>
-          </a>
-
           <a class="nav-link" onclick="setActive(this); loadContent('clearance')" tabindex="0">
             <i class="fa-solid fa-file-signature" aria-hidden="true"></i> 
             <span class="link-text">Clearance</span>
             <span class="nav-badge" id="clearanceBadge" style="display: none;">0</span>
+          </a>
+
+          <a class="nav-link" onclick="setActive(this); loadContent('analytics')" tabindex="0">
+            <i class="fa-solid fa-chart-line" aria-hidden="true"></i> 
+            <span class="link-text">Analytics</span>
           </a>
 
           <a class="nav-link" onclick="setActive(this); loadContent('profile')" tabindex="0">
@@ -1810,11 +2114,14 @@
       <div id="tablesContainer">
 
         <!-- Pending -->
-        <div id="pendingTable" class="card shadow-sm mb-4">
-          <div class="card-header bg-primary text-white"><i class="fa-solid fa-clipboard-list"></i> Pending Documents</div>
-          <div class="card-body table-responsive">
-            <table class="table table-hover align-middle">
-              <thead class="table-primary">
+        <div id="pendingTable" class="card pending-documents-card shadow-sm mb-4">
+          <div class="card-header pending-documents-header">
+            <i class="fa-solid fa-clipboard-list me-2"></i>
+            <span>Pending Documents</span>
+          </div>
+          <div class="card-body table-responsive p-0">
+            <table class="table table-hover align-middle mb-0 documents-table">
+              <thead>
                 <tr>
                   <th>Student Name</th>
                   <th>Document</th>
@@ -1950,14 +2257,19 @@
         <input id="searchInputClearance" class="form-control" placeholder="Search student...">
       </div>
 
-      <div id="clearanceTablesContainer">
-        <div id="clPendingTable" class="card shadow-sm mb-4">
-          <div class="card-header bg-primary text-white"><i class="fa-solid fa-clipboard-list"></i> Pending Clearances</div>
-          <div class="card-body table-responsive">
-            <table class="table table-hover align-middle">
-              <thead class="table-primary">
+      <div id="clearanceTablesContainer" class="clearance-tables-pro">
+        <div id="clPendingTable" class="card pending-documents-card shadow-sm mb-4">
+          <div class="card-header pending-documents-header">
+            <i class="fa-solid fa-clipboard-list me-2"></i>
+            <span>Pending Clearances</span>
+          </div>
+          <div class="card-body table-responsive p-0">
+            <table class="table table-hover align-middle mb-0 documents-table clearance-table">
+              <thead>
                 <tr>
                   <th>Student Name</th>
+                  <th>Document</th>
+                  <th>Purpose</th>
                   <th>Payment Status</th>
                   <th>Status</th>
                 </tr>
@@ -2008,12 +2320,82 @@
   <!-- Analytics Template -->
   <template id="analyticsTemplate">
     <div id="analyticsContent">
-      <div class="analytics-section mb-5">
+      <header class="analytics-header">
+        <h2>Registrar Analytics</h2>
+        <p class="analytics-subtitle">Overview of document and clearance requests.</p>
+        <div class="analytics-toolbar mt-3 d-flex flex-wrap align-items-center gap-3">
+          <label class="d-flex align-items-center gap-2 mb-0">
+            <span class="text-secondary small">Date range:</span>
+            <select id="analyticsDateRange" class="form-select form-select-sm" style="width: auto;">
+              <option value="12">Last 12 months</option>
+              <option value="6">Last 6 months</option>
+              <option value="year=this">This year</option>
+              <option value="year=last">Last year</option>
+            </select>
+          </label>
+          <span id="analyticsPeriodLabel" class="text-muted small">Data: —</span>
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="analyticsExportByCourseBtn" title="Export requests by course to CSV">
+            <i class="fas fa-download me-1"></i> Export by course (CSV)
+          </button>
+        </div>
+      </header>
+
+      <!-- Loading skeleton -->
+      <div id="analyticsLoadingSkeleton" class="d-none">
+        <div class="analytics-loading-skeleton">
+          <div class="analytics-skeleton-card"></div>
+          <div class="analytics-skeleton-card"></div>
+          <div class="analytics-skeleton-card"></div>
+          <div class="analytics-skeleton-card"></div>
+        </div>
+        <div class="analytics-skeleton-chart mb-4"></div>
+        <div class="analytics-skeleton-chart"></div>
+      </div>
+
+      <!-- Empty state (no data) -->
+      <div id="analyticsEmptyState" class="analytics-empty-state d-none">
+        <i class="fas fa-chart-pie"></i>
+        <p>No request data for the last 12 months.</p>
+      </div>
+
+      <!-- Summary cards (filled by JS) -->
+      <div id="analyticsSummaryCards" class="analytics-summary-cards d-none">
+        <div class="analytics-summary-card" data-stat="total">
+          <div class="summary-icon"><i class="fas fa-file-alt"></i></div>
+          <div>
+            <p class="summary-value" id="analyticsTotalRequests">0</p>
+            <p class="summary-label">Total requests</p>
+          </div>
+        </div>
+        <div class="analytics-summary-card" data-stat="avg">
+          <div class="summary-icon"><i class="fas fa-calendar-alt"></i></div>
+          <div>
+            <p class="summary-value" id="analyticsAvgPerMonth">0</p>
+            <p class="summary-label">Avg per month</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Requests by status -->
+      <div id="analyticsByStatusSection" class="analytics-by-status mb-4 d-none">
+        <h6 class="text-secondary mb-3">Requests by status (document requests)</h6>
+        <div class="analytics-status-cards">
+          <div class="analytics-status-card" data-status="Pending"><span class="status-count" id="analyticsStatusPending">0</span><span class="status-name">Pending</span></div>
+          <div class="analytics-status-card" data-status="Processing"><span class="status-count" id="analyticsStatusProcessing">0</span><span class="status-name">Processing</span></div>
+          <div class="analytics-status-card" data-status="Completed"><span class="status-count" id="analyticsStatusCompleted">0</span><span class="status-name">Completed</span></div>
+          <div class="analytics-status-card" data-status="Released"><span class="status-count" id="analyticsStatusReleased">0</span><span class="status-name">Released</span></div>
+          <div class="analytics-status-card" data-status="Unclaimed"><span class="status-count" id="analyticsStatusUnclaimed">0</span><span class="status-name">Unclaimed</span></div>
+          <div class="analytics-status-card" data-status="Rejected"><span class="status-count" id="analyticsStatusRejected">0</span><span class="status-name">Rejected</span></div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div id="analyticsChartsSection" class="analytics-section mb-5 d-none">
         <div class="row">
           <div class="col-12">
             <div class="card shadow-sm">
               <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Document Requests by Month and Type</h5>
+                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Document requests by month and type</h5>
               </div>
               <div class="card-body">
                 <canvas id="analyticsChart" height="80"></canvas>
@@ -2021,14 +2403,15 @@
             </div>
           </div>
         </div>
-        <div class="row mt-4">
+        <div class="row mt-5">
           <div class="col-12">
             <div class="card shadow-sm">
               <div class="card-header text-white" style="background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);">
-                <h5 class="mb-0"><i class="fas fa-graduation-cap me-2"></i>Requests by Course</h5>
+                <h5 class="mb-0"><i class="fas fa-graduation-cap me-2"></i>Requests by course</h5>
               </div>
               <div class="card-body">
                 <canvas id="analyticsCourseChart" height="80"></canvas>
+                <p class="small text-muted mt-2 mb-0">Click a legend item to show or hide that document type.</p>
               </div>
             </div>
           </div>
@@ -2870,25 +3253,27 @@
     async function moveToProcessing(btn) {
       const row = btn.closest('tr');
       const requestId = row.dataset.requestId;
-      
+
       if (!requestId) {
         Swal.fire('Error', 'Request ID not found', 'error');
         return;
       }
-      
-      try {
+
+      const requestType = (row.dataset.requestType || 'clearance').toLowerCase();
+      const doMove = async () => {
         const response = await fetch('/api/registrar/mark-processing', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            request_id: Number(requestId)
+            request_id: Number(requestId),
+            request_type: requestType
           })
         });
-        
+
         const data = await response.json();
-        
+
         if (data.ok) {
           const processingList = document.getElementById('processingList');
           if (processingList) {
@@ -2912,8 +3297,7 @@
           row.remove();
           updateCounters();
           showTable('processing');
-          
-          // Show success message based on clearance status
+
           if (data.clearance_status === 'approved') {
             Swal.fire({
               icon: 'success',
@@ -2932,10 +3316,9 @@
             });
           }
         } else {
-          // Show error message based on clearance status
           let icon = 'error';
           let title = 'Cannot Process Document';
-          
+
           if (data.clearance_status === 'pending') {
             icon = 'warning';
             title = '⚠️ Clearances Still Pending';
@@ -2946,7 +3329,7 @@
             icon = 'warning';
             title = '⚠️ Incomplete Clearances';
           }
-          
+
           Swal.fire({
             icon: icon,
             title: title,
@@ -2954,9 +3337,18 @@
             confirmButtonText: 'OK'
           });
         }
+      };
+
+      try {
+        if (typeof window.executeWithFullScreenLoading === 'function') {
+          await window.executeWithFullScreenLoading(doMove, 'Starting processing...');
+        } else {
+          await doMove();
+        }
       } catch (error) {
         console.error('Error moving to processing:', error);
         Swal.fire('Error', 'Network error occurred', 'error');
+        if (window.buttonLoadingManager) window.buttonLoadingManager.hideFullScreenLoading();
       }
     }
 
@@ -3038,16 +3430,41 @@
         Swal.fire('Error', 'Request ID not found', 'error');
         return;
       }
+
+      const { value: remarks } = await Swal.fire({
+        title: 'Reject Document Request',
+        html: `
+          <p class="text-start mb-2">Reason: <strong>${reason}</strong></p>
+          <label class="text-start d-block mb-1">Remarks <span class="text-danger">*</span></label>
+          <textarea id="swal-doc-reject-remarks" class="swal2-textarea form-control" placeholder="Enter details or explanation (required)..." style="min-height:100px; resize:vertical; width:100%;" required></textarea>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Submit Rejection',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#dc3545',
+        preConfirm: () => {
+          const r = (document.getElementById('swal-doc-reject-remarks') || {}).value.trim();
+          if (!r) {
+            Swal.showValidationMessage('Please enter remarks.');
+            return false;
+          }
+          return r;
+        }
+      });
+
+      if (remarks === undefined) {
+        select.value = '';
+        return;
+      }
       
       try {
         const response = await fetch('/api/registrar/document-requests/reject', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             request_id: Number(requestId),
-            reason: reason
+            reason: reason,
+            remarks: remarks
           })
         });
         
@@ -3057,20 +3474,20 @@
           const rejectedList = document.getElementById('rejectedList');
           if (rejectedList) {
             const newRow = document.createElement('tr');
-            newRow.dataset.studentId = currentRow.dataset.studentId || '';
-          newRow.setAttribute('role', 'row');
-          newRow.innerHTML = `
+            newRow.dataset.studentId = (typeof currentRow !== 'undefined' && currentRow && currentRow.dataset.studentId) ? currentRow.dataset.studentId : (row.dataset.studentId || '');
+            newRow.setAttribute('role', 'row');
+            newRow.innerHTML = `
               <td>${row.cells[0].textContent}</td>
               <td>${row.cells[1].textContent}</td>
               <td class="status-rejected">Rejected</td>
-              <td>${reason}</td>
+              <td>${reason}: ${remarks}</td>
             `;
             rejectedList.appendChild(newRow);
           }
           row.remove();
           updateCounters();
           showTable('rejected');
-          Swal.fire({ icon: 'warning', title: 'Document Rejected', text: reason });
+          Swal.fire({ icon: 'warning', title: 'Document Rejected', text: 'Request rejected with your remarks.' });
         } else {
           Swal.fire('Error', data.message || 'Failed to reject document', 'error');
         }
@@ -3078,6 +3495,7 @@
         console.error('Error rejecting document:', error);
         Swal.fire('Error', 'Network error occurred', 'error');
       }
+      select.value = '';
     }
 
 
@@ -3085,25 +3503,51 @@
     async function markUnclaimed(btn) {
       const row = btn.closest('tr');
       const requestId = row.dataset.requestId;
-      if (requestId) {
-        try { await fetch('/api/registrar/mark-unclaimed', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({request_id: Number(requestId)})}); } catch(_){ }
+      if (!requestId) return;
+      try {
+        if (typeof window.executeWithFullScreenLoading === 'function') {
+          await window.executeWithFullScreenLoading(async () => {
+            await fetch('/api/registrar/mark-unclaimed', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({request_id: Number(requestId)})});
+            const unclaimedList = document.getElementById('unclaimedList');
+            if (unclaimedList) {
+              const newRow = document.createElement('tr');
+              newRow.dataset.requestId = requestId;
+              newRow.dataset.studentId = (currentRow && currentRow.dataset.studentId) || row.dataset.studentId || '';
+              newRow.setAttribute('role', 'row');
+              newRow.innerHTML = `
+                <td>${row.cells[0].textContent}</td>
+                <td>${row.cells[1].textContent}</td>
+                <td class="text-secondary fw-semibold">Unclaimed</td>
+                <td>${row.cells[3].textContent}</td>
+              `;
+              unclaimedList.appendChild(newRow);
+            }
+            row.remove();
+            updateCounters();
+            showTable('unclaimed');
+          }, 'Marking as unclaimed...');
+        } else {
+          await fetch('/api/registrar/mark-unclaimed', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({request_id: Number(requestId)})});
+          const unclaimedList = document.getElementById('unclaimedList');
+          if (unclaimedList) {
+            const newRow = document.createElement('tr');
+            newRow.dataset.studentId = (currentRow && currentRow.dataset.studentId) || '';
+            newRow.setAttribute('role', 'row');
+            newRow.innerHTML = `
+              <td>${row.cells[0].textContent}</td>
+              <td>${row.cells[1].textContent}</td>
+              <td class="text-secondary fw-semibold">Unclaimed</td>
+              <td>${row.cells[3].textContent}</td>
+            `;
+            unclaimedList.appendChild(newRow);
+          }
+          row.remove();
+          updateCounters();
+          showTable('unclaimed');
+        }
+      } catch (_) {
+        if (window.buttonLoadingManager) window.buttonLoadingManager.hideFullScreenLoading();
       }
-      const unclaimedList = document.getElementById('unclaimedList');
-      if (unclaimedList) {
-        const newRow = document.createElement('tr');
-        newRow.dataset.studentId = currentRow.dataset.studentId || '';
-          newRow.setAttribute('role', 'row');
-          newRow.innerHTML = `
-          <td>${row.cells[0].textContent}</td>
-          <td>${row.cells[1].textContent}</td>
-          <td class="text-secondary fw-semibold">Unclaimed</td>
-          <td>${row.cells[3].textContent}</td>
-        `;
-        unclaimedList.appendChild(newRow);
-      }
-      row.remove();
-      updateCounters();
-      showTable('unclaimed');
     }
 
     /* ============================================================
@@ -3528,7 +3972,7 @@
                 ${autoTransferBadge}
               </td>
               <td>${documentType}</td>
-              <td class="${statusClass}">${statusText}</td>
+              <td class="${statusClass}"><span class="status-badge-inline">${statusText === 'Pending' ? '<i class="fa-solid fa-clock me-1"></i>' : '<i class="fa-solid fa-check me-1"></i>'}${statusText}</span></td>
               <td class="pickup-date-display">
                 ${doc.pickup_date ? `<span class="text-success"><i class="fa-solid fa-calendar-check"></i> ${typeof formatPickupDate === 'function' ? formatPickupDate(doc.pickup_date) : doc.pickup_date}</span>` : '<span class="text-muted">Not set</span>'}
               </td>
@@ -3539,9 +3983,7 @@
                 }
                 ${(doc.clearance_request_id && doc.clearance_status && doc.clearance_status !== 'Approved') ? 
                   `<button class="btn btn-secondary btn-sm" disabled title="Cannot process - clearances not fully approved"><i class='fa-solid fa-lock'></i> Start Processing</button>` :
-                  `<button class="btn btn-primary btn-sm me-2" onclick="moveToProcessing(this)"><i class='fa-solid fa-play'></i> Start Processing</button>
-                <button class="btn btn-info btn-sm me-2" onclick="setPickupDateFromPending(this)"><i class='fa-solid fa-calendar'></i> Set Pickup Date</button>
-                <button class="btn btn-success btn-sm" onclick="markAsCompletedFromPending(this)"><i class='fa-solid fa-upload'></i> Upload File</button>`
+                  `<button class="btn btn-primary btn-sm" onclick="moveToProcessing(this)"><i class='fa-solid fa-play'></i> Start Processing</button>`
                 }
               </td>
             `;
@@ -3711,6 +4153,7 @@
       
       if (pickupDate) {
         try {
+          if (window.buttonLoadingManager) window.buttonLoadingManager.showFullScreenLoading('Setting pickup date...');
           const response = await fetch('/api/registrar/set-pickup-date', {
             method: 'POST',
             headers: {
@@ -3752,6 +4195,8 @@
         } catch (error) {
           console.error('Error setting pickup date:', error);
           Swal.fire('Error', 'Failed to set pickup date', 'error');
+        } finally {
+          if (window.buttonLoadingManager) window.buttonLoadingManager.hideFullScreenLoading();
         }
       }
     }
@@ -3838,13 +4283,15 @@
               <td class="text-success fw-semibold">Completed</td>
               <td>${doc.completed_at || new Date().toLocaleString()}</td>
               <td>${doc.pickup_date ? formatPickupDate(doc.pickup_date) : '—'}</td>
-              <td>
+              <td class="text-nowrap">
+                <div class="d-flex flex-wrap gap-2 align-items-center">
                 ${doc.clearance_request_id ? 
-                  `<button class="btn btn-outline-primary btn-sm me-2" onclick="openViewClearance(${doc.clearance_request_id})"><i class="fa-solid fa-eye"></i> View Clearance</button>` : 
+                  `<button class="btn btn-outline-primary btn-sm" onclick="openViewClearance(${doc.clearance_request_id})"><i class="fa-solid fa-eye"></i> View Clearance</button>` : 
                   ''
                 }
                 <button class="btn btn-primary btn-sm" onclick="moveToReleased(this)"><i class='fa-solid fa-paper-plane'></i> Released Documents</button>
-                <button class="btn btn-secondary btn-sm ms-2" onclick="moveToUnclaimed(this)"><i class='fa-solid fa-box-archive'></i> Unclaimed Documents</button>
+                <button class="btn btn-secondary btn-sm" onclick="moveToUnclaimed(this)"><i class='fa-solid fa-box-archive'></i> Unclaimed Documents</button>
+                </div>
               </td>
             `;
             tbody.appendChild(tr);
@@ -3859,9 +4306,59 @@
     async function moveToReleased(btn) {
       const row = btn.closest('tr');
       const requestId = row.dataset.requestId;
-      
+      const requestType = (row.dataset.requestType || 'clearance').toLowerCase();
+      if (!requestId) {
+        Swal.fire('Error', 'Request ID not found', 'error');
+        return;
+      }
       try {
-        const response = await fetch('/api/registrar/mark-released', {
+        if (typeof window.executeWithFullScreenLoading === 'function') {
+          await window.executeWithFullScreenLoading(async () => {
+            const url = requestType === 'document'
+              ? '/api/registrar/document-requests/mark-released'
+              : '/api/registrar/mark-released';
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({request_id: Number(requestId)})
+            });
+            const data = await response.json();
+            if (data.ok) {
+              const list = document.getElementById('releasedList');
+              if (list) {
+                const newRow = document.createElement('tr');
+                newRow.dataset.requestId = requestId;
+                newRow.dataset.studentId = row.dataset.studentId;
+                newRow.innerHTML = `
+                  <td>${row.cells[0].textContent}</td>
+                  <td>${row.cells[1].textContent}</td>
+                  <td class="text-success fw-semibold">Released</td>
+                  <td>${new Date().toLocaleString()}</td>
+                  <td>
+                    <button class="btn btn-secondary btn-sm" onclick="markUnclaimed(this)"><i class='fa-solid fa-box-archive'></i> Mark Unclaimed</button>
+                  </td>
+                `;
+                list.appendChild(newRow);
+              }
+              row.remove();
+              updateCounters();
+              showTable('released');
+              Swal.fire({
+                icon: 'success',
+                title: 'Document Released!',
+                text: 'Document has been moved to released status.',
+                timer: 3000,
+                showConfirmButton: false
+              });
+            } else {
+              Swal.fire('Error', data.message || 'Failed to release document', 'error');
+            }
+          }, 'Releasing document...');
+        } else {
+          const url = requestType === 'document'
+            ? '/api/registrar/document-requests/mark-released'
+            : '/api/registrar/mark-released';
+          const response = await fetch(url, {
           method: 'POST', 
           headers: {'Content-Type': 'application/json'}, 
           body: JSON.stringify({request_id: Number(requestId)})
@@ -3900,6 +4397,7 @@
         } else {
           Swal.fire('Error', data.message || 'Failed to release document', 'error');
         }
+        }
       } catch (error) {
         console.error('Error releasing document:', error);
         Swal.fire('Error', 'Failed to release document', 'error');
@@ -3909,14 +4407,54 @@
     async function releaseClearanceDocument(btn) {
       const row = btn.closest('tr');
       const requestId = row.dataset.requestId;
-      
+
       if (!requestId) {
         Swal.fire('Error', 'Request ID not found', 'error');
         return;
       }
-      
+
       try {
-        const response = await fetch('/api/registrar/release-document', {
+        if (typeof window.executeWithFullScreenLoading === 'function') {
+          await window.executeWithFullScreenLoading(async () => {
+            const response = await fetch('/api/registrar/release-document', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({request_id: Number(requestId)})
+            });
+            const data = await response.json();
+            if (data.ok) {
+              Swal.fire({
+                icon: 'success',
+                title: 'Document Released!',
+                text: 'Document has been released and student has been notified.',
+                timer: 3000,
+                showConfirmButton: false
+              });
+              const list = document.getElementById('releasedList');
+              if (list) {
+                const newRow = document.createElement('tr');
+                newRow.dataset.requestId = requestId;
+                newRow.dataset.studentId = row.dataset.studentId;
+                newRow.innerHTML = `
+                  <td>${row.cells[0].textContent}</td>
+                  <td>${row.cells[1].textContent}</td>
+                  <td class="text-success fw-semibold">Released</td>
+                  <td>${new Date().toLocaleString()}</td>
+                  <td>
+                    <button class="btn btn-secondary btn-sm" onclick="markUnclaimed(this)"><i class='fa-solid fa-box-archive'></i> Mark Unclaimed</button>
+                  </td>
+                `;
+                list.appendChild(newRow);
+              }
+              row.remove();
+              updateCounters();
+              showTable('released');
+            } else {
+              Swal.fire('Error', data.message || 'Failed to release document', 'error');
+            }
+          }, 'Releasing document...');
+        } else {
+          const response = await fetch('/api/registrar/release-document', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -3960,9 +4498,11 @@
         } else {
           Swal.fire('Error', data.message || 'Failed to release document', 'error');
         }
+        }
       } catch (error) {
         console.error('Error releasing clearance document:', error);
         Swal.fire('Error', 'Failed to release document', 'error');
+        if (window.buttonLoadingManager) window.buttonLoadingManager.hideFullScreenLoading();
       }
     }
 
@@ -3970,143 +4510,254 @@
       const row = btn.closest('tr');
       const requestId = row.dataset.requestId;
       const requestType = (row.dataset.requestType || 'clearance').toLowerCase();
-      
+
       if (!requestId) {
         Swal.fire('Error', 'Request ID not found', 'error');
         return;
       }
-      
+
       try {
-        // Document requests (e.g. Certificate) use document-requests/mark-unclaimed so DB and student dashboard update
-        const url = requestType === 'document'
-          ? '/api/registrar/document-requests/mark-unclaimed'
-          : '/api/registrar/mark-unclaimed';
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({request_id: Number(requestId)})
-        });
-        
-        const data = await response.json();
-        
-        if (data.ok) {
-          row.remove();
-          await loadUnclaimedDocuments();
-          updateCounters();
-          showTable('unclaimed');
-          Swal.fire({
-            icon: 'success',
-            title: 'Document Marked as Unclaimed!',
-            text: 'Document has been moved to unclaimed. Student will see it under Unclaimed.',
-            timer: 3000,
-            showConfirmButton: false
-          });
+        if (typeof window.executeWithFullScreenLoading === 'function') {
+          await window.executeWithFullScreenLoading(async () => {
+            const url = requestType === 'document'
+              ? '/api/registrar/document-requests/mark-unclaimed'
+              : '/api/registrar/mark-unclaimed';
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({request_id: Number(requestId)})
+            });
+            const data = await response.json();
+            if (data.ok) {
+              row.remove();
+              await loadUnclaimedDocuments();
+              updateCounters();
+              showTable('unclaimed');
+              Swal.fire({
+                icon: 'success',
+                title: 'Document Marked as Unclaimed!',
+                text: 'Document has been moved to unclaimed. Student will see it under Unclaimed.',
+                timer: 3000,
+                showConfirmButton: false
+              });
+            } else {
+              Swal.fire('Error', data.message || 'Failed to mark document as unclaimed', 'error');
+            }
+          }, 'Moving to unclaimed...');
         } else {
-          Swal.fire('Error', data.message || 'Failed to mark document as unclaimed', 'error');
+          const url = requestType === 'document'
+            ? '/api/registrar/document-requests/mark-unclaimed'
+            : '/api/registrar/mark-unclaimed';
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({request_id: Number(requestId)})
+          });
+          const data = await response.json();
+          if (data.ok) {
+            row.remove();
+            await loadUnclaimedDocuments();
+            updateCounters();
+            showTable('unclaimed');
+            Swal.fire({
+              icon: 'success',
+              title: 'Document Marked as Unclaimed!',
+              text: 'Document has been moved to unclaimed. Student will see it under Unclaimed.',
+              timer: 3000,
+              showConfirmButton: false
+            });
+          } else {
+            Swal.fire('Error', data.message || 'Failed to mark document as unclaimed', 'error');
+          }
         }
       } catch (error) {
         console.error('Error marking document as unclaimed:', error);
         Swal.fire('Error', 'Failed to mark document as unclaimed', 'error');
+        if (window.buttonLoadingManager) window.buttonLoadingManager.hideFullScreenLoading();
       }
     }
 
     async function markReleased(btn) {
       const row = btn.closest('tr');
       const requestId = row.dataset.requestId;
-      
+      if (!requestId) {
+        Swal.fire('Error', 'Request ID not found', 'error');
+        return;
+      }
       try {
-        const response = await fetch('/api/registrar/mark-released', {
-          method: 'POST', 
-          headers: {'Content-Type': 'application/json'}, 
-          body: JSON.stringify({request_id: Number(requestId)})
-        });
-        
-        const data = await response.json();
-        
-        if (data.ok) {
-          const list = document.getElementById('releasedList');
-          if (list){
-            const newRow = document.createElement('tr');
-            newRow.dataset.requestId = requestId;
-            newRow.dataset.studentId = row.dataset.studentId;
-            newRow.innerHTML = `
-              <td>${row.cells[0].textContent}</td>
-              <td>${row.cells[1].textContent}</td>
-              <td class="text-success fw-semibold">Released</td>
-              <td>${new Date().toLocaleString()}</td>
-              <td>
-                <button class="btn btn-secondary btn-sm" onclick="markUnclaimed(this)"><i class='fa-solid fa-box-archive'></i> Mark Unclaimed</button>
-              </td>
-            `;
-            list.appendChild(newRow);
-          }
-          row.remove();
-          updateCounters();
-          showTable('released');
-          
-          Swal.fire({
-            icon: 'success',
-            title: 'Document Released!',
-            text: 'Document has been moved to released status.',
-            timer: 3000,
-            showConfirmButton: false
-          });
+        if (typeof window.executeWithFullScreenLoading === 'function') {
+          await window.executeWithFullScreenLoading(async () => {
+            const response = await fetch('/api/registrar/mark-released', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({request_id: Number(requestId)})
+            });
+            const data = await response.json();
+            if (data.ok) {
+              const list = document.getElementById('releasedList');
+              if (list) {
+                const newRow = document.createElement('tr');
+                newRow.dataset.requestId = requestId;
+                newRow.dataset.studentId = row.dataset.studentId;
+                newRow.innerHTML = `
+                  <td>${row.cells[0].textContent}</td>
+                  <td>${row.cells[1].textContent}</td>
+                  <td class="text-success fw-semibold">Released</td>
+                  <td>${new Date().toLocaleString()}</td>
+                  <td>
+                    <button class="btn btn-secondary btn-sm" onclick="markUnclaimed(this)"><i class='fa-solid fa-box-archive'></i> Mark Unclaimed</button>
+                  </td>
+                `;
+                list.appendChild(newRow);
+              }
+              row.remove();
+              updateCounters();
+              showTable('released');
+              Swal.fire({
+                icon: 'success',
+                title: 'Document Released!',
+                text: 'Document has been moved to released status.',
+                timer: 3000,
+                showConfirmButton: false
+              });
+            } else {
+              Swal.fire('Error', data.message || 'Failed to release document', 'error');
+            }
+          }, 'Releasing document...');
         } else {
-          Swal.fire('Error', data.message || 'Failed to release document', 'error');
+          const response = await fetch('/api/registrar/mark-released', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({request_id: Number(requestId)})
+          });
+          const data = await response.json();
+          if (data.ok) {
+            const list = document.getElementById('releasedList');
+            if (list) {
+              const newRow = document.createElement('tr');
+              newRow.dataset.requestId = requestId;
+              newRow.dataset.studentId = row.dataset.studentId;
+              newRow.innerHTML = `
+                <td>${row.cells[0].textContent}</td>
+                <td>${row.cells[1].textContent}</td>
+                <td class="text-success fw-semibold">Released</td>
+                <td>${new Date().toLocaleString()}</td>
+                <td>
+                  <button class="btn btn-secondary btn-sm" onclick="markUnclaimed(this)"><i class='fa-solid fa-box-archive'></i> Mark Unclaimed</button>
+                </td>
+              `;
+              list.appendChild(newRow);
+            }
+            row.remove();
+            updateCounters();
+            showTable('released');
+            Swal.fire({
+              icon: 'success',
+              title: 'Document Released!',
+              text: 'Document has been moved to released status.',
+              timer: 3000,
+              showConfirmButton: false
+            });
+          } else {
+            Swal.fire('Error', data.message || 'Failed to release document', 'error');
+          }
         }
       } catch (error) {
         console.error('Error releasing document:', error);
         Swal.fire('Error', 'Failed to release document', 'error');
+        if (window.buttonLoadingManager) window.buttonLoadingManager.hideFullScreenLoading();
       }
     }
 
     async function markUnclaimed(btn) {
       const row = btn.closest('tr');
       const requestId = row.dataset.requestId;
-      
+      if (!requestId) {
+        Swal.fire('Error', 'Request ID not found', 'error');
+        return;
+      }
       try {
-        const response = await fetch('/api/registrar/mark-unclaimed', {
-          method: 'POST', 
-          headers: {'Content-Type': 'application/json'}, 
-          body: JSON.stringify({request_id: Number(requestId)})
-        });
-        
-        const data = await response.json();
-        
-        if (data.ok) {
-          const list = document.getElementById('unclaimedList');
-          if (list){
-            const newRow = document.createElement('tr');
-            newRow.dataset.requestId = requestId;
-            newRow.dataset.studentId = row.dataset.studentId;
-            newRow.innerHTML = `
-              <td>${row.cells[0].textContent}</td>
-              <td>${row.cells[1].textContent}</td>
-              <td class="text-secondary fw-semibold">Unclaimed</td>
-              <td>${new Date().toLocaleString()}</td>
-              <td>
-                <button class="btn btn-primary btn-sm" onclick="markReleased(this)"><i class='fa-solid fa-paper-plane'></i> Mark Released</button>
-              </td>
-            `;
-            list.appendChild(newRow);
-          }
-          row.remove();
-          updateCounters();
-          showTable('unclaimed');
-          
-          Swal.fire({
-            icon: 'success',
-            title: 'Document Marked as Unclaimed!',
-            text: 'Document has been moved to unclaimed status.',
-            timer: 3000,
-            showConfirmButton: false
-          });
+        if (typeof window.executeWithFullScreenLoading === 'function') {
+          await window.executeWithFullScreenLoading(async () => {
+            const response = await fetch('/api/registrar/mark-unclaimed', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({request_id: Number(requestId)})
+            });
+            const data = await response.json();
+            if (data.ok) {
+              const list = document.getElementById('unclaimedList');
+              if (list) {
+                const newRow = document.createElement('tr');
+                newRow.dataset.requestId = requestId;
+                newRow.dataset.studentId = row.dataset.studentId;
+                newRow.innerHTML = `
+                  <td>${row.cells[0].textContent}</td>
+                  <td>${row.cells[1].textContent}</td>
+                  <td class="text-secondary fw-semibold">Unclaimed</td>
+                  <td>${new Date().toLocaleString()}</td>
+                  <td>
+                    <button class="btn btn-primary btn-sm" onclick="markReleased(this)"><i class='fa-solid fa-paper-plane'></i> Mark Released</button>
+                  </td>
+                `;
+                list.appendChild(newRow);
+              }
+              row.remove();
+              updateCounters();
+              showTable('unclaimed');
+              Swal.fire({
+                icon: 'success',
+                title: 'Document Marked as Unclaimed!',
+                text: 'Document has been moved to unclaimed status.',
+                timer: 3000,
+                showConfirmButton: false
+              });
+            } else {
+              Swal.fire('Error', data.message || 'Failed to mark document as unclaimed', 'error');
+            }
+          }, 'Marking as unclaimed...');
         } else {
-          Swal.fire('Error', data.message || 'Failed to mark document as unclaimed', 'error');
+          const response = await fetch('/api/registrar/mark-unclaimed', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({request_id: Number(requestId)})
+          });
+          const data = await response.json();
+          if (data.ok) {
+            const list = document.getElementById('unclaimedList');
+            if (list) {
+              const newRow = document.createElement('tr');
+              newRow.dataset.requestId = requestId;
+              newRow.dataset.studentId = row.dataset.studentId;
+              newRow.innerHTML = `
+                <td>${row.cells[0].textContent}</td>
+                <td>${row.cells[1].textContent}</td>
+                <td class="text-secondary fw-semibold">Unclaimed</td>
+                <td>${new Date().toLocaleString()}</td>
+                <td>
+                  <button class="btn btn-primary btn-sm" onclick="markReleased(this)"><i class='fa-solid fa-paper-plane'></i> Mark Released</button>
+                </td>
+              `;
+              list.appendChild(newRow);
+            }
+            row.remove();
+            updateCounters();
+            showTable('unclaimed');
+            Swal.fire({
+              icon: 'success',
+              title: 'Document Marked as Unclaimed!',
+              text: 'Document has been moved to unclaimed status.',
+              timer: 3000,
+              showConfirmButton: false
+            });
+          } else {
+            Swal.fire('Error', data.message || 'Failed to mark document as unclaimed', 'error');
+          }
         }
       } catch (error) {
         console.error('Error marking document as unclaimed:', error);
         Swal.fire('Error', 'Failed to mark document as unclaimed', 'error');
+        if (window.buttonLoadingManager) window.buttonLoadingManager.hideFullScreenLoading();
       }
     }
 
@@ -4151,29 +4802,25 @@
       input.onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        
-        const formData = new FormData();
-        formData.append('files[]', file);
-        formData.append('request_id', requestId);
-        
+
         try {
+          if (window.buttonLoadingManager) window.buttonLoadingManager.showFullScreenLoading('Uploading file...');
+          const formData = new FormData();
+          formData.append('files[]', file);
+          formData.append('request_id', requestId);
           const response = await fetch('/api/registrar/upload-document', {
             method: 'POST',
             body: formData
           });
-          
           const data = await response.json();
-          
           if (data.ok) {
-              Swal.fire({
-                icon: 'success',
-                title: 'File Uploaded!',
-                text: 'Document has been uploaded and moved to completed status. You can now release it when ready.',
-                timer: 3000,
-                showConfirmButton: false
-              });
-            
-            // Move to completed table and show Completed tab
+            Swal.fire({
+              icon: 'success',
+              title: 'File Uploaded!',
+              text: 'Document has been uploaded and moved to completed status. You can now release it when ready.',
+              timer: 3000,
+              showConfirmButton: false
+            });
             moveToCompleted(row);
             updateCounters();
             showTable('completed');
@@ -4183,6 +4830,8 @@
         } catch (error) {
           console.error('Error uploading file:', error);
           Swal.fire('Error', 'Failed to upload file', 'error');
+        } finally {
+          if (window.buttonLoadingManager) window.buttonLoadingManager.hideFullScreenLoading();
         }
       };
       
@@ -4394,6 +5043,7 @@
        ============================================================ */
     let analyticsChart = null;
     let analyticsCourseChart = null;
+    let lastAnalyticsData = null;
 
     const COURSE_CHART_COLORS = [
       'rgba(59, 130, 246, 0.85)',   // Blue
@@ -4414,21 +5064,110 @@
     ];
 
     async function loadAnalytics() {
+      const skeletonEl = document.getElementById('analyticsLoadingSkeleton');
+      const emptyEl = document.getElementById('analyticsEmptyState');
+      const summaryEl = document.getElementById('analyticsSummaryCards');
+      const chartsEl = document.getElementById('analyticsChartsSection');
+
+      function showSkeleton() {
+        if (skeletonEl) skeletonEl.classList.remove('d-none');
+        if (emptyEl) emptyEl.classList.add('d-none');
+        if (summaryEl) summaryEl.classList.add('d-none');
+        if (chartsEl) chartsEl.classList.add('d-none');
+      }
+      function showEmpty() {
+        if (skeletonEl) skeletonEl.classList.add('d-none');
+        if (emptyEl) emptyEl.classList.remove('d-none');
+        if (summaryEl) summaryEl.classList.add('d-none');
+        if (chartsEl) chartsEl.classList.add('d-none');
+        var statusSection = document.getElementById('analyticsByStatusSection');
+        if (statusSection) statusSection.classList.add('d-none');
+      }
+      function showData() {
+        if (skeletonEl) skeletonEl.classList.add('d-none');
+        if (emptyEl) emptyEl.classList.add('d-none');
+        if (summaryEl) summaryEl.classList.remove('d-none');
+        if (chartsEl) chartsEl.classList.remove('d-none');
+      }
+
       try {
-        const response = await fetch('/api/registrar/analytics');
+        // If the analytics template isn't mounted yet, bail quietly.
+        if (!document.getElementById('analyticsContent')) return;
+
+        showSkeleton();
+
+        var rangeSel = document.getElementById('analyticsDateRange');
+        var rangeVal = rangeSel ? rangeSel.value : '12';
+        var apiUrl = '/api/registrar/analytics';
+        if (rangeVal === 'year=this' || rangeVal === 'year=last') {
+          apiUrl += '?year=' + (rangeVal === 'year=this' ? 'this' : 'last');
+        } else {
+          apiUrl += '?range=' + (rangeVal === '6' ? '6' : '12');
+        }
+
+        const response = await fetch(apiUrl);
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          throw new Error('HTTP error! status: ' + response.status);
         }
         const data = await response.json();
-        
+
         if (!data.ok) {
           console.error('Error loading analytics:', data.message || 'Unknown error');
+          showEmpty();
+          if (emptyEl) emptyEl.querySelector('p').textContent = data.message || 'Failed to load analytics.';
           return;
         }
 
         const analyticsData = data.data;
-        
-        // Destroy existing charts if they exist
+        const months = analyticsData.months || [];
+        const datasets = analyticsData.datasets || [];
+        const monthlyTotalsArr = analyticsData.monthly_totals_arr || [];
+        const byCourse = analyticsData.by_course || [];
+        const courseDocTypes = analyticsData.course_document_types || [];
+
+        const hasData = months.length > 0 || byCourse.length > 0;
+        if (!hasData) {
+          showEmpty();
+          return;
+        }
+
+        // Summary stats
+        const totalRequests = monthlyTotalsArr.reduce(function(a, b) { return a + b; }, 0);
+        const numMonths = Math.max(months.length, 1);
+        const avgPerMonth = Math.round(totalRequests / numMonths);
+
+        document.getElementById('analyticsTotalRequests').textContent = totalRequests.toLocaleString();
+        document.getElementById('analyticsAvgPerMonth').textContent = avgPerMonth.toLocaleString();
+
+        var dateRangeLabel = analyticsData.date_range_label || {};
+        var periodEl = document.getElementById('analyticsPeriodLabel');
+        if (periodEl) periodEl.textContent = 'Data: ' + (dateRangeLabel.from || '') + ' – ' + (dateRangeLabel.to || '');
+
+        var byStatus = analyticsData.by_status || {};
+        var statusIds = { Pending: 'analyticsStatusPending', Processing: 'analyticsStatusProcessing', Completed: 'analyticsStatusCompleted', Released: 'analyticsStatusReleased', Unclaimed: 'analyticsStatusUnclaimed', Rejected: 'analyticsStatusRejected' };
+        Object.keys(statusIds).forEach(function(s) {
+          var el = document.getElementById(statusIds[s]);
+          if (el) el.textContent = (byStatus[s] || 0).toLocaleString();
+        });
+        var statusSection = document.getElementById('analyticsByStatusSection');
+        if (statusSection) statusSection.classList.remove('d-none');
+
+        lastAnalyticsData = analyticsData;
+        showData();
+
+        // If Chart.js failed to load (e.g., CDN blocked), keep summary visible but explain why charts are missing.
+        if (typeof Chart === 'undefined') {
+          console.error('Chart.js is not available. Analytics charts cannot render.');
+          if (chartsEl) chartsEl.classList.add('d-none');
+          if (emptyEl) {
+            emptyEl.classList.remove('d-none');
+            const p = emptyEl.querySelector('p');
+            if (p) p.textContent = 'Charts failed to load (Chart.js not available). Check internet/CDN blocking, then refresh.';
+          }
+          return;
+        }
+
+        // Destroy existing charts
         if (analyticsChart) {
           analyticsChart.destroy();
           analyticsChart = null;
@@ -4438,12 +5177,11 @@
           analyticsCourseChart = null;
         }
 
-        // Create grouped bar chart (by month and type) — count + percent in tooltip
+        const gridColor = 'rgba(0, 0, 0, 0.06)';
+
+        // Chart 1: Document requests by month and type
         const ctx = document.getElementById('analyticsChart');
-        if (ctx) {
-          const months = analyticsData.months || [];
-          const datasets = analyticsData.datasets || [];
-          const monthlyTotalsArr = analyticsData.monthly_totals_arr || [];
+        if (ctx && months.length > 0) {
           analyticsChart = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -4457,7 +5195,7 @@
                 legend: {
                   display: true,
                   position: 'top',
-                  labels: { boxWidth: 12, padding: 10, font: { size: 11 } }
+                  labels: { boxWidth: 14, padding: 12, font: { size: 12 } }
                 },
                 tooltip: {
                   mode: 'index',
@@ -4477,13 +5215,15 @@
               scales: {
                 x: {
                   stacked: false,
+                  grid: { color: gridColor },
                   title: { display: true, text: 'Months', font: { size: 12, weight: 'bold' } },
-                  ticks: { font: { size: 10 } }
+                  ticks: { font: { size: 11 } }
                 },
                 y: {
                   beginAtZero: true,
+                  grid: { color: gridColor },
                   title: { display: true, text: 'Number of requests', font: { size: 12, weight: 'bold' } },
-                  ticks: { font: { size: 10 }, stepSize: 1 }
+                  ticks: { font: { size: 11 }, stepSize: 1 }
                 }
               },
               interaction: { mode: 'index', intersect: false }
@@ -4491,22 +5231,24 @@
           });
         }
 
-        // Requests by Course: stacked by document type, hover shows which documents each course requested
-        const byCourse = analyticsData.by_course || [];
-        const courseDocTypes = analyticsData.course_document_types || [];
+        // Chart 2: Requests by course
         const courseCtx = document.getElementById('analyticsCourseChart');
         const DOC_TYPE_COLORS = [
-          'rgba(59, 130, 246, 0.85)', 'rgba(34, 197, 94, 0.85)', 'rgba(251, 191, 36, 0.85)',
-          'rgba(239, 68, 68, 0.85)', 'rgba(168, 85, 247, 0.85)', 'rgba(236, 72, 153, 0.85)',
-          'rgba(14, 165, 233, 0.85)', 'rgba(20, 184, 166, 0.85)', 'rgba(249, 115, 22, 0.85)',
-          'rgba(99, 102, 241, 0.85)', 'rgba(16, 185, 129, 0.85)', 'rgba(139, 92, 246, 0.85)'
+          'rgba(59, 130, 246, 0.8)', 'rgba(34, 197, 94, 0.8)', 'rgba(251, 191, 36, 0.8)',
+          'rgba(239, 68, 68, 0.8)', 'rgba(168, 85, 247, 0.8)', 'rgba(236, 72, 153, 0.8)',
+          'rgba(14, 165, 233, 0.8)', 'rgba(20, 184, 166, 0.8)', 'rgba(249, 115, 22, 0.8)',
+          'rgba(99, 102, 241, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(139, 92, 246, 0.8)'
         ];
         if (courseCtx && byCourse.length > 0) {
-          const courseLabels = byCourse.map(function(x) { return x.course; });
-          const courseTotals = byCourse.map(function(x) { return x.total; });
-          const courseDatasets = courseDocTypes.map(function(docType, idx) {
+          const TOP_COURSES_LIMIT = 10;
+          const byCourseLimited = byCourse.slice(0, TOP_COURSES_LIMIT);
+          const courseLabels = byCourseLimited.map(function(x) {
+            return (x.course_code && String(x.course_code).trim()) ? String(x.course_code).trim() : (x.course || 'Unknown');
+          });
+          const courseTotals = byCourseLimited.map(function(x) { return x.total; });
+          let courseDatasets = courseDocTypes.map(function(docType, idx) {
             const color = DOC_TYPE_COLORS[idx % DOC_TYPE_COLORS.length];
-            const data = byCourse.map(function(c) {
+            const data = byCourseLimited.map(function(c) {
               const doc = (c.documents || []).find(function(d) { return d.type === docType; });
               return doc ? doc.count : 0;
             });
@@ -4514,18 +5256,18 @@
               label: docType,
               data: data,
               backgroundColor: color,
-              borderColor: color.replace('0.85', '1'),
+              borderColor: color.replace('0.8', '1'),
               borderWidth: 1
             };
           });
           if (courseDatasets.length === 0) {
-            courseDatasets.push({
+            courseDatasets = [{
               label: 'Requests',
               data: courseTotals,
               backgroundColor: DOC_TYPE_COLORS[0],
-              borderColor: DOC_TYPE_COLORS[0].replace('0.85', '1'),
+              borderColor: DOC_TYPE_COLORS[0].replace('0.8', '1'),
               borderWidth: 1
-            });
+            }];
           }
           analyticsCourseChart = new Chart(courseCtx, {
             type: 'bar',
@@ -4542,7 +5284,7 @@
                 legend: {
                   display: true,
                   position: 'top',
-                  labels: { boxWidth: 12, padding: 10, font: { size: 11 } }
+                  labels: { boxWidth: 14, padding: 12, font: { size: 12 } }
                 },
                 tooltip: {
                   mode: 'index',
@@ -4552,7 +5294,9 @@
                       const idx = items[0] && items[0].dataIndex;
                       if (idx == null) return '';
                       const total = courseTotals[idx];
-                      return courseLabels[idx] + ' — ' + total + ' request' + (total !== 1 ? 's' : '') + ' total';
+                      const fullName = byCourseLimited[idx] && byCourseLimited[idx].course;
+                      const label = fullName || courseLabels[idx];
+                      return label + ' — Total: ' + total + ' request' + (total !== 1 ? 's' : '');
                     },
                     label: function(context) {
                       const count = context.parsed.y != null ? context.parsed.y : 0;
@@ -4569,14 +5313,16 @@
               scales: {
                 x: {
                   stacked: true,
+                  grid: { color: gridColor },
                   title: { display: true, text: 'Course', font: { size: 12, weight: 'bold' } },
-                  ticks: { font: { size: 10 }, autoSkip: false }
+                  ticks: { font: { size: 11 }, autoSkip: false, maxRotation: 45, minRotation: 45 }
                 },
                 y: {
                   stacked: true,
                   beginAtZero: true,
+                  grid: { color: gridColor },
                   title: { display: true, text: 'Number of requests', font: { size: 12, weight: 'bold' } },
-                  ticks: { font: { size: 10 }, stepSize: 1 }
+                  ticks: { font: { size: 11 }, stepSize: 1 }
                 }
               },
               interaction: { mode: 'index', intersect: false }
@@ -4586,7 +5332,39 @@
 
       } catch (error) {
         console.error('Error loading analytics:', error);
+        showEmpty();
+        if (emptyEl) {
+          const p = emptyEl.querySelector('p');
+          if (p) p.textContent = 'Failed to load analytics. Please try again.';
+        }
       }
+    }
+
+    function exportAnalyticsByCourseCsv() {
+      if (!lastAnalyticsData || !lastAnalyticsData.by_course || !lastAnalyticsData.by_course.length) {
+        if (typeof Swal !== 'undefined') Swal.fire('No data', 'Load analytics first or no by-course data to export.', 'info');
+        return;
+      }
+      var byCourse = lastAnalyticsData.by_course;
+      var docTypes = lastAnalyticsData.course_document_types || [];
+      var rows = ['Course,Document Type,Count'];
+      byCourse.forEach(function(c) {
+        if (docTypes.length === 0) {
+          rows.push('"' + (c.course || '').replace(/"/g, '""') + '",Requests,' + (c.total || 0));
+        } else {
+          (c.documents || []).forEach(function(d) {
+            rows.push('"' + (c.course || '').replace(/"/g, '""') + '","' + (d.type || '').replace(/"/g, '""') + '",' + (d.count || 0));
+          });
+          if (!(c.documents || []).length) rows.push('"' + (c.course || '').replace(/"/g, '""') + '",—,' + (c.total || 0));
+        }
+      });
+      var csv = rows.join('\r\n');
+      var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'registrar-requests-by-course.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
     }
 
     // Add sample data for demo purposes
@@ -4659,11 +5437,13 @@
           topbarTitle.textContent = 'Registrar Analytics';
         }
         // Small delay to ensure DOM is ready
-        setTimeout(async () => {
-          // Load analytics chart
-          if (document.getElementById('analyticsChart')) {
-            await loadAnalytics();
-          }
+        setTimeout(function() {
+          var rangeSel = document.getElementById('analyticsDateRange');
+          var exportBtn = document.getElementById('analyticsExportByCourseBtn');
+          if (rangeSel) rangeSel.addEventListener('change', function() { loadAnalytics(); });
+          if (exportBtn) exportBtn.addEventListener('click', exportAnalyticsByCourseCsv);
+          // Always attempt to load; loadAnalytics() will self-guard if template isn't mounted.
+          loadAnalytics();
         }, 10);
       }
 
@@ -5477,17 +6257,21 @@
           // Show receipt button if there's any payment information or receipt data
           if ((item.payment_method && item.payment_amount) || item.payment_receipt || item.payment_details) {
             paymentStatusHtml = `
-              <button class="btn btn-info btn-sm view-receipt-btn" onclick='viewReceiptRegistrar(${JSON.stringify(item)})'><i class="fas fa-receipt"></i> View Receipt</button>
+              <button class="btn btn-info btn-sm view-receipt-btn" onclick='viewReceiptRegistrar(${JSON.stringify(item).replace(/'/g, "&#39;")})'><i class="fas fa-receipt"></i> View Receipt</button>
             `;
           } else {
             paymentStatusHtml = '<span class="no-receipt-text"><i class="fas fa-receipt"></i> No receipt</span>';
           }
-          
-          const tr = document.createElement('tr'); 
-          tr.dataset.studentId = item.student_id || item.id || ''; 
-          tr.dataset.requestId = item.request_id || ''; 
+          const purposeText = (item.purpose || '—').trim() || '—';
+          // One row per clearance request (same format as Pending Requests: documents together in one cell)
+          const docText = (item.document || item.document_name || '—').trim() || '—';
+          const tr = document.createElement('tr');
+          tr.dataset.studentId = item.student_id || item.id || '';
+          tr.dataset.requestId = item.request_id || '';
           tr.innerHTML = `
           <td>${(item.first_name||'') + ' ' + (item.last_name||'')}</td>
+          <td>${docText}</td>
+          <td>${purposeText}</td>
           <td class="payment-status-cell">${paymentStatusHtml}</td>
           <td class="status-cell status-pending">Pending</td>
           <td class="clearance-status-cell">
@@ -5501,7 +6285,7 @@
               <option>Other</option>
             </select>
           </td>
-        `; tbody.appendChild(tr); 
+        `; tbody.appendChild(tr);
         }); 
         }
         updateClearanceCounters(); 
@@ -5689,24 +6473,60 @@
         Swal.fire('Error', 'Request ID not found', 'error');
         return;
       }
+
+      const { value: remarks } = await Swal.fire({
+        title: 'Reject Clearance',
+        html: `
+          <p class="text-start mb-2">Reason: <strong>${reason}</strong></p>
+          <label class="text-start d-block mb-1">Remarks <span class="text-danger">*</span></label>
+          <textarea id="swal-registrar-remarks" class="swal2-textarea form-control" placeholder="Enter details or explanation (required)..." style="min-height:100px; resize:vertical; width:100%;" required></textarea>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Submit Rejection',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#dc3545',
+        preConfirm: () => {
+          const r = (document.getElementById('swal-registrar-remarks') || {}).value.trim();
+          if (!r) {
+            Swal.showValidationMessage('Please enter remarks.');
+            return false;
+          }
+          return r;
+        }
+      });
+
+      if (remarks === undefined) {
+        select.value = '';
+        return;
+      }
       
-      // Show full-screen loading overlay
       if (window.buttonLoadingManager) {
         window.buttonLoadingManager.showFullScreenLoading('Rejecting Clearance...');
-      } 
-      try { 
-        await fetch('/api/registrar/reject',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ request_id: Number(requestId), reason }) }); 
-      } catch(_) {}
-      row.remove();
-      updateClearanceCounters();
-      await loadRegistrarRejectedClearances();
-      showClearanceTable('rejected');
-      Swal.fire({icon:'warning', title:'Clearance Rejected', text:`Student clearance rejected: ${reason}`}); 
-      
-      // Hide full-screen loading overlay
+      }
+      try {
+        const res = await fetch('/api/registrar/reject', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ request_id: Number(requestId), reason, remarks })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          Swal.fire('Error', data.message || 'Failed to reject clearance', 'error');
+          if (window.buttonLoadingManager) window.buttonLoadingManager.hideFullScreenLoading();
+          return;
+        }
+        row.remove();
+        updateClearanceCounters();
+        await loadRegistrarRejectedClearances();
+        showClearanceTable('rejected');
+        Swal.fire({ icon: 'warning', title: 'Clearance Rejected', text: 'Student clearance has been rejected with your remarks.' });
+      } catch (e) {
+        Swal.fire('Error', e.message || 'Network error', 'error');
+      }
       if (window.buttonLoadingManager) {
         window.buttonLoadingManager.hideFullScreenLoading();
       }
+      select.value = '';
     }
 
     // Move approved clearance back to pending clearances

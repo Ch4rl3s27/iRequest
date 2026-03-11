@@ -1131,7 +1131,7 @@
       try {
         const staff = await loadStaffInfo();
         
-        if (dean) {
+        if (staff) {
           // Format dates
           const formatDate = (dateString) => {
             if (!dateString) return 'N/A';

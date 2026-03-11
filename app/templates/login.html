@@ -173,6 +173,18 @@
   </div>
   <script>
     (function(){
+      var params = new URLSearchParams(window.location.search);
+      if (params.get('reset') === 'success') {
+        history.replaceState({}, '', window.location.pathname);
+        Swal.fire({
+          icon: 'success',
+          title: 'Password Updated',
+          text: 'You can now log in with your new password.',
+          confirmButtonText: 'OK'
+        });
+      }
+    })();
+    (function(){
       var input = document.getElementById('password');
       var toggle = document.getElementById('togglePassword');
       if(toggle && input){
