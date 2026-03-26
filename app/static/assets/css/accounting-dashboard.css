@@ -710,6 +710,22 @@ body {
   flex-wrap: wrap;
 }
 
+/* Keep pending action buttons in a single row on desktop */
+@media (min-width: 769px) {
+  #pendingTable td[data-label="Actions"]{
+    min-width: 320px;
+  }
+  #pendingTable td[data-label="Actions"] .action-buttons{
+    flex-wrap: nowrap;
+  }
+}
+
+@media (max-width: 768px){
+  #pendingTable td[data-label="Actions"]{
+    min-width: 0;
+  }
+}
+
 .btn-sign {
   background: var(--success-500);
   color: white;
@@ -729,6 +745,58 @@ body {
   background: var(--success-600);
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
+}
+
+.btn-view {
+  background: white;
+  color: var(--primary-600);
+  border: 2px solid var(--primary-500);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.btn-view:hover {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: var(--primary-600);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-view:active {
+  transform: translateY(0);
+}
+
+/* Reject */
+.btn-reject {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.btn-reject:hover {
+  background: var(--danger-600);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-reject:active {
+  transform: translateY(0);
 }
 
 .btn-deactivate {

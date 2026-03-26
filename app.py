@@ -27,13 +27,28 @@ try:
         load_dotenv('aws_config.env')
         load_dotenv(os.path.join(_env_app_dir, 'aws_config.env'))
 except ImportError:
-    # dotenv not installed, try to load aws_config.env manually
-    if os.path.exists('aws_config.env'):
-        with open('aws_config.env', 'r') as f:
-            for line in f:
-                if '=' in line and not line.strip().startswith('#'):
-                    key, value = line.strip().split('=', 1)
-                    os.environ[key] = value
+    # dotenv not installed, best-effort manual load for local development.
+    # This supports running the app even when python-dotenv isn't available.
+    _env_app_dir = os.path.dirname(os.path.abspath(__file__))
+    for _candidate in (
+        '.env',
+        os.path.join(_env_app_dir, '.env'),
+        'aws_config.env',
+        os.path.join(_env_app_dir, 'aws_config.env'),
+    ):
+        try:
+            if os.path.exists(_candidate):
+                with open(_candidate, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        s = line.strip()
+                        if not s or s.startswith('#') or '=' not in s:
+                            continue
+                        key, value = s.split('=', 1)
+                        # Don't overwrite values already set in environment
+                        if key and key not in os.environ:
+                            os.environ[key] = value
+        except Exception:
+            pass
 except Exception:
     pass
 
@@ -59,7 +74,7 @@ from email.mime.image import MIMEImage
 from email.utils import formataddr
 from datetime import datetime, timedelta
 import os
-try:
+try:  
   from zoneinfo import ZoneInfo
 except ImportError:
   ZoneInfo = None
@@ -67,6 +82,7 @@ import base64
 import json
 import requests
 import re
+import threading
 try:
   from PIL import Image
   import io
@@ -220,27 +236,62 @@ def _extract_ref_amount_from_ai_text(json_text: str):
     # reference number: digits only, prefer 13-digit, else 7-16
     raw_text = str(data.get('raw_text') or '')
     digits_only = _re.sub(r'\D', '', str(data.get('reference_number') or ''))
+
+    def _valid_ref(s: str) -> bool:
+      return bool(s) and bool(_re.fullmatch(r'\d{7,16}', s))
+
+    def _pick_best_ref(cands):
+      """Pick most likely reference number using simple heuristics."""
+      if not cands:
+        return ''
+      # normalize + dedupe preserve order
+      seen = set()
+      uniq = []
+      for c in cands:
+        c = _re.sub(r'\D', '', str(c or ''))
+        if not _valid_ref(c):
+          continue
+        if c in seen:
+          continue
+        seen.add(c)
+        uniq.append(c)
+      if not uniq:
+        return ''
+      raw_digits = _re.sub(r'\D', '', raw_text)
+      original_present = 'ORIGINAL' in (raw_text or '').upper()
+      scored = []
+      for c in uniq:
+        score = 0
+        if len(c) == 13:
+          score += 30
+        score += len(c)  # longer is better (within 7-16)
+        if original_present and c in raw_digits:
+          score += 10
+        scored.append((score, c))
+      scored.sort(key=lambda x: x[0], reverse=True)
+      return scored[0][1] if scored else ''
+
     ref = ''
-    
-    # First, try to use what AI specifically identified as reference_number
-    if digits_only and 7 <= len(digits_only) <= 16:
+    # First, trust AI field if valid
+    if _valid_ref(digits_only):
       ref = digits_only
     else:
       # If AI didn't identify a specific reference number, look in raw text
-      # Look for patterns that suggest reference numbers
       ref_patterns = [
-        r'(?:REF|REFERENCE|NO\.|NUMBER)[\s#:]*(\d{7,16})',  # After REF/REFERENCE labels
         r'(?:ORIGINAL)[\s\S]*?(\d{7,16})',  # After ORIGINAL text
+        r'(?:REF|REFERENCE|NO\.|NUMBER)[\s#:]*(\d{7,16})',  # After REF/REFERENCE labels
         r'(?:RECEIPT|TXN|TRANSACTION)[\s#:]*(\d{7,16})',  # After receipt/transaction labels
-        r'\b(\d{7,16})\b'  # Any 7-16 digit number as fallback
+        r'\b(\d{7,16})\b',  # Any 7-16 digit number as fallback
       ]
-      
+      all_candidates = []
       for pattern in ref_patterns:
         matches = _re.findall(pattern, raw_text, _re.IGNORECASE)
         if matches:
-          # Take the first match from the most specific pattern
-          ref = matches[0]
-          break
+          all_candidates.extend(matches)
+          # stop early on strong patterns
+          if pattern.startswith('(?:ORIGINAL)') or pattern.startswith('(?:REF'):
+            break
+      ref = _pick_best_ref(all_candidates)
     conf = float(data.get('confidence_score') or 0.0)
     return {
       'amount': amount,
@@ -254,6 +305,37 @@ def _extract_ref_amount_from_ai_text(json_text: str):
 def _groq_extract(image_b64: str, retry_count=0, model_name=None):
   """Extract receipt information using Groq AI API with Llama 4 Scout vision model"""
   try:
+    # Lazy-load .env as a fallback (helps when app is started without python-dotenv
+    # or when environment variables weren't loaded at import time).
+    global _GROQ_ENV_LOADED
+    if '_GROQ_ENV_LOADED' not in globals():
+      _GROQ_ENV_LOADED = False
+    if not _GROQ_ENV_LOADED:  # type: ignore
+      try:
+        _env_app_dir = os.path.dirname(os.path.abspath(__file__))
+        # Try python-dotenv if available
+        try:
+          from dotenv import load_dotenv  # type: ignore
+          load_dotenv(os.path.join(_env_app_dir, '.env'))
+          load_dotenv('.env')
+        except Exception:
+          # Best-effort manual parse
+          for _candidate in (os.path.join(_env_app_dir, '.env'), '.env'):
+            try:
+              if os.path.exists(_candidate):
+                with open(_candidate, 'r', encoding='utf-8') as f:
+                  for line in f:
+                    s = line.strip()
+                    if not s or s.startswith('#') or '=' not in s:
+                      continue
+                    k, v = s.split('=', 1)
+                    if k and k not in os.environ:
+                      os.environ[k] = v
+            except Exception:
+              pass
+      finally:
+        _GROQ_ENV_LOADED = True  # type: ignore
+
     # Get API key from Flask app config or environment (so it works when .env is loaded from app dir)
     from flask import current_app
     api_key = None
@@ -263,6 +345,7 @@ def _groq_extract(image_b64: str, retry_count=0, model_name=None):
       pass
     if not api_key:
       api_key = os.environ.get('GROQ_API_KEY')
+    api_key = (api_key or '').strip()
     if not api_key:
       return {'ok': False, 'message': 'GROQ_API_KEY not configured. Add GROQ_API_KEY to your .env file (get a key from https://console.groq.com).'}
     
@@ -675,7 +758,9 @@ _DOCUMENT_NAME_TO_FORM_VALUE = {
   "certificate - candidacy / completion of academic requirements": "Certificate - Candidacy / Completion of Academic Requirements",
   "certificate - graduation": "Certificate - Graduation",
   "certificate - weighted average": "Certificate - Weighted Average",
-  "cav": "CAV",
+  "cav": "CAV (Certification, Authentication, and Verification)",
+  "cav (certification, authentication, and verification)": "CAV (Certification, Authentication, and Verification)",
+  "transfer credential": "Transfer Credential",
 }
 
 def _document_name_to_form_value(name):
@@ -742,10 +827,47 @@ def _student_pending_request_documents(cur, student_id):
         name = _document_name_to_form_value(dt)
         if name:
           out.append(name)
+    # Business rule: Diploma can only be requested once (lifetime per student).
+    if _student_has_requested_document_once(cur, student_id, "Diploma"):
+      out.append("Diploma")
     return list(dict.fromkeys(out))
   except Exception as e:
     print(f"Error getting pending request documents: {e}")
     return []
+
+def _student_has_requested_document_once(cur, student_id, target_document):
+  """
+  Returns True if target_document appears in any historical clearance request
+  for the student (regardless of status).
+  """
+  try:
+    target = _normalize_doc_name(target_document).lower()
+    if not target:
+      return False
+    cur.execute("""
+      SELECT documents
+      FROM clearance_requests
+      WHERE student_id = %s
+    """, (student_id,))
+    rows = cur.fetchall() or []
+    for row in rows:
+      docs = row.get('documents')
+      if docs is None:
+        continue
+      if isinstance(docs, str):
+        try:
+          docs = json.loads(docs)
+        except Exception:
+          docs = [d.strip() for d in docs.split(',') if d.strip()]
+      if not isinstance(docs, list):
+        docs = [docs]
+      for d in docs:
+        if _normalize_doc_name(d).lower() == target:
+          return True
+    return False
+  except Exception as e:
+    print(f"Error checking one-time document rule for '{target_document}': {e}")
+    return False
 
 def _create_clearance_notification_email_template(signatory_name: str, student_name: str, documents: list, purposes: list, deadline_date: str) -> str:
   """
@@ -891,6 +1013,7 @@ def _send_clearance_notification_emails(mysql, request_id: int, student_name: st
     
     # Map office names to department names (for staff lookup)
     office_to_department_map = {
+      'Property Custodian': 'Property Custodian',
       'Computer Laboratory': 'Computer Laboratory',
       'Guidance Office': 'Guidance Office',
       'Student Affairs': 'Student Affairs',
@@ -900,7 +1023,6 @@ def _send_clearance_notification_emails(mysql, request_id: int, student_name: st
       'Dean HM': 'Dean HM',
       'Dean': 'Dean',
       'Accounting': 'Accounting',
-      'Property Custodian': 'Property Custodian',
       'Registrar': 'Registrar'
     }
     
@@ -950,6 +1072,15 @@ def _send_clearance_notification_emails(mysql, request_id: int, student_name: st
     print(f"❌ Error sending clearance notification emails: {e}")
     traceback.print_exc()
     return 0
+
+def _send_clearance_notification_emails_async(mysql, request_id: int, student_name: str, documents: list, purposes: list):
+  """Send signatory emails in background to keep submit API fast."""
+  def _runner():
+    try:
+      _send_clearance_notification_emails(mysql, request_id, student_name, documents, purposes)
+    except Exception as e:
+      print(f"⚠️ Background clearance notification failed: {e}")
+  threading.Thread(target=_runner, daemon=True).start()
 
 def _send_email_html(to_email: str, subject: str, html_content: str) -> None:
   try:
@@ -1951,8 +2082,8 @@ def create_app() -> Flask:
 
   @app.route('/')
   def index():
-    # Redirect to student signup page by default
-    return redirect('/Student_Signup.html')
+    # Redirect to login page by default
+    return redirect('/login.html')
 
   # Routes to serve HTML templates
   @app.route('/login.html')
@@ -2627,6 +2758,7 @@ def create_app() -> Flask:
             # Redirect by department (Admin redirects to Computer Lab Dashboard)
             department = department_lower
             dept_to_page = {
+                'property custodian': '/PropertyCustodian_Dashboard.html',
                 'admin': '/ComputerLaboratory_Dashboard.html',
                 'computer laboratory': '/ComputerLaboratory_Dashboard.html',
                 'guidance office': '/GuidanceOffice_Dashboard.html',
@@ -2636,7 +2768,6 @@ def create_app() -> Flask:
                 'dean of hm': '/Dean_HM_Dashboard.html',
                 'dean of cs': '/Dean_CS_Dashboard.html',
                 'accounting': '/Accounting_Dashboard.html',
-                'property custodian': '/PropertyCustodian_Dashboard.html',
                 'registrar': '/Registrar_Dashboard.html',
             }
             return jsonify({"ok": True, "redirect": dept_to_page.get(department, '/ComputerLaboratory_Dashboard.html')})
@@ -5121,14 +5252,10 @@ def create_app() -> Flask:
         reference_number = request.form.get('reference_number', '').strip() or None
         print(f"🔍 CLEARANCE REQUEST: Form data - documents: {documents}, purposes: {purposes}, payment_method: {payment_method}")
         
-        # Validate reference number format and check for duplicates if provided
+        # Check for duplicate reference number if provided
         if reference_number:
-          # Validate reference number format (7-16 digits)
-          import re
-          if not re.fullmatch(r'\d{7,16}', reference_number):
-            return jsonify({"ok": False, "message": "Reference number must be 7-16 digits only"}), 400
-          
-          # Check for duplicate reference number
+          # NOTE: We no longer enforce a strict 7-16 digit pattern so real-world reference formats are accepted.
+          # Still prevent exact duplicates in clearance_requests.
           cur.execute("SELECT id FROM clearance_requests WHERE reference_number = %s", (reference_number,))
           existing_request = cur.fetchone()
           if existing_request:
@@ -5186,6 +5313,19 @@ def create_app() -> Flask:
               receipt_data = base64.b64encode(compressed_data).decode('utf-8')
               receipt_s3_url = None
               receipt_s3_key = None
+
+      # One-time rule: Diploma may only be requested once per student.
+      try:
+        docs_lower = [_normalize_doc_name(d).lower() for d in (documents or [])]
+      except Exception:
+        docs_lower = []
+      if 'diploma' in docs_lower and _student_has_requested_document_once(cur, student_id, "Diploma"):
+        cur.close()
+        conn.close()
+        return jsonify({
+          "ok": False,
+          "message": "Diploma can only be requested once. Our records show you have already requested a Diploma before."
+        }), 400
       
       # Check for duplicate requests before creating new one (TEMPORARILY DISABLED FOR TESTING)
       # is_duplicate, existing_request = _check_duplicate_request(cur, student_id, documents, purposes, document_type)
@@ -5218,13 +5358,13 @@ def create_app() -> Flask:
       print(f"🔍 DEBUG: Verification query result: {verify}")
       # Create signatory sequence for this request
       offices = [
+        'Property Custodian',
         'Computer Laboratory',
         'Guidance Office',
         'Student Affairs',
         'Library',
         dean_office,
         'Accounting',
-        'Property Custodian',
         'Registrar',
       ]
       for off in offices:
@@ -5246,12 +5386,12 @@ def create_app() -> Flask:
       cur.close()
       conn.close()
       
-      # Send email notifications to all signatories
+      # Send email notifications to all signatories in background (non-blocking)
       try:
         # Ensure documents and purposes are lists for email function
         parsed_documents = documents if isinstance(documents, list) else json.loads(documents) if documents else []
         parsed_purposes = purposes if isinstance(purposes, list) else json.loads(purposes) if purposes else []
-        _send_clearance_notification_emails(mysql, request_id, student_name, parsed_documents, parsed_purposes)
+        _send_clearance_notification_emails_async(mysql, request_id, student_name, parsed_documents, parsed_purposes)
       except Exception as email_err:
         print(f"⚠️ Warning: Failed to send notification emails: {email_err}")
         # Don't fail the request if email fails
@@ -5329,6 +5469,28 @@ def create_app() -> Flask:
         except Exception:
           return []
 
+      # MySQL returns datetime/Decimal objects; jsonify must not receive them raw (causes 500 on some setups).
+      def _json_safe(val):
+        try:
+          from datetime import datetime, date
+          from decimal import Decimal
+          if isinstance(val, datetime):
+            return val.isoformat(sep=" ", timespec="seconds")
+          if isinstance(val, date):
+            return val.isoformat()
+          if isinstance(val, Decimal):
+            return float(val)
+        except Exception:
+          pass
+        return val
+
+      sigs_out = []
+      for row in sigs:
+        d = dict(row)
+        if d.get("signed_at") is not None:
+          d["signed_at"] = _json_safe(d.get("signed_at"))
+        sigs_out.append(d)
+
       payload = {
         "id": req['id'],
         "student_id": req['student_id'],
@@ -5337,10 +5499,10 @@ def create_app() -> Flask:
         "documents": _parse_json(req.get('documents')),
         "purpose": _parse_json(req.get('purposes')),
         "reason": req.get('reason'),
-        "date_requested": req['date_requested'],
-        "updated_at": req['updated_at'],
+        "date_requested": _json_safe(req.get('date_requested')),
+        "updated_at": _json_safe(req.get('updated_at')),
         "payment_method": req.get('payment_method'),
-        "payment_amount": req.get('payment_amount'),
+        "payment_amount": _json_safe(req.get('payment_amount')),
         "payment_verified": req.get('payment_verified'),
         "payment_details": req.get('payment_details'),
         "reference_number": req.get('reference_number'),
@@ -5357,7 +5519,7 @@ def create_app() -> Flask:
         "year_level": req.get('year_level_name') or req.get('year_level'),
         "student_no": req.get('student_no'),
       }
-      return jsonify({"ok": True, "request": payload, "signatories": sigs})
+      return jsonify({"ok": True, "request": payload, "signatories": sigs_out})
     except Exception as err:
       return jsonify({"ok": False, "message": f"Error: {err}"}), 500
 
@@ -5510,12 +5672,12 @@ def create_app() -> Flask:
     if not office:
       dept = (session.get('staff_department') or '').strip().lower()
       office = {
+        'property custodian': 'Property Custodian',
         'computer laboratory': 'Computer Laboratory',
         'guidance office': 'Guidance Office',
         'student affairs': 'Student Affairs',
         'library': 'Library',
         'accounting': 'Accounting',
-        'property custodian': 'Property Custodian',
         'registrar': 'Registrar',
       }.get(dept) or ''
       if not office and 'dean' in dept:
@@ -5585,7 +5747,30 @@ def create_app() -> Flask:
         except Exception:
           purposes = []
         r['purpose'] = ", ".join(purposes) if purposes else '—'
-      return jsonify({"ok": True, "data": rows})
+      # Ensure JSON encoder can handle MySQL datetime/Decimal fields.
+      def _json_safe_value(val):
+        try:
+          from datetime import datetime, date
+          from decimal import Decimal
+          if isinstance(val, datetime):
+            return val.isoformat(sep=" ", timespec="seconds")
+          if isinstance(val, date):
+            return val.isoformat()
+          if isinstance(val, Decimal):
+            return float(val)
+          if isinstance(val, (bytes, bytearray)):
+            return bytes(val).decode("utf-8", errors="ignore")
+        except Exception:
+          pass
+        return val
+
+      rows_out = []
+      for r in rows or []:
+        d = dict(r)
+        for k, v in d.items():
+          d[k] = _json_safe_value(v)
+        rows_out.append(d)
+      return jsonify({"ok": True, "data": rows_out})
     except Exception as err:
       return jsonify({"ok": False, "message": f"Error: {err}"}), 500
 
@@ -5596,12 +5781,12 @@ def create_app() -> Flask:
     if not office:
       dept = (session.get('staff_department') or '').strip().lower()
       office = {
+        'property custodian': 'Property Custodian',
         'computer laboratory': 'Computer Laboratory',
         'guidance office': 'Guidance Office',
         'student affairs': 'Student Affairs',
         'library': 'Library',
         'accounting': 'Accounting',
-        'property custodian': 'Property Custodian',
         'registrar': 'Registrar',
       }.get(dept) or ''
       if not office and 'dean' in dept:
@@ -5636,7 +5821,30 @@ def create_app() -> Flask:
         except Exception:
           purposes = []
         r['purpose'] = ", ".join(purposes) if purposes else '—'
-      return jsonify({"ok": True, "data": rows})
+      # Ensure JSON encoder can handle MySQL datetime/Decimal fields.
+      def _json_safe_value(val):
+        try:
+          from datetime import datetime, date
+          from decimal import Decimal
+          if isinstance(val, datetime):
+            return val.isoformat(sep=" ", timespec="seconds")
+          if isinstance(val, date):
+            return val.isoformat()
+          if isinstance(val, Decimal):
+            return float(val)
+          if isinstance(val, (bytes, bytearray)):
+            return bytes(val).decode("utf-8", errors="ignore")
+        except Exception:
+          pass
+        return val
+
+      rows_out = []
+      for r in rows or []:
+        d = dict(r)
+        for k, v in d.items():
+          d[k] = _json_safe_value(v)
+        rows_out.append(d)
+      return jsonify({"ok": True, "data": rows_out})
     except Exception as err:
       return jsonify({"ok": False, "message": f"Error: {err}"}), 500
 
@@ -5647,12 +5855,12 @@ def create_app() -> Flask:
     if not office:
       dept = (session.get('staff_department') or '').strip().lower()
       office = {
+        'property custodian': 'Property Custodian',
         'computer laboratory': 'Computer Laboratory',
         'guidance office': 'Guidance Office',
         'student affairs': 'Student Affairs',
         'library': 'Library',
         'accounting': 'Accounting',
-        'property custodian': 'Property Custodian',
         'registrar': 'Registrar',
       }.get(dept) or ''
       if not office and 'dean' in dept:
@@ -5686,7 +5894,30 @@ def create_app() -> Flask:
         except Exception:
           purposes = []
         r['purpose'] = ", ".join(purposes) if purposes else '—'
-      return jsonify({"ok": True, "data": rows})
+      # Ensure JSON encoder can handle MySQL datetime/Decimal fields.
+      def _json_safe_value(val):
+        try:
+          from datetime import datetime, date
+          from decimal import Decimal
+          if isinstance(val, datetime):
+            return val.isoformat(sep=" ", timespec="seconds")
+          if isinstance(val, date):
+            return val.isoformat()
+          if isinstance(val, Decimal):
+            return float(val)
+          if isinstance(val, (bytes, bytearray)):
+            return bytes(val).decode("utf-8", errors="ignore")
+        except Exception:
+          pass
+        return val
+
+      rows_out = []
+      for r in rows or []:
+        d = dict(r)
+        for k, v in d.items():
+          d[k] = _json_safe_value(v)
+        rows_out.append(d)
+      return jsonify({"ok": True, "data": rows_out})
     except Exception as err:
       return jsonify({"ok": False, "message": f"Error: {err}"}), 500
 
@@ -6560,6 +6791,30 @@ def create_app() -> Flask:
           "ok": False,
           "message": "No clearance signatories found"
         })
+
+      # Ensure JSON encoder can handle MySQL datetime fields.
+      def _json_safe_value(val):
+        try:
+          from datetime import datetime, date
+          from decimal import Decimal
+          if isinstance(val, datetime):
+            return val.isoformat(sep=" ", timespec="seconds")
+          if isinstance(val, date):
+            return val.isoformat()
+          if isinstance(val, Decimal):
+            return float(val)
+          if isinstance(val, (bytes, bytearray)):
+            return bytes(val).decode("utf-8", errors="ignore")
+        except Exception:
+          pass
+        return val
+
+      signatories_out = []
+      for s in signatories or []:
+        d = dict(s)
+        for k, v in d.items():
+          d[k] = _json_safe_value(v)
+        signatories_out.append(d)
       
       # Check status
       total_offices = len(signatories)
@@ -6582,7 +6837,7 @@ def create_app() -> Flask:
         "rejected_count": rejected_count,
         "pending_offices": pending_offices,
         "rejected_offices": rejected_offices,
-        "signatories": signatories,
+        "signatories": signatories_out,
         "message": "All clearances approved" if all_approved else 
                   f"Waiting for {len(pending_offices)} office(s): {', '.join(pending_offices)}" if pending_offices else
                   f"Rejected by: {', '.join(rejected_offices)}"
@@ -6848,7 +7103,8 @@ def create_app() -> Flask:
                  'clearance' AS request_type, NULL AS clearance_request_id, NULL AS auto_transferred_at
           FROM clearance_requests cr
           JOIN students s ON s.id = cr.student_id
-          WHERE (cr.status = 'Approved' OR cr.status IS NULL OR cr.status = '') AND (cr.fulfillment_status = 'Processing' OR cr.fulfillment_status = 'Approved')
+          WHERE (cr.status = 'Approved' OR cr.status IS NULL OR cr.status = '')
+            AND cr.fulfillment_status = 'Processing'
           ORDER BY updated_at DESC
           """
         )
@@ -7659,14 +7915,40 @@ def create_app() -> Flask:
     """Check if a reference number has already been used."""
     try:
       data = request.get_json(silent=True) or {}
-      reference_number = data.get('reference_number')
+      reference_number = (data.get('reference_number') or '').strip()
       
       if not reference_number:
         return jsonify({"ok": False, "message": "Reference number is required"})
       
       cur, conn = mysql.cursor()
-      cur.execute("SELECT id FROM clearance_requests WHERE reference_number = %s", (reference_number,))
+      # Global duplicate check across BOTH request sources.
+      # This ensures references already used in document requests are also detected
+      # during AI validation/pre-check flow.
+      cur.execute(
+        """
+        SELECT source, id FROM (
+          SELECT 'clearance' AS source, id
+          FROM clearance_requests
+          WHERE reference_number = %s
+          LIMIT 1
+        ) a
+        UNION ALL
+        SELECT source, id FROM (
+          SELECT 'document' AS source, id
+          FROM document_requests
+          WHERE reference_number = %s
+          LIMIT 1
+        ) b
+        LIMIT 1
+        """,
+        (reference_number, reference_number)
+      )
       existing_request = cur.fetchone()
+      try:
+        cur.close()
+        conn.close()
+      except Exception:
+        pass
       
       if existing_request:
         return jsonify({
@@ -7701,83 +7983,58 @@ def create_app() -> Flask:
       if not result.get('ok'):
         return jsonify({"ok": False, "message": f"AI processing failed: {result.get('message', 'Unknown error')}"})
       
-      # Compare extracted reference number with provided one
-      extracted_ref = result.get('reference_number', '').strip()
-      provided_ref = reference_number.strip()
+      # Compare extracted reference number(s) with provided one.
+      # Use multiple candidates (AI field + raw_text digits) to avoid picking wrong numbers.
+      extracted_ref = (result.get('reference_number') or '').strip()
+      provided_ref = (reference_number or '').strip()
       
-      # Check if they match (case insensitive, remove any non-digit characters for comparison)
       import re
       extracted_digits = re.sub(r'\D', '', extracted_ref)
       provided_digits = re.sub(r'\D', '', provided_ref)
-      
-      # Normalize both numbers (remove leading zeros, spaces, and standardize)
-      extracted_clean = extracted_digits.lstrip('0') or '0'  # Keep at least one digit
-      provided_clean = provided_digits.lstrip('0') or '0'     # Keep at least one digit
-      
-      confidence = result.get('confidence', 0.0)
+      raw_text = (result.get('raw_text') or '')
+      confidence = float(result.get('confidence') or 0.0)
+
+      # Build candidate list (7-16 digit sequences)
+      candidates = []
+      seen = set()
+      def _add(val: str):
+        if not val:
+          return
+        if not re.fullmatch(r'\d{7,16}', val):
+          return
+        if val in seen:
+          return
+        seen.add(val)
+        candidates.append(val)
+
+      _add(extracted_digits)
+      for m in re.findall(r'\b\d{7,16}\b', raw_text):
+        _add(m)
+      raw_digits_stream = re.sub(r'\D', '', raw_text)
+      stream_contains = bool(provided_digits) and (provided_digits in raw_digits_stream)
+
+      # Determine match
+      matches = False
+      if provided_digits and provided_digits in candidates:
+        matches = True
+      elif stream_contains:
+        # Avoid accidental substring match if there are conflicting same-length candidates
+        conflicts = [c for c in candidates if len(c) == len(provided_digits) and c != provided_digits]
+        if not conflicts:
+          matches = True
       
       # Enhanced debug logging
-      print(f"DEBUG: Raw extracted: '{extracted_ref}' -> digits: '{extracted_digits}' -> clean: '{extracted_clean}'")
-      print(f"DEBUG: Raw provided: '{provided_ref}' -> digits: '{provided_digits}' -> clean: '{provided_clean}'")
+      print(f"DEBUG: Raw extracted: '{extracted_ref}' -> digits: '{extracted_digits}'")
+      print(f"DEBUG: Raw provided: '{provided_ref}' -> digits: '{provided_digits}'")
       print(f"DEBUG: AI confidence: {confidence}")
-      print(f"DEBUG: Raw text from AI: {result.get('raw_text', '')[:200]}...")
-      print(f"DEBUG: Full AI response: {result}")
-      
-      # Calculate length difference for flexible matching
-      length_diff = abs(len(extracted_clean) - len(provided_clean))
-      print(f"DEBUG: Length difference: {length_diff}")
-      
-      # SECURITY: Pre-validation checks before determining match
-      if not extracted_clean or extracted_clean == '0':
-        print(f"DEBUG: NO VALID REFERENCE NUMBER EXTRACTED FROM RECEIPT")
-        matches = False
-      elif len(extracted_clean) < 5:  # Minimum 5 digits for security
-        print(f"DEBUG: SECURITY CHECK - Extracted reference too short ({len(extracted_clean)} digits) - REJECTING")
-        matches = False
-      elif len(extracted_clean) > 16:  # Maximum 16 digits
-        print(f"DEBUG: SECURITY CHECK - Extracted reference too long ({len(extracted_clean)} digits) - REJECTING")
-        matches = False
-      elif length_diff > 2:  # Allow small length differences (leading zeros, formatting)
-        print(f"DEBUG: LENGTH MISMATCH - extracted: {len(extracted_clean)}, provided: {len(provided_clean)}, diff: {length_diff} - REJECTING")
-        matches = False
-      else:
-        # All security checks passed, now check if numbers actually match
-        matches = extracted_clean == provided_clean
-        if matches:
-          print(f"DEBUG: SECURITY CHECK - EXACT MATCH CONFIRMED - '{extracted_clean}' == '{provided_clean}'")
-          print(f"DEBUG: CONFIDENCE: {confidence:.2f} - PROCEEDING WITH MATCH (exact match overrides confidence)")
-        else:
-          print(f"DEBUG: SECURITY CHECK - EXACT MATCH REQUIRED - extracted: '{extracted_clean}', provided: '{provided_clean}' - REJECTING")
-          # Only reject due to low confidence if numbers don't match
-          if confidence < 0.3:  # Very low confidence threshold only for non-matches
-            print(f"DEBUG: VERY LOW CONFIDENCE ({confidence:.2f}) FOR NON-MATCH - REJECTING")
-            matches = False
-      
-      # Additional validation - check if extracted reference is reasonable
-      if not matches and extracted_digits:
-        print(f"DEBUG: MISMATCH DETECTED!")
-        print(f"DEBUG: Extracted digits: '{extracted_digits}' (length: {len(extracted_digits)})")
-        print(f"DEBUG: Provided digits: '{provided_digits}' (length: {len(provided_digits)})")
-        print(f"DEBUG: Are they equal? {extracted_digits == provided_digits}")
-        
-        # Check if it's a partial match or completely different
-        if extracted_digits in provided_digits or provided_digits in extracted_digits:
-          print(f"DEBUG: PARTIAL MATCH DETECTED - one contains the other")
-        else:
-          print(f"DEBUG: COMPLETELY DIFFERENT NUMBERS")
-      
+      print(f"DEBUG: Raw text from AI: {raw_text[:200]}...")
+      print(f"DEBUG: Candidates: {candidates[:10]}{'...' if len(candidates) > 10 else ''}")
+      print(f"DEBUG: Stream contains provided? {stream_contains}")
       print(f"DEBUG: Final match result: {matches}")
-      
-      # Enhanced error reporting for debugging
-      if not extracted_digits:
-        print(f"DEBUG: NO REFERENCE NUMBER EXTRACTED - AI FAILED TO READ RECEIPT")
-        print(f"DEBUG: Raw AI response: {result}")
-        print(f"DEBUG: Confidence: {confidence}")
-        print(f"DEBUG: Raw text: {result.get('raw_text', '')[:500]}")
       
       # User-friendly message when no reference number found (wrong image type or unreadable)
       user_message = None
-      if not extracted_digits:
+      if not candidates and not raw_digits_stream:
         user_message = (
           "No reference number found in the image. "
           "Please upload a clear photo of your payment receipt (e.g. GCash, payment slip) that clearly shows the reference number."
@@ -7792,12 +8049,12 @@ def create_app() -> Flask:
         "provided_digits": provided_digits,
         "confidence": confidence,
         "amount": result.get('amount'),
-        "raw_text": result.get('raw_text', ''),
-        "ai_success": bool(extracted_digits),
+        "raw_text": raw_text,
+        "ai_success": bool(candidates or raw_digits_stream),
         "user_message": user_message,
         "debug_info": {
           "ai_processed": True,
-          "extraction_successful": bool(extracted_digits),
+          "extraction_successful": bool(candidates or raw_digits_stream),
           "confidence_level": confidence
         }
       })
@@ -7954,15 +8211,10 @@ def create_app() -> Flask:
         conn.close()
         return jsonify({"ok": False, "message": "Document type is required"}), 400
       
-      # Validate reference number format and check for duplicates if provided
+      # Check for duplicate reference number if provided
       # Allow same reference number for multiple document types (one receipt for multiple certificates)
       if reference_number:
-        import re
-        if not re.fullmatch(r'\d{7,16}', reference_number):
-          cur.close()
-          conn.close()
-          return jsonify({"ok": False, "message": "Reference number must be 7-16 digits only"}), 400
-        
+        # NOTE: We no longer enforce a strict 7-16 digit pattern so real-world reference formats are accepted.
         # Only reject if same student already used this reference for the SAME document type (true duplicate)
         cur.execute(
           "SELECT id FROM document_requests WHERE reference_number = %s AND student_id = %s AND document_type = %s",
@@ -8053,6 +8305,22 @@ def create_app() -> Flask:
       
       if not request_id or not pickup_date:
         return jsonify({"ok": False, "message": "Missing request_id or pickup_date"}), 400
+
+      # Frontend sends an ISO-like string (e.g. "2026-03-16T15:07").
+      # Normalize to MySQL-friendly "YYYY-MM-DD HH:MM:SS" to avoid NULL/zero-date issues.
+      pickup_date_db = pickup_date
+      try:
+        from datetime import datetime
+        if isinstance(pickup_date_db, str):
+          s = pickup_date_db.strip()
+          # Accept common variants: with 'T', with seconds, with timezone suffix.
+          s = s.replace('Z', '')
+          s = s.replace(' ', 'T')
+          dt = datetime.fromisoformat(s)
+          pickup_date_db = dt.strftime('%Y-%m-%d %H:%M:%S')
+      except Exception:
+        # If parsing fails, keep original string; DB may still accept it.
+        pickup_date_db = pickup_date
       
       cur, conn = mysql.cursor()
       clearance_id = None
@@ -8063,7 +8331,7 @@ def create_app() -> Flask:
           UPDATE clearance_requests 
           SET pickup_date = %s, fulfillment_status = 'Completed', registrar_status = 'Complete', updated_at = NOW()
           WHERE id = %s
-      """, (pickup_date, request_id))
+      """, (pickup_date_db, request_id))
       
       if cur.rowcount > 0:
         clearance_id = request_id
@@ -8080,13 +8348,13 @@ def create_app() -> Flask:
                 UPDATE clearance_requests 
                 SET pickup_date = %s, fulfillment_status = 'Completed', registrar_status = 'Complete', updated_at = NOW()
                 WHERE id = %s
-            """, (pickup_date, clearance_id))
+            """, (pickup_date_db, clearance_id))
           # Update this document_request row (standalone or linked) and mark as Completed
           cur.execute("""
               UPDATE document_requests 
               SET pickup_date = %s, status = 'Completed', completed_at = COALESCE(%s, NOW()), updated_at = NOW()
               WHERE id = %s
-          """, (pickup_date, pickup_date, request_id))
+          """, (pickup_date_db, pickup_date_db, request_id))
           if cur.rowcount == 0 and not clearance_id:
             cur.close()
             conn.close()
@@ -8103,7 +8371,7 @@ def create_app() -> Flask:
             UPDATE document_requests 
             SET pickup_date = %s, status = 'Completed', completed_at = COALESCE(%s, NOW()), updated_at = NOW()
             WHERE clearance_request_id = %s
-        """, (pickup_date, pickup_date, clearance_id))
+        """, (pickup_date_db, pickup_date_db, clearance_id))
       
       cur.close()
       conn.close()
@@ -8111,7 +8379,7 @@ def create_app() -> Flask:
       return jsonify({
           "ok": True, 
           "message": "Pickup date set successfully",
-          "pickup_date": pickup_date
+          "pickup_date": pickup_date_db
       })
       
     except Exception as err:
@@ -8135,21 +8403,24 @@ def create_app() -> Flask:
       clearance_id = None
       is_document_request = False
 
-      # Resolve: request_id may be clearance_requests.id or document_requests.id
-      cur.execute("SELECT id FROM clearance_requests WHERE id = %s", (request_id,))
-      if cur.fetchone():
-        clearance_id = request_id
+      # Resolve: request_id may be document_requests.id or clearance_requests.id.
+      # IMPORTANT: Check document_requests FIRST to avoid id collisions causing
+      # certificate-only requests to be mis-identified as clearance requests.
+      cur.execute("""
+          SELECT id, clearance_request_id FROM document_requests WHERE id = %s
+      """, (request_id,))
+      doc_row = cur.fetchone()
+      if doc_row:
+        is_document_request = True
+        clearance_id = doc_row.get('clearance_request_id')
       else:
-        cur.execute("""
-            SELECT id, clearance_request_id FROM document_requests WHERE id = %s
-        """, (request_id,))
-        doc_row = cur.fetchone()
-        if not doc_row:
+        cur.execute("SELECT id FROM clearance_requests WHERE id = %s", (request_id,))
+        if cur.fetchone():
+          clearance_id = request_id
+        else:
           cur.close()
           conn.close()
           return jsonify({"ok": False, "message": "Request not found"}), 404
-        is_document_request = True
-        clearance_id = doc_row.get('clearance_request_id')
 
       # Save uploaded files: document requests -> document_files; clearance-only -> clearance_files
       saved_files = []
@@ -8281,7 +8552,7 @@ def create_app() -> Flask:
         WHERE dr.document_type = 'Clearance Documents' 
           AND dr.clearance_request_id IS NOT NULL
           AND cr.documents IS NOT NULL
-      """)
+        """)
       
       requests_to_update = cur.fetchall()
       updated_count = 0
