@@ -1562,6 +1562,176 @@
       overflow-y: auto;
       overflow-x: auto;
     }
+    /* Pending Requests: clean table layout (no weird header wrapping) */
+    .pending-requests-card .table-wrapper {
+      max-height: none;
+      overflow: visible;
+    }
+    .pending-requests-card .table-scroll {
+      overflow: visible;
+    }
+    .pending-requests-card table {
+      min-width: 0;
+      table-layout: auto;
+    }
+    .pending-requests-card table th {
+      white-space: normal;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+      line-height: 1.15;
+    }
+    .pending-requests-card table td {
+      white-space: normal;
+      word-break: normal;
+      overflow-wrap: break-word;
+    }
+    /* Minimum column sizing so columns don't get squeezed */
+    .pending-requests-card table th:nth-child(1),
+    .pending-requests-card table td:nth-child(1) { min-width: 160px; } /* Student Name */
+    .pending-requests-card table th:nth-child(2),
+    .pending-requests-card table td:nth-child(2) { min-width: 220px; } /* Documents */
+    .pending-requests-card table th:nth-child(3),
+    .pending-requests-card table td:nth-child(3) { min-width: 140px; } /* Purpose */
+    .pending-requests-card table th:nth-child(4),
+    .pending-requests-card table td:nth-child(4) { min-width: 90px; }  /* Status */
+    .pending-requests-card table th:nth-child(5),
+    .pending-requests-card table td:nth-child(5) { min-width: 150px; } /* Payment Status */
+    .pending-requests-card table th:nth-child(6),
+    .pending-requests-card table td:nth-child(6) { min-width: 150px; } /* Clearance Status */
+    .pending-requests-card table th:nth-child(7),
+    .pending-requests-card table td:nth-child(7) { min-width: 140px; } /* Pickup Date */
+    .pending-requests-card table th:nth-child(8),
+    .pending-requests-card table td:nth-child(8) { min-width: 70px; }  /* Files */
+    .pending-requests-card table .btn { white-space: nowrap; }
+
+    /* Center the action/status columns for a cleaner look */
+    .pending-requests-card table th:nth-child(4),
+    .pending-requests-card table td:nth-child(4),
+    .pending-requests-card table th:nth-child(5),
+    .pending-requests-card table td:nth-child(5),
+    .pending-requests-card table th:nth-child(6),
+    .pending-requests-card table td:nth-child(6),
+    .pending-requests-card table th:nth-child(7),
+    .pending-requests-card table td:nth-child(7),
+    .pending-requests-card table th:nth-child(8),
+    .pending-requests-card table td:nth-child(8) { text-align: center; }
+
+    /* Professional Pending Requests look (based on your sample HTML) */
+    .pending-requests-card {
+      background: #fff !important;
+      border-radius: 15px !important;
+      padding: 25px !important;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.08) !important;
+      border: none !important;
+    }
+
+    .pending-requests-header .request-card-title {
+      margin-bottom: 20px;
+      color: #333;
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pending-requests-card table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .pending-requests-card thead {
+      background: linear-gradient(90deg, #3a7bd5, #2a5bd7);
+      color: #fff;
+    }
+
+    .pending-requests-card thead th {
+      padding: 12px 14px !important;
+      text-align: left !important;
+      font-size: 13px !important;
+      letter-spacing: 0.4px;
+      color: #fff !important;
+      white-space: normal !important;
+    }
+
+    .pending-requests-card tbody tr {
+      background: #fff !important;
+      border-bottom: 1px solid #eee;
+      transition: 0.2s;
+    }
+
+    .pending-requests-card tbody tr:hover {
+      background: #f9fbff !important;
+    }
+
+    .pending-requests-card td {
+      padding: 15px !important;
+      font-size: 14px !important;
+      color: #444 !important;
+    }
+
+    /* Status chip styling */
+    .pending-requests-card .status-badge-chip {
+      background: #ffe7c2 !important;
+      color: #d48806 !important;
+      padding: 6px 12px !important;
+      border-radius: 20px !important;
+      font-weight: bold !important;
+      font-size: 12px !important;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: none !important;
+    }
+    .pending-requests-card .chip-approved {
+      background: #d1fae5 !important;
+      color: #065f46 !important;
+    }
+    .pending-requests-card .chip-rejected {
+      background: #fee2e2 !important;
+      color: #991b1b !important;
+    }
+
+    /* Buttons */
+    .pending-requests-card .view-receipt-btn {
+      background: linear-gradient(90deg, #3a7bd5, #2a5bd7) !important;
+      color: #fff !important;
+      padding: 7px 12px !important;
+      border-radius: 8px !important;
+      border: none !important;
+      font-size: 12.5px !important;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: 0.2s;
+    }
+
+    .pending-requests-card .view-receipt-btn:hover {
+      opacity: 0.85 !important;
+    }
+
+    /* "View Clearance" acts like a link in the sample */
+    .pending-requests-card .btn-outline-primary.btn-sm {
+      background: transparent !important;
+      border: none !important;
+      padding: 0 !important;
+      color: #2a5bd7 !important;
+      font-weight: 500 !important;
+      font-size: 13px !important;
+      text-decoration: none !important;
+    }
+
+    .pending-requests-card .btn-outline-primary.btn-sm:hover {
+      text-decoration: underline !important;
+    }
+
+    .pending-requests-card .text-muted {
+      color: #888 !important;
+      font-style: italic !important;
+    }
 
     .clearance-table {
       width: 100%;
@@ -2892,7 +3062,7 @@
       <span class="sidebar-title">iRequest</span>
     </div>
     <div class="sidebar-nav">
-      <a id="documentLink"><i class="fas fa-file-alt"></i> <span class="link-text">Document Request</span></a>
+      <a id="documentLink"><i class="fas fa-file-alt"></i> <span class="link-text">Request Document</span></a>
       <a id="dashboardLink" class="active"><i class="fas fa-home"></i> <span class="link-text">Request Status</span></a>
      
       
@@ -3003,8 +3173,8 @@
             </div>
             <!-- Cards (mobile) -->
             <div id="pendingCardsContainer" class="pending-cards"></div>
-            <!-- Pagination -->
-            <div class="pending-pagination">
+            <!-- Pagination (shows "All N items" when all fit on one view) -->
+            <div class="pending-pagination" id="pendingPaginationBar">
               <button id="prevPendingBtn">Prev</button>
               <span class="page-info" id="pendingPageInfo">Page 1</span>
               <button id="nextPendingBtn">Next</button>
@@ -3217,13 +3387,14 @@
                 <div class="documents-grid">
                   <label><input type="checkbox" name="requestedDocument" value="Transcript of Record"> <span class="document-name">Transcript of Record</span></label>
                   <label><input type="checkbox" name="requestedDocument" value="Diploma"> <span class="document-name">Diploma</span></label>
-                  <label><input type="checkbox" name="requestedDocument" value="Transfer Credential"> <span class="document-name">Transfer Credential</span></label>
+                  <label><input type="checkbox" name="requestedDocument" value="Units Earned"> <span class="document-name">Units Earned</span></label>
                   <label><input type="checkbox" name="requestedDocument" value="Certificate - Enrollment"> <span class="document-name">Certificate - Enrollment</span></label>
                   <label><input type="checkbox" name="requestedDocument" value="Certificate - Cross Enroll"> <span class="document-name">Certificate - Cross Enroll</span></label>
                   <label><input type="checkbox" name="requestedDocument" value="Certificate - Candidacy / Completion of Academic Requirements"> <span class="document-name">Certificate - Candidacy / Completion of Academic Requirements</span></label>
                   <label><input type="checkbox" name="requestedDocument" value="Certificate - Graduation"> <span class="document-name">Certificate - Graduation</span></label>
                   <label><input type="checkbox" name="requestedDocument" value="Certificate - Weighted Average"> <span class="document-name">Certificate - Weighted Average</span></label>
-                  <label><input type="checkbox" name="requestedDocument" value="CAV"> <span class="document-name">CAV</span></label>
+                  <label><input type="checkbox" name="requestedDocument" value="CAV (Certification, Authentication, and Verification)"> <span class="document-name">CAV (Certification, Authentication, and Verification)</span></label>
+                  <label><input type="checkbox" name="requestedDocument" value="Transfer Credential"> <span class="document-name">Transfer Credential</span></label>
                 </div>
               </div>
 
@@ -3324,6 +3495,10 @@
                   <label><input type="checkbox" name="clearancePurpose" value="Transfer"> <span class="purpose-option">Transfer to Another School</span></label>
                   <label><input type="checkbox" name="clearancePurpose" value="Employment"> <span class="purpose-option">Employment Requirements</span></label>
                   <label><input type="checkbox" name="clearancePurpose" value="Scholarship"> <span class="purpose-option">Scholarship Application</span></label>
+                  <label><input type="checkbox" name="clearancePurpose" value="For Employment Purposes"> <span class="purpose-option">For Employment Purposes</span></label>
+                  <label><input type="checkbox" name="clearancePurpose" value="For Verification Purposes"> <span class="purpose-option">For Verification Purposes</span></label>
+                  <label><input type="checkbox" name="clearancePurpose" value="For Board Examination Purposes"> <span class="purpose-option">For Board Examination Purposes</span></label>
+                  <label><input type="checkbox" name="clearancePurpose" value="Transfer Credential"> <span class="purpose-option">Transfer Credential</span></label>
                   <label class="other-purpose">
                     <input type="checkbox" name="clearancePurpose" value="Other"> 
                     <span class="purpose-option">Other: </span>
@@ -3352,6 +3527,7 @@
     // Global variables
     let allRequestsCache = [];
     let lastRequestsLoadOk = false; // track whether the last API load succeeded
+    let studentInfoCache = null;
     
     // Make allRequestsCache globally accessible
     window.allRequestsCache = allRequestsCache;
@@ -3573,6 +3749,7 @@
       const signatoryContainer = document.getElementById("signatoryContainer");
       const noClearanceMsg = document.getElementById("noClearanceMsg");
       // Removed latest request card variables
+      const ACTIVE_SECTION_KEY = 'student_active_section';
 
       function setActive(link) {
         sidebarLinks.forEach(a => a.classList.remove("active"));
@@ -3588,6 +3765,7 @@
       }
 
       dashboardLink.addEventListener("click", async function () {
+        try { localStorage.setItem(ACTIVE_SECTION_KEY, 'dashboard'); } catch(_) {}
         setActive(dashboardLink);
         pageTitle.textContent = "Dashboard";
         hideAllSections();
@@ -3685,8 +3863,18 @@
         }
       }
       
-      // Initialize dashboard after a short delay to ensure DOM is ready
-      setTimeout(initializeDashboard, 100);
+      // Restore last active section after reload (default: dashboard)
+      setTimeout(function () {
+        let lastSection = 'dashboard';
+        try {
+          lastSection = localStorage.getItem(ACTIVE_SECTION_KEY) || 'dashboard';
+        } catch (_) {}
+        if (lastSection === 'document') {
+          documentLink.click();
+        } else {
+          initializeDashboard();
+        }
+      }, 100);
 
 
       // Initially show empty state for signatories
@@ -3701,19 +3889,25 @@
       showNoRequestState();
 
       documentLink.addEventListener("click", async function (e) {
+        try { localStorage.setItem(ACTIVE_SECTION_KEY, 'document'); } catch(_) {}
         setActive(documentLink);
         pageTitle.textContent = "Request Document";
         hideAllSections();
         documentSection.style.display = "block";
+        resetReceiptPreviewIfNoFile();
         
         if (window.showFullScreenLoading) {
           window.showFullScreenLoading('Loading document form...');
         }
         
         try {
-          await loadAllRequests();
-          await populateDocumentRequestForm();
-          await applyPendingDocumentsDisable();
+          // Keep Document form load fast: only run the calls needed for this screen.
+          // Load heavier request history in background.
+          await Promise.all([
+            populateDocumentRequestForm(),
+            applyPendingDocumentsDisable()
+          ]);
+          loadAllRequests().catch(() => {});
         } catch (error) {
           console.error('Error loading document form:', error);
         } finally {
@@ -3772,7 +3966,12 @@
           if (pendingSet.has(val)) {
             cb.disabled = true;
             cb.checked = false;
-            cb.setAttribute('title', 'This document is already in a pending or processing request.');
+            cb.setAttribute(
+              'title',
+              val === 'Diploma'
+                ? 'Diploma can only be requested once and has already been requested.'
+                : 'This document is already in a pending or processing request.'
+            );
             cb.closest('label')?.classList.add('document-in-pending');
           }
         });
@@ -3863,10 +4062,16 @@
       // Function to populate student information in document request form
       async function populateDocumentRequestForm() {
         try {
-          const response = await fetch('/api/student/me');
-          const data = await response.json();
-          if (data.ok && data.student_info) {
-            const student = data.student_info;
+          let student = studentInfoCache;
+          if (!student) {
+            const response = await fetch('/api/student/me');
+            const data = await response.json();
+            if (data.ok && data.student_info) {
+              student = data.student_info;
+              studentInfoCache = student;
+            }
+          }
+          if (student) {
             
             // Personal Information
             const f = document.getElementById('docFirstName');
@@ -3935,10 +4140,24 @@
       // Function to populate clearance form with user data from database
       async function populateClearanceForm() {
         try {
-          const response = await fetch('/api/student/me');
-          const data = await response.json();
-          if (data.ok && data.student_info) {
-            const student = data.student_info;
+          let student = studentInfoCache;
+          if (!student) {
+            const response = await fetch('/api/student/me');
+            const data = await response.json();
+            if (data.ok && data.student_info) {
+              student = data.student_info;
+              studentInfoCache = student;
+            } else {
+              console.error("Failed to fetch student data:", data && data.message);
+              if (data && data.message && data.message.includes('No student session found')) {
+                showSessionError();
+                return;
+              }
+              populateWithSampleData();
+              return;
+            }
+          }
+          if (student) {
             // Populate form fields with real user data (using correct element IDs)
             const docFirstName = document.getElementById("docFirstName");
             const docLastName = document.getElementById("docLastName");
@@ -3978,15 +4197,6 @@
             // Apply signatory visibility rules based on course
             const courseName = (student.course_name || student.course || "").toString();
             applyCourseSignatoryRules(courseName);
-          } else {
-            console.error("Failed to fetch student data:", data.message);
-            // Check if it's a session error
-            if (data.message && data.message.includes('No student session found')) {
-              showSessionError();
-              return;
-            }
-            // Fallback to sample data if API fails
-            populateWithSampleData();
           }
 
           // Also load clearance status and signatories
@@ -4104,13 +4314,14 @@
       const documentPricing = {
         'Transcript of Record': 300,
         'Diploma': 200,
-        'Transfer Credential': 150,
+        'Units Earned': 50,
         'Certificate - Enrollment': 50,
         'Certificate - Cross Enroll': 50,
         'Certificate - Candidacy / Completion of Academic Requirements': 50,
         'Certificate - Graduation': 50,
         'Certificate - Weighted Average': 50,
-        'CAV': 50
+        'CAV (Certification, Authentication, and Verification)': 50,
+        'Transfer Credential': 50
       };
 
       // Define which documents require clearance
@@ -4242,6 +4453,20 @@
       };
 
       // Receipt upload preview functionality
+      function resetReceiptPreviewIfNoFile() {
+        const fileInput = document.getElementById('paymentReceipt');
+        const preview = document.getElementById('receiptPreview');
+        if (!fileInput || !preview) return;
+        const hasFile = !!(fileInput.files && fileInput.files.length > 0);
+        if (!hasFile) {
+          preview.removeAttribute('src');
+          preview.style.display = 'none';
+        }
+      }
+
+      // Ensure stale preview is not shown on initial load/reload
+      resetReceiptPreviewIfNoFile();
+
       document.getElementById('paymentReceipt').addEventListener('change', function(e) {
         const file = e.target.files[0];
         const preview = document.getElementById('receiptPreview');
@@ -4254,6 +4479,7 @@
           };
           reader.readAsDataURL(file);
         } else {
+          preview.removeAttribute('src');
           preview.style.display = 'none';
         }
       });
@@ -4409,6 +4635,8 @@
               // Trigger the form submission again
               const form = document.getElementById('clearanceForm');
               if (form) {
+                // Don't ask for confirmation on automatic retry
+                skipSubmitConfirmOnce = true;
                 const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
                 form.dispatchEvent(submitEvent);
               }
@@ -4437,6 +4665,9 @@
         }
       }
 
+      // Flag to indicate we should skip duplicate + AI checks on the next submit
+      let bypassPreChecks = false;
+
       // Function to continue with submission when AI validation is bypassed
       function continueSubmission() {
         console.log('Continuing with submission without AI validation...');
@@ -4451,11 +4682,14 @@
           submitButton.style.opacity = '1';
         }
         
-        // Continue with the normal submission process
-        // This will trigger the form submission logic
+        // Mark that on the next submit we should skip duplicate + AI checks
+        bypassPreChecks = true;
+
+        // Trigger a new submit so we can run the final backend submission logic
         const form = document.getElementById('clearanceForm');
         if (form) {
-          // Create a synthetic submit event
+          // Don't ask for confirmation on internal continue
+          skipSubmitConfirmOnce = true;
           const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
           form.dispatchEvent(submitEvent);
         }
@@ -4464,17 +4698,23 @@
       // Add duplicate check function
       async function checkForDuplicateRequest(selectedDocuments, selectedPurposes) {
         try {
+          // Add a timeout so the UI doesn't get stuck forever if the server is slow/unreachable
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
           const response = await fetch('/api/clearance/check-duplicate', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
+            signal: controller.signal,
             body: JSON.stringify({
               documents: selectedDocuments,
               purposes: selectedPurposes,
               document_type: 'Clearance Documents'
             })
           });
+          clearTimeout(timeoutId);
           
           const result = await response.json();
           return result;
@@ -4484,8 +4724,26 @@
         }
       }
 
+      // Prevent multiple simultaneous duplicate checks (avoids repeated "Checking for existing requests..." popup)
+      let isCheckingDuplicate = false;
+      // Skip confirmation on internal/automatic submits
+      let skipSubmitConfirmOnce = false;
+
+      function escapeHtml(s){
+        return String(s ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
       clearanceForm.addEventListener("submit", async function(e) {
         e.preventDefault();
+        // Capture and clear bypass flag for this submit
+        const shouldBypassPreChecks = bypassPreChecks;
+        bypassPreChecks = false;
+
         // Get selected documents
         const selectedDocuments = [];
         const documentCheckboxes = document.querySelectorAll('input[name="requestedDocument"]:checked');
@@ -4513,6 +4771,46 @@
           return;
         }
 
+        // Confirmation popup showing summary (skip on internal/automatic submits)
+        if (!shouldBypassPreChecks && !skipSubmitConfirmOnce) {
+          const docsHtml = selectedDocuments.map(d => `<li>${escapeHtml(d)}</li>`).join('');
+          const purposesHtml = (selectedPurposes && selectedPurposes.length)
+            ? selectedPurposes.map(p => `<li>${escapeHtml(p)}</li>`).join('')
+            : '<li><span class="text-muted fst-italic">None selected</span></li>';
+
+          if (window.Swal) {
+            const res = await Swal.fire({
+              icon: 'question',
+              title: 'Confirm Submission',
+              html: `
+                <div class="text-start">
+                  <p class="mb-2">Please confirm your request details:</p>
+                  <div class="fw-bold mb-1">Documents</div>
+                  <ul class="mb-2 ps-3">${docsHtml}</ul>
+                  <div class="fw-bold mb-1">Purpose</div>
+                  <ul class="mb-2 ps-3">${purposesHtml}</ul>
+                  <p class="text-muted mb-0" style="font-size: 14px;">
+                    Click <strong>Yes, submit</strong> to continue or <strong>Cancel</strong> to review your selection.
+                  </p>
+                </div>
+              `,
+              showCancelButton: true,
+              confirmButtonText: 'Yes, submit',
+              cancelButtonText: 'Cancel',
+              reverseButtons: true
+            });
+            if (!res.isConfirmed) return;
+          } else {
+            const ok = window.confirm(
+              'Submit this request?\n\nDocuments:\n- ' + selectedDocuments.join('\n- ') +
+              '\n\nPurpose:\n- ' + (selectedPurposes.length ? selectedPurposes.join('\n- ') : 'None selected')
+            );
+            if (!ok) return;
+          }
+        }
+        // reset guard after a real user submission attempt
+        skipSubmitConfirmOnce = false;
+
         // Split documents into clearance-required and non-clearance
         const CLEARANCE_REQUIRED_DOCS = ['Diploma', 'Transcript of Record'];
         const clearanceDocs = selectedDocuments.filter(doc => 
@@ -4533,7 +4831,8 @@
         }
 
         // Check for duplicates BEFORE submission (only for clearance documents)
-        if (clearanceDocs.length > 0) {
+        if (clearanceDocs.length > 0 && !isCheckingDuplicate && !shouldBypassPreChecks) {
+          isCheckingDuplicate = true;
           try {
             if (window.buttonLoadingManager) {
               window.buttonLoadingManager.showFullScreenLoading('Checking for existing requests...');
@@ -4579,6 +4878,8 @@
             if (window.buttonLoadingManager) {
               window.buttonLoadingManager.hideFullScreenLoading();
             }
+          } finally {
+            isCheckingDuplicate = false;
           }
         }
 
@@ -4588,7 +4889,7 @@
         const paymentReceiptFile = document.getElementById('paymentReceipt').files[0];
         
         // Validate reference number if any documents are selected (both clearance and certificates need payment)
-        if (selectedDocuments.length > 0 && referenceNumber && paymentReceiptFile) {
+        if (!shouldBypassPreChecks && selectedDocuments.length > 0 && referenceNumber && paymentReceiptFile) {
           // Show full-screen loading and disable submit button
           if (window.buttonLoadingManager) {
             window.buttonLoadingManager.showFullScreenLoading('Verifying reference number with receipt...');
@@ -4605,6 +4906,53 @@
           showReferenceValidation('verifying', 'Verifying reference number with receipt...');
           
           try {
+            // QUICK CHECK: if entered reference is already used, stop early (faster feedback)
+            try {
+              const quickDuplicateResponse = await fetch('/api/check-reference-duplicate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reference_number: referenceNumber })
+              });
+              const quickDuplicateResult = await quickDuplicateResponse.json();
+              if (!quickDuplicateResult.ok && quickDuplicateResult.is_duplicate) {
+                // Hide full-screen loading
+                if (window.buttonLoadingManager) {
+                  window.buttonLoadingManager.hideFullScreenLoading();
+                }
+                // Re-enable submit button
+                if (submitButton) {
+                  submitButton.disabled = false;
+                  submitButton.style.opacity = '1';
+                }
+                showReferenceValidation('invalid', '✗ Reference number already used');
+                await Swal.fire({
+                  icon: 'warning',
+                  title: 'Reference Number Already Used',
+                  html: `
+                    <div style="text-align: center;">
+                      <p style="margin-bottom: 15px;">The reference number <strong>'${referenceNumber}'</strong> has already been used in a previous request.</p>
+                      <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                        <strong>⚠️ Duplicate Reference Number</strong><br>
+                        This reference number was already submitted for clearance processing.
+                      </div>
+                      <p style="color: #6c757d; font-size: 14px;">
+                        Please use a different reference number from your receipt or contact the office if you believe this is an error.
+                      </p>
+                    </div>
+                  `,
+                  confirmButtonText: 'Clear Form & Try Again',
+                  confirmButtonColor: '#ffc107',
+                  allowOutsideClick: false,
+                  allowEscapeKey: false
+                }).then(() => {
+                  clearReferenceNumberForm();
+                });
+                return;
+              }
+            } catch (quickDupErr) {
+              console.warn('Quick duplicate check failed; continuing to AI validation:', quickDupErr);
+            }
+
             // Convert receipt to base64 for AI processing
             const receiptBase64 = await fileToBase64(paymentReceiptFile);
             
@@ -4644,10 +4992,34 @@
                 validationResult.message.includes('NameResolutionError')
               );
               
+              // AI is required: if server has no API key, block submission with a clear message
+              if (validationResult.message && validationResult.message.includes('GROQ_API_KEY not configured')) {
+                console.log('AI disabled (no GROQ_API_KEY). Blocking submission.');
+                showReferenceValidation('invalid', 'AI receipt validation is required but currently unavailable.');
+                await Swal.fire({
+                  icon: 'error',
+                  title: 'AI Validation Unavailable',
+                  html: `
+                    <div style="text-align: left;">
+                      <p><strong>AI receipt validation is required</strong> to submit requests.</p>
+                      <p style="margin: 0;">The server is missing the AI configuration key (<code>GROQ_API_KEY</code>).</p>
+                      <p style="margin-top: 12px; color:#6c757d; font-size: 14px;">
+                        Please configure the Groq API key on the server, then try again.
+                      </p>
+                    </div>
+                  `,
+                  confirmButtonText: 'OK',
+                  confirmButtonColor: '#dc3545',
+                  allowOutsideClick: false,
+                  allowEscapeKey: false
+                });
+                return;
+              }
+              
               if (isNetworkError) {
                 // Test connectivity first
                 testConnectivity().then((connectivityResult) => {
-                  // Show option to proceed without AI validation for network errors
+                  // AI is required: do NOT allow proceed without AI for network errors
                   Swal.fire({
                     icon: 'warning',
                     title: 'AI Service Connection Issue',
@@ -4672,28 +5044,17 @@
                           </button>
                         </div>
                         <p style="color: #6c757d; font-size: 14px;">
-                          You can either try again later or proceed without AI validation (manual verification will be required).
+                          AI validation is required. Please fix the connection and try again.
                         </p>
                       </div>
                     `,
-                    showCancelButton: true,
-                    confirmButtonText: 'Proceed Without AI',
-                    cancelButtonText: 'Try Again Later',
-                    confirmButtonColor: '#28a745',
-                    cancelButtonColor: '#dc3545',
+                    showCancelButton: false,
+                    confirmButtonText: 'Try Again Later',
+                    confirmButtonColor: '#dc3545',
                     allowOutsideClick: false,
                     allowEscapeKey: false
-                  }).then((result) => {
-                    if (result.isConfirmed) {
-                      // Proceed without AI validation
-                      console.log('User chose to proceed without AI validation');
-                      showReferenceValidation('warning', '⚠️ Proceeding without AI validation - manual verification required');
-                      // Continue with submission process
-                      continueSubmission();
-                    } else {
-                      // Clear the form and reset reference number validation
-                      clearReferenceNumberForm();
-                    }
+                  }).then(() => {
+                    showReferenceValidation('invalid', 'AI service unreachable. Please try again.');
                   });
                 });
               } else {
@@ -4714,8 +5075,7 @@
                   allowOutsideClick: false,
                   allowEscapeKey: false
                 }).then(() => {
-                  // Clear the form and reset reference number validation
-                  clearReferenceNumberForm();
+                  showReferenceValidation('invalid', 'AI validation is required. Please try again later.');
                 });
               }
               return; // Stop submission if AI service is down
@@ -4819,7 +5179,53 @@
                 submitButton.disabled = false;
                 submitButton.style.opacity = '1';
               }
+
+              // If AI extracted a different reference, check if THAT extracted one is already used.
+              // This handles cases where user entered wrong value but uploaded an old/existing receipt.
+              const extractedDigits = String(validationResult.extracted_digits || '').trim();
+              const providedDigits = String(validationResult.provided_digits || '').trim();
+              if (extractedDigits && extractedDigits !== providedDigits) {
+                try {
+                  const extractedDupRes = await fetch('/api/check-reference-duplicate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reference_number: extractedDigits })
+                  });
+                  const extractedDup = await extractedDupRes.json();
+                  if (!extractedDup.ok && extractedDup.is_duplicate) {
+                    showReferenceValidation('invalid', '✗ Reference number from receipt is already used');
+                    await Swal.fire({
+                      icon: 'warning',
+                      title: 'Reference Number Already Used',
+                      html: `
+                        <div style="text-align: center;">
+                          <p style="margin-bottom: 15px;">The reference number found in your receipt <strong>'${extractedDigits}'</strong> is already used in a previous request.</p>
+                          <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                            <strong>⚠️ Existing Receipt Detected</strong><br>
+                            This receipt reference appears to be previously submitted.
+                          </div>
+                          <p style="color: #6c757d; font-size: 14px;">
+                            Please upload a new payment receipt with a new reference number.
+                          </p>
+                        </div>
+                      `,
+                      confirmButtonText: 'Clear Form & Try Again',
+                      confirmButtonColor: '#ffc107',
+                      allowOutsideClick: false,
+                      allowEscapeKey: false
+                    }).then(() => {
+                      clearReferenceNumberForm();
+                    });
+                    return;
+                  }
+                } catch (extractedDupErr) {
+                  console.warn('Extracted-reference duplicate check failed:', extractedDupErr);
+                }
+              }
               
+              // Ensure UI shows invalid status (message box will also show)
+              showReferenceValidation('invalid', '✗ Reference number does not match the receipt');
+
               // Show SweetAlert for reference number mismatch
               console.log('DEBUG: Showing mismatch error - validationResult:', validationResult);
               Swal.fire({
@@ -4919,13 +5325,14 @@
               
               // Calculate total price for certificates
               const certPricing = {
-                'Transfer Credential': 150,
+                'Units Earned': 50,
                 'Certificate - Enrollment': 50,
                 'Certificate - Cross Enroll': 50,
                 'Certificate - Candidacy / Completion of Academic Requirements': 50,
                 'Certificate - Graduation': 50,
                 'Certificate - Weighted Average': 50,
-                'CAV': 50
+                'CAV (Certification, Authentication, and Verification)': 50,
+                'Transfer Credential': 50
               };
               
               // Get payment receipt and reference number
@@ -4995,15 +5402,16 @@
                 if (resj && resj.ok) {
                   results.push({ type: 'clearance', docs: clearanceDocs, success: true });
                   
-                  // Reload signatories and status badges
-                  try{
-                    const cRes = await fetch('/api/student/clearance');
-                    const cData = await cRes.json();
-                    if(cData.ok && cData.data && cData.data.has_request){
-                      renderSignatories(cData.data.signatories || []);
-                      showPendingState();
-                    }
-                  }catch(_){ }
+                  // Refresh signatories/status in background (don't block success flow)
+                  fetch('/api/student/clearance')
+                    .then(cRes => cRes.json())
+                    .then(cData => {
+                      if (cData && cData.ok && cData.data && cData.data.has_request) {
+                        renderSignatories(cData.data.signatories || []);
+                        showPendingState();
+                      }
+                    })
+                    .catch(() => {});
                 } else {
                   errors.push({ type: 'clearance', docs: clearanceDocs, error: resj.message || 'Unknown error' });
                 }
@@ -5025,13 +5433,14 @@
               
               const certTotal = nonClearanceDocs.reduce((sum, doc) => {
                 const certPricing = {
-                  'Transfer Credential': 150,
+                  'Units Earned': 50,
                   'Certificate - Enrollment': 50,
                   'Certificate - Cross Enroll': 50,
                   'Certificate - Candidacy / Completion of Academic Requirements': 50,
                   'Certificate - Graduation': 50,
                   'Certificate - Weighted Average': 50,
-                  'CAV': 50
+                  'CAV (Certification, Authentication, and Verification)': 50,
+                  'Transfer Credential': 50
                 };
                 return sum + (certPricing[doc] || 50);
               }, 0);
@@ -5068,10 +5477,8 @@
               // Refresh status badges immediately
               updateStatusBadges();
               
-              // Reload dashboard to show new requests
-              try {
-                await loadAllRequests();
-              } catch(_) {}
+              // Reload dashboard in background so success alert appears faster
+              loadAllRequests().catch(() => {});
               // Switch to dashboard so user sees their new request
               setActive(dashboardLink);
               pageTitle.textContent = "Dashboard";
@@ -5186,12 +5593,11 @@
       // Initialize sidebar state
       function initializeSidebar() {
         console.log('Initializing sidebar, window width:', window.innerWidth);
-        if (window.innerWidth > 768) {
-          // Always start expanded by default for better UX
-          sidebar.classList.add('expanded');
-          mainContent.classList.add('sidebar-expanded');
-          console.log('Sidebar initialized as expanded');
-        }
+        // Start collapsed by default; user can open with hamburger
+        sidebar.classList.remove('expanded');
+        mainContent.classList.remove('sidebar-expanded');
+        localStorage.setItem('sidebar_expanded', '0');
+        console.log('Sidebar initialized as collapsed');
       }
 
       // Event listeners
@@ -5246,7 +5652,7 @@
       // ===== Pending Requests Rendering with pagination =====
       let pendingCache = [];
       let pendingCurrentPage = 1;
-      const pageSize = 10;
+      const pageSize = 99999;
       const pendingTableBody = document.getElementById('pendingTableBody');
       const pendingCardsContainer = document.getElementById('pendingCardsContainer');
       const prevPendingBtn = document.getElementById('prevPendingBtn');
@@ -5973,6 +6379,7 @@
               <td class="clearance-status-cell">
                 <button class="btn btn-outline-primary btn-sm" onclick="openViewClearance(${item.request_id})">View Clearance</button>
               </td>
+              <td class="pickup-date-cell">${formatPickupDate(item.pickup_date)}</td>
               <td class="files-cell"><span class="text-muted">—</span></td>
             `; 
               tbody.appendChild(tr);
@@ -5986,6 +6393,9 @@
                 }); 
               }
             }); 
+            // We render all rows (no true pagination) for a cleaner UI
+            const paginationEl = document.getElementById('pendingPaginationBar');
+            if (paginationEl) paginationEl.style.display = 'none';
           }
         } catch(err){ 
           console.error('Error loading student pending clearances:', err); 
@@ -6021,6 +6431,7 @@
               <td class="clearance-status-cell">
                 <button class="btn btn-outline-primary btn-sm" onclick="openViewClearance(${item.request_id})">View Clearance</button>
               </td>
+              <td class="pickup-date-cell">${formatPickupDate(item.pickup_date)}</td>
               <td class="files-cell"><span class="text-muted">—</span></td>
             `; 
               tbody.appendChild(tr);
@@ -6124,6 +6535,7 @@
               <td class="clearance-status-cell">
                 <button class="btn btn-outline-primary btn-sm" onclick="openViewClearance(${item.request_id})">View Clearance</button>
               </td>
+              <td class="pickup-date-cell">${formatPickupDate(item.pickup_date)}</td>
               <td class="files-cell"><span class="text-muted">—</span></td>
             `; 
               tbody.appendChild(tr);
@@ -6431,14 +6843,16 @@
       function updatePendingPagination(){
         const total = pendingCache.length;
         const totalPages = Math.max(1, Math.ceil(total / pageSize));
-        pendingCurrentPage = Math.min(pendingCurrentPage, totalPages);
-        const start = (pendingCurrentPage - 1) * pageSize;
-        const end = start + pageSize;
-        const pageItems = pendingCache.slice(start, end);
+        pendingCurrentPage = 1;
+        const pageItems = pendingCache.slice(0, pageSize);
         renderPending(pageItems);
-        if (pendingPageInfo) pendingPageInfo.textContent = 'Page '+pendingCurrentPage+' of '+totalPages;
-        if (prevPendingBtn) prevPendingBtn.disabled = pendingCurrentPage <= 1;
-        if (nextPendingBtn) nextPendingBtn.disabled = pendingCurrentPage >= totalPages;
+        if (pendingPageInfo) pendingPageInfo.textContent = total <= pageSize ? 'All ' + total + ' item(s)' : 'Page 1 of ' + totalPages;
+        // If everything fits on one view, hide pagination for a cleaner UI
+        const paginationEl = document.getElementById('pendingPaginationBar');
+        if (paginationEl) paginationEl.style.display = totalPages <= 1 ? 'none' : 'flex';
+
+        if (prevPendingBtn) prevPendingBtn.disabled = true;
+        if (nextPendingBtn) nextPendingBtn.disabled = totalPages <= 1;
       }
 
       async function renderPendingPage(page){
@@ -6479,6 +6893,8 @@
             const list = allRequestsCache.filter(function(r){ return getEffectiveStatus(r) === 'processing'; });
             renderPending(list);
             if (pendingPageInfo) pendingPageInfo.textContent = 'Page 1 of 1';
+            const paginationEl = document.getElementById('pendingPaginationBar');
+            if (paginationEl) paginationEl.style.display = 'none';
             if (prevPendingBtn) prevPendingBtn.disabled = true;
             if (nextPendingBtn) nextPendingBtn.disabled = true;
           } finally {
@@ -6562,6 +6978,8 @@
             }catch(_){ }
           }, 50);
           if (pendingPageInfo) pendingPageInfo.textContent = 'Page 1 of 1';
+          const paginationEl = document.getElementById('pendingPaginationBar');
+          if (paginationEl) paginationEl.style.display = 'none';
           if (prevPendingBtn) prevPendingBtn.disabled = true;
           if (nextPendingBtn) nextPendingBtn.disabled = true;
           } finally {

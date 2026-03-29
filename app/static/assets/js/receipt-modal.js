@@ -54,7 +54,10 @@ class ReceiptModal {
       <div id="receipt-modal" class="receipt-modal">
         <div class="receipt-modal-content">
           <div class="receipt-modal-header">
-            <h3 class="receipt-modal-title">Payment Receipt</h3>
+            <h3 class="receipt-modal-title">
+              <span class="receipt-modal-title-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+              Payment Receipt
+            </h3>
             <button class="receipt-modal-close" type="button" aria-label="Close">
               <i class="fas fa-times"></i>
             </button>
@@ -86,11 +89,11 @@ class ReceiptModal {
             <button class="receipt-btn receipt-btn-secondary" id="receipt-zoom-btn" type="button">
               <i class="fas fa-search-plus"></i> Zoom
             </button>
-            <button class="receipt-btn receipt-btn-primary" id="receipt-download-btn" type="button">
+            <button class="receipt-btn receipt-btn-secondary" id="receipt-download-btn" type="button">
               <i class="fas fa-download"></i> Download
             </button>
-            <button class="receipt-btn receipt-btn-secondary" id="receipt-close-btn" type="button">
-              <i class="fas fa-times"></i> Close
+            <button class="receipt-btn receipt-btn-primary" id="receipt-close-btn" type="button">
+              Close
             </button>
           </div>
         </div>
@@ -299,11 +302,12 @@ class ReceiptModal {
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 40px 20px;
+        padding: 2rem 1.25rem;
         text-align: center;
-        background: #f8fafc;
+        background: #ffffff;
         border-radius: 12px;
-        margin: 20px;
+        margin: 0;
+        border: 1px solid #e2e8f0;
       `;
       
       const modalBody = this.modal.querySelector('.receipt-modal-body');
@@ -311,30 +315,30 @@ class ReceiptModal {
     }
     
     paymentInfoContainer.innerHTML = `
-      <div style="margin-bottom: 20px;">
-        <i class="fas fa-receipt" style="font-size: 48px; color: #6b7280; margin-bottom: 16px;"></i>
-        <h4 style="color: #374151; margin-bottom: 8px;">Payment Information</h4>
-        <p style="color: #6b7280; font-size: 14px;">${message}</p>
+      <div style="margin-bottom: 1.25rem;">
+        <i class="fas fa-receipt" style="font-size: 2.25rem; color: #94a3b8; margin-bottom: 0.75rem;"></i>
+        <h4 style="color: #0f172a; font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem;">Payment Information</h4>
+        <p style="color: #64748b; font-size: 0.875rem;">${message}</p>
       </div>
       
-      <div style="background: white; border-radius: 8px; padding: 20px; width: 100%; max-width: 400px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e5e7eb;">
-          <span style="font-weight: 600; color: #374151;">Payment Method:</span>
-          <span style="color: #6b7280;">${paymentInfo.method}</span>
+      <div style="background: #f8fafc; border-radius: 10px; padding: 1.25rem; width: 100%; max-width: 400px; border: 1px solid #e2e8f0;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e2e8f0;">
+          <span style="font-weight: 600; color: #475569;">Payment Method:</span>
+          <span style="color: #64748b;">${paymentInfo.method}</span>
         </div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e5e7eb;">
-          <span style="font-weight: 600; color: #374151;">Amount:</span>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e2e8f0;">
+          <span style="font-weight: 600; color: #475569;">Amount:</span>
           <span style="color: #059669; font-weight: 600;">₱${paymentInfo.amount}</span>
         </div>
         <div style="display: flex; justify-content: space-between;">
-          <span style="font-weight: 600; color: #374151;">Reference Number:</span>
-          <span style="color: #6b7280; font-family: monospace;">${paymentInfo.reference_number}</span>
+          <span style="font-weight: 600; color: #475569;">Reference Number:</span>
+          <span style="color: #64748b; font-family: ui-monospace, monospace;">${paymentInfo.reference_number}</span>
         </div>
       </div>
       
-      <div style="margin-top: 20px; padding: 12px; background: #fef3c7; border-radius: 6px; border-left: 4px solid #f59e0b;">
-        <p style="margin: 0; color: #92400e; font-size: 13px;">
-          <i class="fas fa-info-circle" style="margin-right: 6px;"></i>
+      <div style="margin-top: 1.25rem; padding: 0.75rem 1rem; background: #fffbeb; border-radius: 8px; border: 1px solid #fde68a;">
+        <p style="margin: 0; color: #92400e; font-size: 0.8125rem;">
+          <i class="fas fa-info-circle" style="margin-right: 0.375rem;"></i>
           No receipt image was uploaded for this request. Contact the registrar if you need to upload a receipt.
         </p>
       </div>
@@ -356,11 +360,12 @@ class ReceiptModal {
       studentInfoContainer = document.createElement('div');
       studentInfoContainer.id = 'receipt-student-info';
       studentInfoContainer.style.cssText = `
-        background: #f8fafc;
-        border-radius: 8px;
-        padding: 16px;
-        margin: 16px 20px;
-        border-left: 4px solid #3b82f6;
+        background: #ffffff;
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        margin: 0 0 1rem 0;
+        border: 1px solid #e2e8f0;
+        border-left: 4px solid #2563eb;
       `;
       
       // Append to the modal body
@@ -370,27 +375,27 @@ class ReceiptModal {
     
     const student = this.studentInfo;
     studentInfoContainer.innerHTML = `
-      <div style="display: flex; align-items: center; margin-bottom: 12px;">
-        <i class="fas fa-user" style="color: #3b82f6; margin-right: 8px; font-size: 16px;"></i>
-        <h5 style="margin: 0; color: #1f2937; font-size: 16px; font-weight: 600;">Student Information</h5>
+      <div style="display: flex; align-items: center; margin-bottom: 0.75rem;">
+        <i class="fas fa-user" style="color: #2563eb; margin-right: 0.5rem; font-size: 0.875rem;"></i>
+        <h5 style="margin: 0; color: #0f172a; font-size: 0.875rem; font-weight: 600;">Student Information</h5>
       </div>
       
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; font-size: 0.8125rem;">
         <div>
-          <span style="color: #6b7280; font-weight: 500;">Name:</span>
-          <div style="color: #1f2937; font-weight: 600;">${student.full_name || '—'}</div>
+          <span style="color: #64748b; font-weight: 500;">Name:</span>
+          <div style="color: #0f172a; font-weight: 600;">${student.full_name || '—'}</div>
         </div>
         <div>
-          <span style="color: #6b7280; font-weight: 500;">Student ID:</span>
-          <div style="color: #1f2937; font-weight: 600;">${student.student_id || '—'}</div>
+          <span style="color: #64748b; font-weight: 500;">Student ID:</span>
+          <div style="color: #0f172a; font-weight: 600;">${student.student_id || '—'}</div>
         </div>
         <div>
-          <span style="color: #6b7280; font-weight: 500;">Course:</span>
-          <div style="color: #1f2937; font-weight: 600;">${student.course_name || '—'}</div>
+          <span style="color: #64748b; font-weight: 500;">Course:</span>
+          <div style="color: #0f172a; font-weight: 600;">${student.course_name || '—'}</div>
         </div>
         <div>
-          <span style="color: #6b7280; font-weight: 500;">Year Level:</span>
-          <div style="color: #1f2937; font-weight: 600;">${student.year_level_name || student.year_level || '—'}</div>
+          <span style="color: #64748b; font-weight: 500;">Year Level:</span>
+          <div style="color: #0f172a; font-weight: 600;">${student.year_level_name || student.year_level || '—'}</div>
         </div>
       </div>
     `;
