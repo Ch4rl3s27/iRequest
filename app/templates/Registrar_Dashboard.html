@@ -1072,6 +1072,7 @@
 
     /* ===== Professional Clearance Section ===== */
     #clearanceContent .card-counter {
+<<<<<<< HEAD
       border-radius: 14px;
       border: 1px solid #dbe2ea;
       background: #ffffff;
@@ -1165,6 +1166,31 @@
       #clearanceContent .card-counter h3 {
         font-size: 1.75rem;
       }
+=======
+      border-radius: 12px;
+      border: 1px solid var(--gray-200);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    #clearanceContent .card-counter:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    #clearanceContent .card-counter .card-body {
+      padding: 1.25rem 1rem;
+    }
+    #clearanceContent .card-counter h5 {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--gray-600);
+      letter-spacing: 0.02em;
+      margin-bottom: 0.5rem;
+    }
+    #clearanceContent .card-counter h3 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--gray-800);
+      letter-spacing: -0.02em;
+>>>>>>> 71fe892ad3e4580d6e35533845382cef392a1947
     }
     #searchContainerClearance .form-control {
       border-radius: 10px;
@@ -1210,6 +1236,7 @@
     #clPendingTable .documents-table tbody tr:last-child td {
       border-bottom: none;
     }
+<<<<<<< HEAD
     #clPendingTable .documents-table th:nth-child(4),
     #clPendingTable .documents-table th:nth-child(5),
     #clPendingTable .documents-table th:nth-child(6),
@@ -1336,6 +1363,8 @@
     #clRejectedTable .status-cell.status-rejected {
       box-shadow: none !important;
     }
+=======
+>>>>>>> 71fe892ad3e4580d6e35533845382cef392a1947
     .clearance-tables-pro .clearance-table tbody tr:hover {
       background: #f8fafc;
     }
@@ -2586,6 +2615,10 @@
   <template id="analyticsTemplate">
     <div id="analyticsContent">
       <header class="analytics-header">
+<<<<<<< HEAD
+=======
+        <h2>Registrar Analytics</h2>
+>>>>>>> 71fe892ad3e4580d6e35533845382cef392a1947
         <p class="analytics-subtitle">Overview of document and clearance requests.</p>
         <div class="analytics-toolbar mt-3 d-flex flex-wrap align-items-center gap-3">
           <label class="d-flex align-items-center gap-2 mb-0">
@@ -4054,6 +4087,11 @@
         const startOfThatDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
         const diffDays = Math.round((startOfThatDay - startOfToday) / (1000 * 60 * 60 * 24));
         const timePart = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+<<<<<<< HEAD
+=======
+        // Always show the actual pickup date/time (even if it's in the past).
+        // "Overdue" was confusing and hid the real schedule date.
+>>>>>>> 71fe892ad3e4580d6e35533845382cef392a1947
         if (diffDays < 0) {
           const datePartPast = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
           return `${datePartPast}, ${timePart}`;
@@ -4638,6 +4676,7 @@
               <td>${doc.student_name || (doc.first_name + ' ' + doc.last_name)}</td>
               <td>${documentType}</td>
               <td class="text-success fw-semibold">Completed</td>
+<<<<<<< HEAD
               <td>${formatRegistrarDateTime(doc.completed_at)}</td>
               <td class="text-nowrap">${doc.pickup_date ? formatPickupDate(doc.pickup_date) : '—'}</td>
               <td class="align-middle">
@@ -4650,6 +4689,18 @@
                   <button type="button" class="btn btn-primary btn-sm" onclick="moveToReleased(this)"><i class='fa-solid fa-paper-plane'></i> Release Documents</button>
                   <button type="button" class="btn btn-secondary btn-sm" onclick="moveToUnclaimed(this)"><i class='fa-solid fa-box-archive'></i> Unclaimed Documents</button>
                 </div>
+=======
+              <td>${doc.completed_at || new Date().toLocaleString()}</td>
+              <td>${doc.pickup_date ? formatPickupDate(doc.pickup_date) : '—'}</td>
+              <td class="text-nowrap">
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                ${doc.clearance_request_id ? 
+                  `<button class="btn btn-outline-primary btn-sm" onclick="openViewClearance(${doc.clearance_request_id})"><i class="fa-solid fa-eye"></i> View Clearance</button>` : 
+                  ''
+                }
+                <button class="btn btn-primary btn-sm" onclick="moveToReleased(this)"><i class='fa-solid fa-paper-plane'></i> Released Documents</button>
+                <button class="btn btn-secondary btn-sm" onclick="moveToUnclaimed(this)"><i class='fa-solid fa-box-archive'></i> Unclaimed Documents</button>
+>>>>>>> 71fe892ad3e4580d6e35533845382cef392a1947
                 </div>
               </td>
             `;

@@ -8329,22 +8329,35 @@ def create_app() -> Flask:
         return jsonify({"ok": False, "message": "Missing request_id or pickup_date"}), 400
 
       # Frontend sends an ISO-like string (e.g. "2026-03-16T15:07").
+<<<<<<< HEAD
       # Normalize to MySQL-friendly "YYYY-MM-DD HH:MM:SS".
+=======
+      # Normalize to MySQL-friendly "YYYY-MM-DD HH:MM:SS" to avoid NULL/zero-date issues.
+>>>>>>> 71fe892ad3e4580d6e35533845382cef392a1947
       pickup_date_db = pickup_date
       try:
         from datetime import datetime
         if isinstance(pickup_date_db, str):
           s = pickup_date_db.strip()
+<<<<<<< HEAD
+=======
+          # Accept common variants: with 'T', with seconds, with timezone suffix.
+>>>>>>> 71fe892ad3e4580d6e35533845382cef392a1947
           s = s.replace('Z', '')
           s = s.replace(' ', 'T')
           dt = datetime.fromisoformat(s)
           pickup_date_db = dt.strftime('%Y-%m-%d %H:%M:%S')
       except Exception:
+<<<<<<< HEAD
+=======
+        # If parsing fails, keep original string; DB may still accept it.
+>>>>>>> 71fe892ad3e4580d6e35533845382cef392a1947
         pickup_date_db = pickup_date
       
       cur, conn = mysql.cursor()
       updated = False
 
+<<<<<<< HEAD
       # Primary: document_requests.id from Registrar Processing / Pending UI
       n = cur.execute(
         """
@@ -8389,6 +8402,56 @@ def create_app() -> Flask:
         conn.close()
         return jsonify({"ok": False, "message": "Request not found"}), 404
 
+=======
+      # Update the pickup_date in clearance_requests table (request_id may be clearance id)
+      # Also set fulfillment_status and registrar_status so it appears under Completed
+      cur.execute("""
+          UPDATE clearance_requests 
+          SET pickup_date = %s, fulfillment_status = 'Completed', registrar_status = 'Complete', updated_at = NOW()
+          WHERE id = %s
+      """, (pickup_date_db, request_id))
+      
+      if cur.rowcount > 0:
+        clearance_id = request_id
+      else:
+        # request_id might be a document_request id (e.g. from Processing documents list)
+        cur.execute("""
+            SELECT clearance_request_id FROM document_requests WHERE id = %s
+        """, (request_id,))
+        row = cur.fetchone()
+        if row:
+          clearance_id = row.get('clearance_request_id')
+          if clearance_id:
+            cur.execute("""
+                UPDATE clearance_requests 
+                SET pickup_date = %s, fulfillment_status = 'Completed', registrar_status = 'Complete', updated_at = NOW()
+                WHERE id = %s
+            """, (pickup_date_db, clearance_id))
+          # Update this document_request row (standalone or linked) and mark as Completed
+          cur.execute("""
+              UPDATE document_requests 
+              SET pickup_date = %s, status = 'Completed', completed_at = COALESCE(%s, NOW()), updated_at = NOW()
+              WHERE id = %s
+          """, (pickup_date_db, pickup_date_db, request_id))
+          if cur.rowcount == 0 and not clearance_id:
+            cur.close()
+            conn.close()
+            return jsonify({"ok": False, "message": "Request not found"}), 404
+        else:
+          cur.close()
+          conn.close()
+          return jsonify({"ok": False, "message": "Request not found"}), 404
+      
+      # Update document_requests linked to this clearance (when we have a clearance_id)
+      # Also set status = Completed and completed_at so they appear under Completed tab
+      if clearance_id:
+        cur.execute("""
+            UPDATE document_requests 
+            SET pickup_date = %s, status = 'Completed', completed_at = COALESCE(%s, NOW()), updated_at = NOW()
+            WHERE clearance_request_id = %s
+        """, (pickup_date_db, pickup_date_db, clearance_id))
+      
+>>>>>>> 71fe892ad3e4580d6e35533845382cef392a1947
       cur.close()
       conn.close()
       
@@ -8568,7 +8631,7 @@ def create_app() -> Flask:
         WHERE dr.document_type = 'Clearance Documents' 
           AND dr.clearance_request_id IS NOT NULL
           AND cr.documents IS NOT NULL
-      """)
+        """)
       
       requests_to_update = cur.fetchall()
       updated_count = 0
