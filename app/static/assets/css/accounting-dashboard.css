@@ -710,7 +710,6 @@ body {
   flex-wrap: wrap;
 }
 
-<<<<<<< HEAD
 /* Keep pending action buttons in a single row with equal sizing */
 #pendingTable td[data-label="Actions"] .action-buttons {
   flex-wrap: nowrap;
@@ -726,32 +725,22 @@ body {
   white-space: nowrap;
 }
 
-/* Keep enough space for buttons on desktop */
-=======
-/* Keep pending action buttons in a single row on desktop */
->>>>>>> 71fe892ad3e4580d6e35533845382cef392a1947
 @media (min-width: 769px) {
   #pendingTable td[data-label="Actions"]{
     min-width: 320px;
   }
-<<<<<<< HEAD
-=======
   #pendingTable td[data-label="Actions"] .action-buttons{
     flex-wrap: nowrap;
   }
->>>>>>> 71fe892ad3e4580d6e35533845382cef392a1947
 }
 
 @media (max-width: 768px){
   #pendingTable td[data-label="Actions"]{
     min-width: 0;
   }
-<<<<<<< HEAD
   #pendingTable td[data-label="Actions"] .action-buttons{
     flex-wrap: nowrap;
   }
-=======
->>>>>>> 71fe892ad3e4580d6e35533845382cef392a1947
 }
 
 .btn-sign {
@@ -775,7 +764,6 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
-<<<<<<< HEAD
 .btn-approve {
   background: var(--success-500);
   color: white;
@@ -799,8 +787,6 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
-=======
->>>>>>> 71fe892ad3e4580d6e35533845382cef392a1947
 .btn-view {
   background: white;
   color: var(--primary-600);

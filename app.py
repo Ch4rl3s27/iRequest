@@ -8318,7 +8318,7 @@ def create_app() -> Flask:
 
   @app.route('/api/registrar/set-pickup-date', methods=['POST'])
   def api_set_pickup_date():
-    """Set scheduled pickup date only. Does NOT mark documents completed — that happens on upload/release.
+    """Set scheduled pickup date and mark related clearance/document rows completed for registrar workflow.
     Accepts document_request id (Processing list) or clearance_request id (legacy)."""
     try:
       data = request.get_json()
@@ -8329,80 +8329,24 @@ def create_app() -> Flask:
         return jsonify({"ok": False, "message": "Missing request_id or pickup_date"}), 400
 
       # Frontend sends an ISO-like string (e.g. "2026-03-16T15:07").
-<<<<<<< HEAD
-      # Normalize to MySQL-friendly "YYYY-MM-DD HH:MM:SS".
-=======
       # Normalize to MySQL-friendly "YYYY-MM-DD HH:MM:SS" to avoid NULL/zero-date issues.
->>>>>>> 71fe892ad3e4580d6e35533845382cef392a1947
       pickup_date_db = pickup_date
       try:
         from datetime import datetime
         if isinstance(pickup_date_db, str):
           s = pickup_date_db.strip()
-<<<<<<< HEAD
-=======
           # Accept common variants: with 'T', with seconds, with timezone suffix.
->>>>>>> 71fe892ad3e4580d6e35533845382cef392a1947
           s = s.replace('Z', '')
           s = s.replace(' ', 'T')
           dt = datetime.fromisoformat(s)
           pickup_date_db = dt.strftime('%Y-%m-%d %H:%M:%S')
       except Exception:
-<<<<<<< HEAD
-=======
         # If parsing fails, keep original string; DB may still accept it.
->>>>>>> 71fe892ad3e4580d6e35533845382cef392a1947
         pickup_date_db = pickup_date
       
       cur, conn = mysql.cursor()
-      updated = False
+      clearance_id = None
 
-<<<<<<< HEAD
-      # Primary: document_requests.id from Registrar Processing / Pending UI
-      n = cur.execute(
-        """
-        UPDATE document_requests
-        SET pickup_date = %s, updated_at = NOW()
-        WHERE id = %s
-        """,
-        (pickup_date_db, request_id),
-      )
-      if n and n > 0:
-        updated = True
-        cur.execute(
-          "SELECT clearance_request_id FROM document_requests WHERE id = %s",
-          (request_id,),
-        )
-        crow = cur.fetchone()
-        cid = crow.get('clearance_request_id') if crow else None
-        if cid:
-          cur.execute(
-            """
-            UPDATE clearance_requests
-            SET pickup_date = %s, updated_at = NOW()
-            WHERE id = %s
-            """,
-            (pickup_date_db, cid),
-          )
-      else:
-        # Legacy: request_id may be clearance_requests.id
-        n2 = cur.execute(
-          """
-          UPDATE clearance_requests
-          SET pickup_date = %s, updated_at = NOW()
-          WHERE id = %s
-          """,
-          (pickup_date_db, request_id),
-        )
-        if n2 and n2 > 0:
-          updated = True
-
-      if not updated:
-        cur.close()
-        conn.close()
-        return jsonify({"ok": False, "message": "Request not found"}), 404
-
-=======
       # Update the pickup_date in clearance_requests table (request_id may be clearance id)
       # Also set fulfillment_status and registrar_status so it appears under Completed
       cur.execute("""
@@ -8451,7 +8395,6 @@ def create_app() -> Flask:
             WHERE clearance_request_id = %s
         """, (pickup_date_db, pickup_date_db, clearance_id))
       
->>>>>>> 71fe892ad3e4580d6e35533845382cef392a1947
       cur.close()
       conn.close()
       
