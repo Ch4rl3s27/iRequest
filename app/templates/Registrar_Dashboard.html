@@ -2586,6 +2586,7 @@
   <template id="analyticsTemplate">
     <div id="analyticsContent">
       <header class="analytics-header">
+        <h2>Registrar Analytics</h2>
         <p class="analytics-subtitle">Overview of document and clearance requests.</p>
         <div class="analytics-toolbar mt-3 d-flex flex-wrap align-items-center gap-3">
           <label class="d-flex align-items-center gap-2 mb-0">
@@ -4054,6 +4055,8 @@
         const startOfThatDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
         const diffDays = Math.round((startOfThatDay - startOfToday) / (1000 * 60 * 60 * 24));
         const timePart = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        // Always show the actual pickup date/time (even if it's in the past).
+        // "Overdue" was confusing and hid the real schedule date.
         if (diffDays < 0) {
           const datePartPast = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
           return `${datePartPast}, ${timePart}`;

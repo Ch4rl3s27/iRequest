@@ -730,6 +730,9 @@ body {
   #pendingTable td[data-label="Actions"]{
     min-width: 320px;
   }
+  #pendingTable td[data-label="Actions"] .action-buttons{
+    flex-wrap: nowrap;
+  }
 }
 
 @media (max-width: 768px){

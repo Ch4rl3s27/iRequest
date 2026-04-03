@@ -8390,17 +8390,19 @@ def create_app() -> Flask:
         return jsonify({"ok": False, "message": "Missing request_id or pickup_date"}), 400
 
       # Frontend sends an ISO-like string (e.g. "2026-03-16T15:07").
-      # Normalize to MySQL-friendly "YYYY-MM-DD HH:MM:SS".
+      # Normalize to MySQL-friendly "YYYY-MM-DD HH:MM:SS" to avoid NULL/zero-date issues.
       pickup_date_db = pickup_date
       try:
         from datetime import datetime
         if isinstance(pickup_date_db, str):
           s = pickup_date_db.strip()
+          # Accept common variants: with 'T', with seconds, with timezone suffix.
           s = s.replace('Z', '')
           s = s.replace(' ', 'T')
           dt = datetime.fromisoformat(s)
           pickup_date_db = dt.strftime('%Y-%m-%d %H:%M:%S')
       except Exception:
+        # If parsing fails, keep original string; DB may still accept it.
         pickup_date_db = pickup_date
       
       cur, conn = mysql.cursor()
@@ -8629,7 +8631,7 @@ def create_app() -> Flask:
         WHERE dr.document_type = 'Clearance Documents' 
           AND dr.clearance_request_id IS NOT NULL
           AND cr.documents IS NOT NULL
-      """)
+        """)
       
       requests_to_update = cur.fetchall()
       updated_count = 0
