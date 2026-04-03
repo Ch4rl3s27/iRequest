@@ -694,7 +694,8 @@
       var hasUpper = /[A-Z]/.test(pass);
       var hasLower = /[a-z]/.test(pass);
       var hasDigit = /\d/.test(pass);
-      var hasSpecial = /[@#$%&*!]/.test(pass);
+      // Any non-alphanumeric character counts as special
+      var hasSpecial = /[^A-Za-z0-9]/.test(pass);
       var score = [hasLen, hasUpper, hasLower, hasDigit, hasSpecial].filter(Boolean).length;
       if(score <= 2) return 'Weak';
       if(score === 3 || score === 4) return 'Medium';
@@ -707,7 +708,8 @@
       if(!/[A-Z]/.test(pass)) missing.push('uppercase');
       if(!/[a-z]/.test(pass)) missing.push('lowercase');
       if(!/\d/.test(pass)) missing.push('number');
-      if(!/[@#$%&*!]/.test(pass)) missing.push('special character');
+      // Any non-alphanumeric character counts as special
+      if(!/[^A-Za-z0-9]/.test(pass)) missing.push('special character');
       return missing;
     }
 
@@ -845,7 +847,8 @@
         Swal.fire({ icon:'error', title:'Password too long', text:'Password must be at most 30 characters.' });
         return;
       }
-      var ok = pwd.length >= 8 && /[A-Z]/.test(pwd) && /[a-z]/.test(pwd) && /\d/.test(pwd) && /[@#$%&*!]/.test(pwd);
+      // Require at least one non-alphanumeric character as "special"
+      var ok = pwd.length >= 8 && /[A-Z]/.test(pwd) && /[a-z]/.test(pwd) && /\d/.test(pwd) && /[^A-Za-z0-9]/.test(pwd);
       if(!ok){
         Swal.fire({ icon:'error', title:'Weak password', text:'Please meet all password requirements.' });
         return;
@@ -858,8 +861,16 @@
       // Build address before sending
       buildFullAddress();
 
-      // Show loading
-      Swal.fire({ title:'Submitting...', allowOutsideClick:false, showConfirmButton:false, didOpen:()=>Swal.showLoading() });
+      // Show modern loading dialog
+      Swal.fire({
+        title: 'Submitting your account...',
+        html: '<div style="display:flex;flex-direction:column;align-items:center;gap:12px;">'
+            + '<div class="spinner-border text-primary" role="status" style="width:2.5rem;height:2.5rem;border-width:.25rem;"></div>'
+            + '<div style="font-size:14px;color:#6b7280;">Please wait, this may take a few seconds.</div>'
+            + '</div>',
+        allowOutsideClick: false,
+        showConfirmButton: false
+      });
 
       try{
         var formData = new FormData(form);
@@ -888,7 +899,11 @@
           Swal.fire({ icon:'error', title:'Signup failed', text: message });
         }
       } catch(err){
-        Swal.fire({ icon:'error', title:'Network Error', text:'Unable to connect to server. Please try again.' });
+        Swal.fire({
+          icon:'error',
+          title:'Network Error',
+          text:'Unable to connect to server. Please check your connection and try again.'
+        });
       }
     });
   })();

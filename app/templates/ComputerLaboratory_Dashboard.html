@@ -25,6 +25,7 @@
   
   <!-- Custom Computer Laboratory Dashboard CSS -->
   <link rel="stylesheet" href="/static/assets/css/accounting-dashboard.css?v=2">
+  <link rel="stylesheet" href="/static/assets/css/registrar-professional-clearance-modal.css?v=1">
 
 </head>
 <body>
@@ -88,7 +89,7 @@
           <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle navigation menu" aria-expanded="false">
             <i class="fa-solid fa-bars"></i>
           </button>
-          <h1 class="topbar-title">Computer Laboratory Dashboard</h1>
+          <h1 class="topbar-title" id="topbarPageTitle">Computer Laboratory Dashboard</h1>
           <div class="user-info" role="complementary" aria-label="User information">
             <i class="fa-solid fa-circle-user" aria-hidden="true"></i> 
             <span id="staffName">Computer Lab Staff</span>
@@ -183,6 +184,7 @@
                   <th scope="col">Course</th>
                   <th scope="col">Year Level</th>
                   <th scope="col">Status</th>
+                  <th scope="col">Reject</th>
               </tr>
             </thead>
               <tbody id="approvedList" role="rowgroup"></tbody>
@@ -249,6 +251,92 @@
               Approve Clearance
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Professional Clearance Details Modal (same design as Registrar) -->
+<div class="modal fade" id="clViewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content professional-modal">
+      <div class="modal-header professional-header">
+        <div class="d-flex align-items-center">
+          <div class="header-icon-container">
+            <div class="header-icon-bg">
+              <i class="fa-solid fa-file-shield"></i>
+            </div>
+            <div class="header-content">
+              <h4 class="modal-title">Clearance Details</h4>
+              <p class="modal-subtitle">Student Clearance Information & Status</p>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="btn-close professional-close" data-bs-dismiss="modal" aria-label="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body professional-body">
+        <div class="info-card professional-card">
+          <div class="card-header-professional">
+            <div class="header-accent-line"></div>
+            <div class="d-flex align-items-center">
+              <div class="card-icon-container"><i class="fa-solid fa-user-graduate"></i></div>
+              <h6 class="card-title-professional">Student Information</h6>
+            </div>
+          </div>
+          <div class="card-body-professional">
+            <div id="clViewStudentInfo" class="student-info-grid"></div>
+          </div>
+        </div>
+
+        <div class="info-card professional-card">
+          <div class="card-header-professional">
+            <div class="header-accent-line"></div>
+            <div class="d-flex align-items-center">
+              <div class="card-icon-container"><i class="fa-solid fa-file-lines"></i></div>
+              <h6 class="card-title-professional">Document Information</h6>
+            </div>
+          </div>
+          <div class="card-body-professional">
+            <div id="clViewInfo" class="info-grid-professional"></div>
+          </div>
+        </div>
+
+        <div class="info-card professional-card">
+          <div class="card-header-professional">
+            <div class="header-accent-line"></div>
+            <div class="d-flex align-items-center">
+              <div class="card-icon-container"><i class="fa-solid fa-clipboard-check"></i></div>
+              <h6 class="card-title-professional">Office Clearance Status</h6>
+            </div>
+          </div>
+          <div class="card-body-professional">
+            <div class="table-container-professional">
+              <table class="professional-table">
+                <thead>
+                  <tr>
+                    <th><div class="th-content"><i class="fa-solid fa-building"></i><span>Office</span></div></th>
+                    <th><div class="th-content"><i class="fa-solid fa-check-circle"></i><span>Status</span></div></th>
+                    <th><div class="th-content"><i class="fa-solid fa-signature"></i><span>Approved By</span></div></th>
+                    <th><div class="th-content"><i class="fa-solid fa-clock"></i><span>Updated</span></div></th>
+                    <th><div class="th-content"><i class="fa-solid fa-comment"></i><span>Reason</span></div></th>
+                    <th><div class="th-content"><i class="fa-solid fa-pen-to-square"></i><span>Remarks</span></div></th>
+                  </tr>
+                </thead>
+                <tbody id="clViewSignatories"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer professional-footer">
+        <button type="button" class="btn-professional btn-secondary-professional" data-bs-dismiss="modal">
+          <i class="fa-solid fa-times"></i><span>Close</span>
+        </button>
+        <button type="button" class="btn-professional btn-primary-professional" onclick="printClearanceDetails()">
+          <i class="fa-solid fa-print"></i><span>Print</span>
+        </button>
       </div>
     </div>
   </div>
@@ -407,6 +495,251 @@
       );
     }
 
+    // Registrar-style clearance viewer (same design/behavior)
+    async function openViewClearance(requestId){
+      if(!requestId) return;
+
+      // Show full-screen loading overlay
+      if (window.buttonLoadingManager) {
+        window.buttonLoadingManager.showFullScreenLoading('Loading Clearance Details...');
+      } else if (window.showFullScreenLoading) {
+        window.showFullScreenLoading('Loading Clearance Details...');
+      }
+
+      try {
+        // Add timeout and better error handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+        const res = await fetch(`/api/clearance/request/${Number(requestId)}`, {
+          signal: controller.signal,
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+          if (res.status === 404) throw new Error('Clearance request not found');
+          if (res.status === 500) throw new Error('Server error occurred. Please try again.');
+          throw new Error(`Request failed with status: ${res.status}`);
+        }
+
+        const data = await res.json();
+        if(!data.ok) throw new Error(data.message || 'Failed to load clearance details');
+
+        const req = data.request || {};
+        const sigs = data.signatories || [];
+        const studentInfoEl = document.getElementById('clViewStudentInfo');
+        const infoEl = document.getElementById('clViewInfo');
+        const tbody = document.getElementById('clViewSignatories');
+
+        // Populate Student Information
+        if(studentInfoEl) {
+          const studentName = req.student_name || '—';
+          const course = req.course || '—';
+          const yearLevel = req.year_level || '—';
+          studentInfoEl.innerHTML = `
+            <div class="info-item-professional">
+              <div class="info-label-professional">
+                <i class="fa-solid fa-user"></i>
+                Student Name
+              </div>
+              <div class="info-value-professional">${studentName}</div>
+            </div>
+            <div class="info-item-professional">
+              <div class="info-label-professional">
+                <i class="fa-solid fa-graduation-cap"></i>
+                Course
+              </div>
+              <div class="info-value-professional">${course}</div>
+            </div>
+            <div class="info-item-professional">
+              <div class="info-label-professional">
+                <i class="fa-solid fa-layer-group"></i>
+                Year Level
+              </div>
+              <div class="info-value-professional">${yearLevel}</div>
+            </div>
+          `;
+        }
+
+        // Populate Document Information
+        if(infoEl) {
+          const documents = (req.documents||[]).join(', ') || (req.document_type||'—');
+          const purposes = (req.purpose||[]).join(', ') || '—';
+
+          const overallStatus = req.clearance_status || 'Pending';
+          const statusClass = overallStatus.toLowerCase() === 'completed' ? 'status-approved-professional' :
+                            overallStatus.toLowerCase() === 'approved' ? 'status-approved-professional' : 'status-pending-professional';
+
+          infoEl.innerHTML = `
+            <div class="info-item-professional">
+              <div class="info-label-professional">
+                <i class="fa-solid fa-file-lines"></i>
+                Document Type
+              </div>
+              <div class="info-value-professional">${documents}</div>
+            </div>
+            <div class="info-item-professional">
+              <div class="info-label-professional">
+                <i class="fa-solid fa-bullseye"></i>
+                Purpose
+              </div>
+              <div class="info-value-professional">${purposes}</div>
+            </div>
+            <div class="info-item-professional">
+              <div class="info-label-professional">
+                <i class="fa-solid fa-chart-line"></i>
+                Overall Status
+              </div>
+              <div class="info-value-professional">
+                <span class="status-badge-professional ${statusClass}">
+                  <i class="fa-solid fa-check-circle"></i>${overallStatus}
+                </span>
+              </div>
+            </div>
+          `;
+        }
+
+        if(tbody){
+          tbody.innerHTML = '';
+          (sigs || []).forEach(s => {
+            const statusLower = (s.status||'').toLowerCase();
+            const statusIcon = statusLower === 'approved' ? 'fa-check-circle' : (statusLower === 'pending' ? 'fa-clock' : 'fa-times-circle');
+            const statusClass = statusLower === 'approved' ? 'status-approved-professional' : (statusLower === 'rejected' ? 'status-rejected-professional' : 'status-pending-professional');
+            const officeIconClass = getOfficeIconClass(s.office||'');
+            const officeIcon = getOfficeIcon(s.office||'');
+            const updated = s.updated_at || s.signed_at || '-';
+            const reason = s.rejection_reason || '-';
+            const remarks = s.remarks || '-';
+            const signedBy = s.signed_by || '-';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>
+                <div class="office-cell-professional">
+                  <div class="office-icon-professional office-icon-${officeIconClass}">
+                    <i class="${officeIcon}"></i>
+                  </div>
+                  <span class="fw-semibold">${s.office}</span>
+                </div>
+              </td>
+              <td>
+                <span class="status-badge-professional ${statusClass}">
+                  <i class="fa-solid ${statusIcon}"></i>${s.status}
+                </span>
+              </td>
+              <td class="text-muted">${signedBy}</td>
+              <td class="text-muted"><small>${updated}</small></td>
+              <td class="reason-remarks-cell"><div class="reason-remarks-inner">${reason}</div></td>
+              <td class="reason-remarks-cell"><div class="reason-remarks-inner">${remarks}</div></td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+
+        const mEl = document.getElementById('clViewModal');
+        const bs = new bootstrap.Modal(mEl);
+        bs.show();
+      } catch(err){
+        console.error('view clearance error', err);
+        let errorMessage = 'Unable to load clearance details';
+        let errorTitle = 'Error';
+        if (err.name === 'AbortError') {
+          errorTitle = 'Request Timeout';
+          errorMessage = 'The request took too long to complete. Please check your internet connection and try again.';
+        } else if ((err.message||'').includes('Failed to fetch')) {
+          errorTitle = 'Connection Error';
+          errorMessage = 'Unable to connect to the server. Please check your internet connection and try again.';
+        } else if ((err.message||'').includes('Server error')) {
+          errorTitle = 'Server Error';
+          errorMessage = 'A server error occurred. Please try again in a few moments.';
+        } else if ((err.message||'').includes('not found')) {
+          errorTitle = 'Not Found';
+          errorMessage = 'The requested clearance could not be found.';
+        } else {
+          errorMessage = err.message || 'An unexpected error occurred. Please try again.';
+        }
+
+        Swal.fire({
+          icon: 'error',
+          title: errorTitle,
+          text: errorMessage,
+          confirmButtonText: 'Try Again',
+          showCancelButton: true,
+          cancelButtonText: 'Cancel'
+        }).then((result) => { if (result.isConfirmed) openViewClearance(requestId); });
+      } finally {
+        if (window.buttonLoadingManager) window.buttonLoadingManager.hideFullScreenLoading();
+        else if (window.hideFullScreenLoading) window.hideFullScreenLoading();
+      }
+    }
+
+    // Helper functions for office icons (same as Registrar)
+    function getOfficeIconClass(office) {
+      const officeLower = String(office || '').toLowerCase();
+      if (officeLower.includes('computer') || officeLower.includes('lab')) return 'computer-lab';
+      if (officeLower.includes('guidance')) return 'guidance';
+      if (officeLower.includes('student') && officeLower.includes('affairs')) return 'student-affairs';
+      if (officeLower.includes('library')) return 'library';
+      if (officeLower.includes('dean')) return 'dean';
+      if (officeLower.includes('accounting')) return 'accounting';
+      if (officeLower.includes('registrar')) return 'registrar';
+      return 'computer-lab';
+    }
+
+    function getOfficeIcon(office) {
+      const officeLower = String(office || '').toLowerCase();
+      if (officeLower.includes('computer') || officeLower.includes('lab')) return 'fa-solid fa-desktop';
+      if (officeLower.includes('guidance')) return 'fa-solid fa-heart';
+      if (officeLower.includes('student') && officeLower.includes('affairs')) return 'fa-solid fa-users';
+      if (officeLower.includes('library')) return 'fa-solid fa-book';
+      if (officeLower.includes('dean')) return 'fa-solid fa-user-tie';
+      if (officeLower.includes('accounting')) return 'fa-solid fa-calculator';
+      if (officeLower.includes('registrar')) return 'fa-solid fa-file-alt';
+      return 'fa-solid fa-building';
+    }
+
+    function printClearanceDetails(html) {
+      const modalEl = document.getElementById('clViewModal');
+      const content = modalEl ? modalEl.querySelector('.professional-body') : null;
+      if (!content) return;
+
+      const win = window.open('', '_blank');
+      if (!win) return;
+
+      win.document.open();
+      win.document.write(`
+        <!doctype html>
+        <html>
+          <head>
+            <meta charset="utf-8"/>
+            <meta name="viewport" content="width=device-width,initial-scale=1"/>
+            <title>Clearance Details</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+            <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+            <link rel="stylesheet" href="/static/assets/css/accounting-dashboard.css?v=2">
+            <link rel="stylesheet" href="/static/assets/css/clearance-details-modal.css?v=1">
+            <style>
+              body { padding: 16px; background: #fff; }
+              .professional-modal { box-shadow: none; }
+              .professional-header, .professional-footer { display: none; }
+              .table-container-professional { max-height: none; }
+            </style>
+          </head>
+          <body>
+            <div class="professional-modal">
+              ${html || content.innerHTML}
+            </div>
+            <script>
+              window.onload = () => { setTimeout(() => window.print(), 150); };
+            <\/script>
+          </body>
+        </html>
+      `);
+      win.document.close();
+    }
+
     /* ============================================================
        Open modal (also disable reject select for that row while signing)
        ============================================================ */
@@ -481,6 +814,10 @@
           showTable('approved');
 
       // Show success message
+          // Close the details modal first so it doesn't stay behind the alert
+          const modalEl = document.getElementById('signModal');
+          const bsModal = bootstrap.Modal.getInstance(modalEl);
+          if (bsModal) bsModal.hide();
       Swal.fire({
         icon: 'success',
         title: 'Clearance Approved!',
@@ -612,6 +949,74 @@
       }
     }
 
+    // Reject via button: choose reason + remarks (required)
+    async function openRejectDialog(buttonEl) {
+      const row = buttonEl.closest('tr');
+      const signatoryId = row && (row.dataset.signatoryId || '');
+      if (!signatoryId) return;
+
+      const { value } = await Swal.fire({
+        title: 'Reject Clearance',
+        icon: 'warning',
+        html: `
+          <div class="text-start">
+            <label class="swal2-input-label d-block mb-1">Reason</label>
+            <select id="swal-reject-reason" class="swal2-select" style="width:100%">
+              <option value="" selected disabled>Select a reason</option>
+              <option value="Incomplete Requirements">Incomplete Requirements</option>
+              <option value="Academic Issues">Academic Issues</option>
+              <option value="Disciplinary Issues">Disciplinary Issues</option>
+              <option value="Other">Other</option>
+            </select>
+            <label class="swal2-input-label d-block mt-3 mb-1">Remarks (required)</label>
+            <textarea id="swal-reject-remarks" class="swal2-textarea" placeholder="e.g. missing form, incomplete requirements, etc." style="min-height:80px; resize:vertical; width:100%;"></textarea>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Submit Rejection',
+        cancelButtonText: 'Cancel',
+        preConfirm: () => {
+          const reason = (document.getElementById('swal-reject-reason') || {}).value || '';
+          const remarks = ((document.getElementById('swal-reject-remarks') || {}).value || '').trim();
+          if (!reason) {
+            Swal.showValidationMessage('Please select a reason.');
+            return false;
+          }
+          if (!remarks) {
+            Swal.showValidationMessage('Please enter remarks (e.g. what is missing).');
+            return false;
+          }
+          return { reason, remarks };
+        }
+      });
+
+      if (!value) return;
+
+      try {
+        const res = await fetch('/api/signatories/reject', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ signatory_id: Number(signatoryId), reason: value.reason, remarks: value.remarks })
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.message || 'Reject failed');
+      } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'Failed to reject' });
+        return;
+      }
+
+      row.remove();
+      updateCounters();
+      await loadRejectedClearances();
+      showTable('rejected');
+      Swal.fire({
+        icon: 'warning',
+        title: 'Clearance Rejected',
+        text: `Reason: ${value.reason}. Remarks: ${value.remarks}`,
+        confirmButtonText: 'OK'
+      });
+    }
+
     /* ============================================================
        Counters / showTable / search
        ============================================================ */
@@ -680,7 +1085,22 @@
       if(elem) elem.classList.add('active');
     }
 
+    function updateTopbarForSection(type) {
+      const titles = {
+        dashboard: 'Computer Laboratory Dashboard',
+        staff: 'Staff Approval',
+        activity: 'User Activity',
+        profile: 'Profile',
+        password: 'Change Password'
+      };
+      const label = titles[type] || titles.dashboard;
+      const el = document.getElementById('topbarPageTitle');
+      if (el) el.textContent = label;
+      document.title = 'iRequest - ' + label;
+    }
+
     function loadContent(type) {
+      updateTopbarForSection(type);
       const container = document.getElementById('mainContent');
       
       // Show loading state for panel navigation
@@ -817,6 +1237,17 @@
               <small>Recent user activities in the system</small>
             </div>
             <div class="card-body p-0">
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 px-3 py-2 border-bottom bg-light">
+                <label for="activityRoleFilter" class="mb-0 small text-muted">Filter by role</label>
+                <div class="d-flex align-items-center gap-2">
+                  <select id="activityRoleFilter" class="form-select form-select-sm" style="max-width: 14rem;" aria-label="Filter activity by user role">
+                    <option value="all">All roles</option>
+                    <option value="student">Students</option>
+                    <option value="staff">Staff &amp; Admin</option>
+                  </select>
+                  <span id="activityLogCount" class="small text-muted text-nowrap" aria-live="polite"></span>
+                </div>
+              </div>
               <div class="table-responsive">
                 <table class="table table-hover mb-0">
                   <thead class="table-light"><tr><th>Date & Time</th><th>User</th><th>Role</th><th>Action</th></tr></thead>
@@ -995,18 +1426,17 @@ async function handlePasswordChange(e) {
               <td data-label="Document Type">${student.document || student.document_name || student.document_type || '—'}</td>
               <td data-label="Actions">
                 <div class="action-buttons">
+                  <button class="btn-view" onclick="openViewClearance(${student.request_id})"
+                          aria-label="View clearance details for ${student.first_name} ${student.last_name}">
+                    <i class="fa-solid fa-eye" aria-hidden="true"></i> View
+                  </button>
                   <button class="btn-sign" onclick="openSignModal(this)" 
                           aria-label="Approve clearance for ${student.first_name} ${student.last_name}">
                     <i class="fa-solid fa-check" aria-hidden="true"></i> Sign
                   </button>
-                  <select class="reason-dropdown" onchange="rejectForm(this)" 
-                          aria-label="Select rejection reason for ${student.first_name} ${student.last_name}">
-              <option value="">Reject Reason</option>
-                    <option value="Incomplete Requirements">Incomplete Requirements</option>
-                    <option value="Technical Issue">Technical Issue</option>
-                    <option value="Equipment Problem">Equipment Problem</option>
-                    <option value="Other">Other</option>
-            </select>
+                  <button type="button" class="btn-reject" onclick="openRejectDialog(this)" title="Reject this clearance">
+                    <i class="fa-solid fa-xmark"></i> Reject
+                  </button>
                 </div>
               </td>
             `;
@@ -1080,12 +1510,14 @@ async function handlePasswordChange(e) {
           data.data.forEach(student => {
         const tr = document.createElement('tr');
             tr.dataset.studentId = student.student_id || student.id || '';
+            tr.dataset.signatoryId = student.signatory_id || '';
             tr.setAttribute('role', 'row');
         tr.innerHTML = `
               <td data-label="Student Name">${student.first_name} ${student.last_name}</td>
               <td data-label="Course">${getCourseDisplay(student)}</td>
               <td data-label="Year Level">${getYearLevelDisplay(student)}</td>
               <td data-label="Status"><span class="status-badge status-signed">Approved</span></td>
+              <td data-label="Reject"><button type="button" class="btn btn-danger btn-sm" onclick="openRejectDialog(this)" title="Reject this clearance"><i class="fa-solid fa-xmark"></i> Reject</button></td>
             `;
         tbody.appendChild(tr);
       });
@@ -1093,7 +1525,7 @@ async function handlePasswordChange(e) {
           // Show empty state
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td colspan="4" class="text-center" style="padding: 2rem; color: #6b7280;">
+            <td colspan="5" class="text-center" style="padding: 2rem; color: #6b7280;">
               <i class="fa-solid fa-check-circle" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
               <p>No approved clearances found</p>
             </td>
@@ -1164,7 +1596,7 @@ tr.dataset.studentId = student.student_id || student.id || '';
               <td data-label="Status"><span class="status-badge status-rejected">Rejected</span></td>
               <td data-label="Rejection Reason">${student.rejection_reason || 'No reason provided'}</td>
               <td data-label="Remarks">${student.remarks || '—'}</td>
-              <td data-label="Approve"><button type="button" class="btn btn-success btn-sm" onclick="approveFromRejected(this)" title="Student has passed requirements"><i class="fa-solid fa-check"></i> Approve</button></td>
+              <td data-label="Approve"><button type="button" class="btn-approve" onclick="approveFromRejected(this)" title="Student has passed requirements"><i class="fa-solid fa-check"></i> Approve</button></td>
             `;
             tbody.appendChild(tr);
           });
@@ -1320,7 +1752,7 @@ tr.dataset.studentId = student.student_id || student.id || '';
             <td>${row.rejection_reason || '-'}</td>
             <td>${(row.rejected_date || row.created_at) ? new Date(row.rejected_date || row.created_at).toLocaleDateString() : '-'}</td>
             <td>
-              <button type="button" class="btn btn-success btn-sm" onclick="doApproveStaff(${row.id})" title="Approve this staff">
+              <button type="button" class="btn-approve" onclick="doApproveStaff(${row.id})" title="Approve this staff">
                 <i class="fa-solid fa-check"></i> Approve
               </button>
             </td>
@@ -1422,23 +1854,130 @@ tr.dataset.studentId = student.student_id || student.id || '';
       };
       return map[action] || action;
     }
+    window._activityLogCache = [];
+    function filterActivityRowsByRole(rows, filterVal) {
+      if (!filterVal || filterVal === 'all') return rows.slice();
+      return rows.filter(row => {
+        const t = (row.user_type || '').toLowerCase();
+        if (filterVal === 'student') return t === 'student';
+        if (filterVal === 'staff') return t === 'staff' || t === 'admin';
+        return true;
+      });
+    }
+    function renderActivityLogRows() {
+      const tbody = document.getElementById('activityLogBody');
+      const countEl = document.getElementById('activityLogCount');
+      if (!tbody) return;
+      const raw = window._activityLogCache || [];
+      const sel = document.getElementById('activityRoleFilter');
+      const filterVal = sel ? sel.value : 'all';
+      const data = filterActivityRowsByRole(raw, filterVal);
+      if (raw.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No activity yet</td></tr>';
+        if (countEl) countEl.textContent = '';
+        return;
+      }
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No entries for this filter</td></tr>';
+        if (countEl) countEl.textContent = '0 of ' + raw.length;
+        return;
+      }
+      if (countEl) countEl.textContent = data.length === raw.length ? '(' + raw.length + ')' : '(' + data.length + ' of ' + raw.length + ')';
+      tbody.innerHTML = data.map(row => {
+        const typeLabel = row.user_type === 'admin' ? 'Admin' : row.user_type === 'staff' ? 'Staff' : 'Student';
+        const typeBadge = row.user_type === 'admin' ? 'bg-primary' : row.user_type === 'staff' ? 'bg-info' : 'bg-success';
+        const name = (row.user_display_name && String(row.user_display_name).trim()) ? row.user_display_name : '—';
+        const email = row.user_identifier || '—';
+        return `<tr><td class="text-nowrap">${formatActivityDateTime(row.created_at)}</td><td><div>${name}</div><small class="text-muted">${email}</small></td><td><span class="badge ${typeBadge}">${typeLabel}</span></td><td>${actionToEnglish(row.action)}</td></tr>`;
+      }).join('');
+    }
     async function fetchActivityLog() {
       const tbody = document.getElementById('activityLogBody');
       if (!tbody) return;
+      window._activityLogCache = [];
       tbody.innerHTML = '<tr><td colspan="4" class="text-center">Loading...</td></tr>';
+      const countEl = document.getElementById('activityLogCount');
+      if (countEl) countEl.textContent = '';
+      const sel = document.getElementById('activityRoleFilter');
+      if (sel && !sel.dataset.activityFilterBound) {
+        sel.dataset.activityFilterBound = '1';
+        sel.addEventListener('change', renderActivityLogRows);
+      }
       try {
         const r = await safeFetchJson('/api/admin/activity-log');
         if (!r.ok || !r.json?.ok) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">' + (r.json?.message || 'Failed to load') + '</td></tr>'; return; }
         const data = r.json.data || [];
-        if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No activity yet</td></tr>'; return; }
-        tbody.innerHTML = data.map(row => {
-          const typeLabel = row.user_type === 'admin' ? 'Admin' : row.user_type === 'staff' ? 'Staff' : 'Student';
-          const typeBadge = row.user_type === 'admin' ? 'bg-primary' : row.user_type === 'staff' ? 'bg-info' : 'bg-success';
-          const name = (row.user_display_name && String(row.user_display_name).trim()) ? row.user_display_name : '—';
-          const email = row.user_identifier || '—';
-          return `<tr><td class="text-nowrap">${formatActivityDateTime(row.created_at)}</td><td><div>${name}</div><small class="text-muted">${email}</small></td><td><span class="badge ${typeBadge}">${typeLabel}</span></td><td>${actionToEnglish(row.action)}</td></tr>`;
-        }).join('');
+        window._activityLogCache = data;
+        renderActivityLogRows();
       } catch (e) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error loading</td></tr>'; }
+    }
+
+    // Reject via button: choose reason + remarks (required)
+    async function openRejectDialog(buttonEl) {
+      const row = buttonEl.closest('tr');
+      const signatoryId = row && (row.dataset.signatoryId || '');
+      if (!signatoryId) return;
+
+      const { value } = await Swal.fire({
+        title: 'Reject Clearance',
+        icon: 'warning',
+        html: `
+          <div class="text-start">
+            <label class="swal2-input-label d-block mb-1">Reason</label>
+            <select id="swal-reject-reason" class="swal2-select" style="width:100%">
+              <option value="" selected disabled>Select a reason</option>
+              <option value="Incomplete Requirements">Incomplete Requirements</option>
+              <option value="Academic Issues">Academic Issues</option>
+              <option value="Disciplinary Issues">Disciplinary Issues</option>
+              <option value="Other">Other</option>
+            </select>
+            <label class="swal2-input-label d-block mt-3 mb-1">Remarks (required)</label>
+            <textarea id="swal-reject-remarks" class="swal2-textarea" placeholder="e.g. missing form, incomplete requirements, etc." style="min-height:80px; resize:vertical; width:100%;"></textarea>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Submit Rejection',
+        cancelButtonText: 'Cancel',
+        preConfirm: () => {
+          const reason = (document.getElementById('swal-reject-reason') || {}).value || '';
+          const remarks = ((document.getElementById('swal-reject-remarks') || {}).value || '').trim();
+          if (!reason) {
+            Swal.showValidationMessage('Please select a reason.');
+            return false;
+          }
+          if (!remarks) {
+            Swal.showValidationMessage('Please enter remarks (e.g. what is missing).');
+            return false;
+          }
+          return { reason, remarks };
+        }
+      });
+
+      if (!value) return;
+
+      try {
+        const res = await fetch('/api/signatories/reject', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ signatory_id: Number(signatoryId), reason: value.reason, remarks: value.remarks })
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.message || 'Reject failed');
+      } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'Failed to reject' });
+        return;
+      }
+
+      row.remove();
+      updateCounters();
+      await loadRejectedClearances();
+      showTable('rejected');
+      Swal.fire({
+        icon: 'warning',
+        title: 'Clearance Rejected',
+        text: `Reason: ${value.reason}. Remarks: ${value.remarks}`,
+        confirmButtonText: 'OK'
+      });
     }
 
     function logout() {

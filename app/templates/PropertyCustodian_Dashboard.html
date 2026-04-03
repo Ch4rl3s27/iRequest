@@ -25,6 +25,7 @@
   
   <!-- Custom Dean HM Dashboard CSS -->
   <link rel="stylesheet" href="/static/assets/css/accounting-dashboard.css?v=2">
+  <link rel="stylesheet" href="/static/assets/css/registrar-professional-clearance-modal.css?v=1">
 
 </head>
 <body>
@@ -78,7 +79,7 @@
           <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle navigation menu" aria-expanded="false">
             <i class="fa-solid fa-bars"></i>
           </button>
-          <h1 class="topbar-title">Property Custodian Dashboard</h1>
+          <h1 class="topbar-title" id="topbarPageTitle">Property Custodian Dashboard</h1>
           <div class="user-info" role="complementary" aria-label="User information">
             <i class="fa-solid fa-circle-user" aria-hidden="true"></i> 
             <span id="deanName">Property Custodian</span>
@@ -173,6 +174,7 @@
                   <th scope="col">Course</th>
                   <th scope="col">Year Level</th>
                   <th scope="col">Status</th>
+                  <th scope="col">Reject</th>
                 </tr>
               </thead>
               <tbody id="approvedList" role="rowgroup"></tbody>
@@ -243,6 +245,78 @@
       </div>
     </div>
   </div>
+
+<!-- Professional Clearance Details Modal (view before sign) -->
+<div class="modal fade" id="clViewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content professional-modal">
+      <div class="modal-header professional-header">
+        <div class="d-flex align-items-center">
+          <div class="header-icon-container">
+            <div class="header-icon-bg"><i class="fa-solid fa-file-shield"></i></div>
+            <div class="header-content">
+              <h4 class="modal-title">Clearance Details</h4>
+              <p class="modal-subtitle">Student Clearance Information & Status</p>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="btn-close professional-close" data-bs-dismiss="modal" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body professional-body">
+        <div class="info-card professional-card">
+          <div class="card-header-professional">
+            <div class="header-accent-line"></div>
+            <div class="d-flex align-items-center">
+              <div class="card-icon-container"><i class="fa-solid fa-user-graduate"></i></div>
+              <h6 class="card-title-professional">Student Information</h6>
+            </div>
+          </div>
+          <div class="card-body-professional"><div id="clViewStudentInfo" class="student-info-grid"></div></div>
+        </div>
+        <div class="info-card professional-card">
+          <div class="card-header-professional">
+            <div class="header-accent-line"></div>
+            <div class="d-flex align-items-center">
+              <div class="card-icon-container"><i class="fa-solid fa-file-lines"></i></div>
+              <h6 class="card-title-professional">Document Information</h6>
+            </div>
+          </div>
+          <div class="card-body-professional"><div id="clViewInfo" class="info-grid-professional"></div></div>
+        </div>
+        <div class="info-card professional-card">
+          <div class="card-header-professional">
+            <div class="header-accent-line"></div>
+            <div class="d-flex align-items-center">
+              <div class="card-icon-container"><i class="fa-solid fa-clipboard-check"></i></div>
+              <h6 class="card-title-professional">Office Clearance Status</h6>
+            </div>
+          </div>
+          <div class="card-body-professional">
+            <div class="table-container-professional">
+              <table class="professional-table">
+                <thead>
+                  <tr>
+                    <th><div class="th-content"><i class="fa-solid fa-building"></i><span>Office</span></div></th>
+                    <th><div class="th-content"><i class="fa-solid fa-check-circle"></i><span>Status</span></div></th>
+                    <th><div class="th-content"><i class="fa-solid fa-signature"></i><span>Approved By</span></div></th>
+                    <th><div class="th-content"><i class="fa-solid fa-clock"></i><span>Updated</span></div></th>
+                    <th><div class="th-content"><i class="fa-solid fa-comment"></i><span>Reason</span></div></th>
+                    <th><div class="th-content"><i class="fa-solid fa-pen-to-square"></i><span>Remarks</span></div></th>
+                  </tr>
+                </thead>
+                <tbody id="clViewSignatories"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer professional-footer">
+        <button type="button" class="btn-professional btn-secondary-professional" data-bs-dismiss="modal"><i class="fa-solid fa-times"></i><span>Close</span></button>
+        <button type="button" class="btn-professional btn-primary-professional" onclick="printClearanceDetails(document.getElementById('clViewInfo') && document.getElementById('clViewInfo').innerHTML)"><i class="fa-solid fa-print"></i><span>Print</span></button>
+      </div>
+    </div>
+  </div>
+</div>
 
   <!-- Bootstrap JS bundle -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -397,6 +471,86 @@
       );
     }
 
+    async function openViewClearance(requestId){
+      if(!requestId) return;
+      if (window.showFullScreenLoading) window.showFullScreenLoading('Loading Clearance Details...');
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const res = await fetch(`/api/clearance/request/${Number(requestId)}`, { signal: controller.signal, headers: { 'Content-Type': 'application/json' } });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error(res.status === 404 ? 'Clearance request not found' : `Request failed: ${res.status}`);
+        const data = await res.json();
+        if(!data.ok) throw new Error(data.message || 'Failed to load clearance details');
+        const req = data.request || {};
+        const sigs = data.signatories || [];
+        const studentInfoEl = document.getElementById('clViewStudentInfo');
+        const infoEl = document.getElementById('clViewInfo');
+        const tbody = document.getElementById('clViewSignatories');
+        if(studentInfoEl){
+          studentInfoEl.innerHTML = `<div class="info-item-professional"><div class="info-label-professional"><i class="fa-solid fa-user"></i>Student Name</div><div class="info-value-professional">${req.student_name || '—'}</div></div><div class="info-item-professional"><div class="info-label-professional"><i class="fa-solid fa-graduation-cap"></i>Course</div><div class="info-value-professional">${req.course || '—'}</div></div><div class="info-item-professional"><div class="info-label-professional"><i class="fa-solid fa-layer-group"></i>Year Level</div><div class="info-value-professional">${req.year_level || '—'}</div></div>`;
+        }
+        if(infoEl){
+          const documents = (req.documents||[]).join(', ') || (req.document_type||'—');
+          const purposes = (req.purpose||[]).join(', ') || '—';
+          const overallStatus = req.clearance_status || 'Pending';
+          const statusClass = (overallStatus.toLowerCase() === 'completed' || overallStatus.toLowerCase() === 'approved') ? 'status-approved-professional' : 'status-pending-professional';
+          infoEl.innerHTML = `<div class="info-item-professional"><div class="info-label-professional"><i class="fa-solid fa-file-lines"></i>Document Type</div><div class="info-value-professional">${documents}</div></div><div class="info-item-professional"><div class="info-label-professional"><i class="fa-solid fa-bullseye"></i>Purpose</div><div class="info-value-professional">${purposes}</div></div><div class="info-item-professional"><div class="info-label-professional"><i class="fa-solid fa-chart-line"></i>Overall Status</div><div class="info-value-professional"><span class="status-badge-professional ${statusClass}"><i class="fa-solid fa-check-circle"></i>${overallStatus}</span></div></div>`;
+        }
+        if(tbody){
+          tbody.innerHTML = '';
+          (sigs || []).forEach(s => {
+            const statusLower = (s.status||'').toLowerCase();
+            const statusIcon = statusLower === 'approved' ? 'fa-check-circle' : (statusLower === 'pending' ? 'fa-clock' : 'fa-times-circle');
+            const statusClass = statusLower === 'approved' ? 'status-approved-professional' : (statusLower === 'rejected' ? 'status-rejected-professional' : 'status-pending-professional');
+            const officeIconClass = getOfficeIconClass(s.office||'');
+            const officeIcon = getOfficeIcon(s.office||'');
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td><div class="office-cell-professional"><div class="office-icon-professional office-icon-${officeIconClass}"><i class="${officeIcon}"></i></div><span class="fw-semibold">${s.office}</span></div></td><td><span class="status-badge-professional ${statusClass}"><i class="fa-solid ${statusIcon}"></i>${s.status}</span></td><td class="text-muted">${s.signed_by || '-'}</td><td class="text-muted"><small>${s.updated_at || s.signed_at || '-'}</small></td><td class="reason-remarks-cell"><div class="reason-remarks-inner">${s.rejection_reason || '-'}</div></td><td class="reason-remarks-cell"><div class="reason-remarks-inner">${s.remarks || '-'}</div></td>`;
+            tbody.appendChild(tr);
+          });
+        }
+        const mEl = document.getElementById('clViewModal');
+        if (mEl) { const bs = new bootstrap.Modal(mEl); bs.show(); }
+      } catch(err){
+        console.error('view clearance error', err);
+        if (window.Swal) Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'Unable to load clearance details.', confirmButtonText: 'OK' });
+      } finally {
+        if (window.hideFullScreenLoading) window.hideFullScreenLoading();
+      }
+    }
+    function getOfficeIconClass(office) {
+      const o = String(office||'').toLowerCase();
+      if (o.includes('computer') || o.includes('lab')) return 'computer-lab';
+      if (o.includes('guidance')) return 'guidance';
+      if (o.includes('student') && o.includes('affairs')) return 'student-affairs';
+      if (o.includes('library')) return 'library';
+      if (o.includes('dean')) return 'dean';
+      if (o.includes('accounting')) return 'accounting';
+      if (o.includes('registrar')) return 'registrar';
+      return 'computer-lab';
+    }
+    function getOfficeIcon(office) {
+      const o = String(office||'').toLowerCase();
+      if (o.includes('computer') || o.includes('lab')) return 'fa-solid fa-desktop';
+      if (o.includes('guidance')) return 'fa-solid fa-heart';
+      if (o.includes('student') && o.includes('affairs')) return 'fa-solid fa-users';
+      if (o.includes('library')) return 'fa-solid fa-book';
+      if (o.includes('dean')) return 'fa-solid fa-user-tie';
+      if (o.includes('accounting')) return 'fa-solid fa-calculator';
+      if (o.includes('registrar')) return 'fa-solid fa-file-alt';
+      return 'fa-solid fa-building';
+    }
+    function printClearanceDetails(html) {
+      const modalEl = document.getElementById('clViewModal');
+      const content = modalEl ? modalEl.querySelector('.professional-body') : null;
+      if (!content && !html) return;
+      const win = window.open('', '_blank');
+      if (!win) return;
+      win.document.open();
+      win.document.write('<!doctype html><html><head><meta charset="utf-8"/><title>Clearance Details</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"><link rel="stylesheet" href="/static/assets/css/registrar-professional-clearance-modal.css?v=1"><style>body{padding:16px;background:#fff}.professional-header,.professional-footer{display:none}.table-container-professional{max-height:none}</style></head><body><div class="professional-modal">' + (html || content.innerHTML) + '</div><script>setTimeout(function(){window.print();},150);<\/script></body></html>');
+      win.document.close();
+    }
 
     /* ============================================================
        Open modal (also disable reject select for that row while signing)
@@ -472,6 +626,10 @@
           showTable('approved');
 
           // Show success message
+          // Close the details modal first so it doesn't stay behind the alert
+          const modalEl = document.getElementById('signModal');
+          const bsModal = bootstrap.Modal.getInstance(modalEl);
+          if (bsModal) bsModal.hide();
           Swal.fire({
             icon: 'success',
             title: 'Clearance Approved!',
@@ -603,6 +761,142 @@
       }
     }
 
+    // Reject via button: choose reason + remarks (required)
+    async function openRejectDialog(buttonEl) {
+      const row = buttonEl.closest('tr');
+      const signatoryId = row && (row.dataset.signatoryId || '');
+      if (!signatoryId) return;
+
+      const { value } = await Swal.fire({
+        title: 'Reject Clearance',
+        icon: 'warning',
+        html: `
+          <div class="text-start">
+            <label class="swal2-input-label d-block mb-1">Reason</label>
+            <select id="swal-reject-reason" class="swal2-select" style="width:100%">
+              <option value="" selected disabled>Select a reason</option>
+              <option value="Incomplete Requirements">Incomplete Requirements</option>
+              <option value="Academic Issues">Academic Issues</option>
+              <option value="Disciplinary Issues">Disciplinary Issues</option>
+              <option value="Other">Other</option>
+            </select>
+            <label class="swal2-input-label d-block mt-3 mb-1">Remarks (required)</label>
+            <textarea id="swal-reject-remarks" class="swal2-textarea" placeholder="e.g. missing form, incomplete requirements, etc." style="min-height:80px; resize:vertical; width:100%;"></textarea>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Submit Rejection',
+        cancelButtonText: 'Cancel',
+        preConfirm: () => {
+          const reason = (document.getElementById('swal-reject-reason') || {}).value || '';
+          const remarks = ((document.getElementById('swal-reject-remarks') || {}).value || '').trim();
+          if (!reason) {
+            Swal.showValidationMessage('Please select a reason.');
+            return false;
+          }
+          if (!remarks) {
+            Swal.showValidationMessage('Please enter remarks (e.g. what is missing).');
+            return false;
+          }
+          return { reason, remarks };
+        }
+      });
+
+      if (!value) return;
+
+      try {
+        const res = await fetch('/api/signatories/reject', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ signatory_id: Number(signatoryId), reason: value.reason, remarks: value.remarks })
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.message || 'Reject failed');
+      } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'Failed to reject' });
+        return;
+      }
+
+      row.remove();
+      updateCounters();
+      await loadRejectedClearances();
+      showTable('rejected');
+      Swal.fire({
+        icon: 'warning',
+        title: 'Clearance Rejected',
+        text: `Reason: ${value.reason}. Remarks: ${value.remarks}`,
+        confirmButtonText: 'OK'
+      });
+    }
+
+    // Reject via button: choose reason + remarks (required)
+    async function openRejectDialog(buttonEl) {
+      const row = buttonEl.closest('tr');
+      const signatoryId = row && (row.dataset.signatoryId || '');
+      if (!signatoryId) return;
+
+      const { value } = await Swal.fire({
+        title: 'Reject Clearance',
+        icon: 'warning',
+        html: `
+          <div class="text-start">
+            <label class="swal2-input-label d-block mb-1">Reason</label>
+            <select id="swal-reject-reason" class="swal2-select" style="width:100%">
+              <option value="" selected disabled>Select a reason</option>
+              <option value="Incomplete Requirements">Incomplete Requirements</option>
+              <option value="Academic Issues">Academic Issues</option>
+              <option value="Disciplinary Issues">Disciplinary Issues</option>
+              <option value="Other">Other</option>
+            </select>
+            <label class="swal2-input-label d-block mt-3 mb-1">Remarks (required)</label>
+            <textarea id="swal-reject-remarks" class="swal2-textarea" placeholder="e.g. missing form, incomplete requirements, etc." style="min-height:80px; resize:vertical; width:100%;"></textarea>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Submit Rejection',
+        cancelButtonText: 'Cancel',
+        preConfirm: () => {
+          const reason = (document.getElementById('swal-reject-reason') || {}).value || '';
+          const remarks = ((document.getElementById('swal-reject-remarks') || {}).value || '').trim();
+          if (!reason) {
+            Swal.showValidationMessage('Please select a reason.');
+            return false;
+          }
+          if (!remarks) {
+            Swal.showValidationMessage('Please enter remarks (e.g. what is missing).');
+            return false;
+          }
+          return { reason, remarks };
+        }
+      });
+
+      if (!value) return;
+
+      try {
+        const res = await fetch('/api/signatories/reject', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ signatory_id: Number(signatoryId), reason: value.reason, remarks: value.remarks })
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.message || 'Reject failed');
+      } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'Failed to reject' });
+        return;
+      }
+
+      row.remove();
+      updateCounters();
+      await loadRejectedClearances();
+      showTable('rejected');
+      Swal.fire({
+        icon: 'warning',
+        title: 'Clearance Rejected',
+        text: `Reason: ${value.reason}. Remarks: ${value.remarks}`,
+        confirmButtonText: 'OK'
+      });
+    }
+
     function logout() {
       Swal.fire({
         title: 'Logout',
@@ -717,6 +1011,7 @@
             const tr = document.createElement('tr');
             tr.dataset.studentId = student.student_id || student.id || '';
             tr.dataset.signatoryId = student.signatory_id || '';
+            tr.dataset.requestId = student.request_id || '';
             tr.setAttribute('role', 'row');
             tr.innerHTML = `
               <td data-label="Student Name">${student.first_name} ${student.last_name}</td>
@@ -726,18 +1021,14 @@
               <td data-label="Document Type">${student.document || student.document_name || student.document_type || '—'}</td>
               <td data-label="Actions">
                 <div class="action-buttons">
-                  <button class="btn-sign" onclick="openSignModal(this)" 
+                  <button type="button" class="btn-view" onclick="openViewClearance('${student.request_id || ''}')" aria-label="View clearance for ${student.first_name} ${student.last_name}"><i class="fa-solid fa-eye"></i> View</button>
+                  <button class="btn-sign" onclick="openSignModal(this)"
                           aria-label="Approve clearance for ${student.first_name} ${student.last_name}">
                     <i class="fa-solid fa-check" aria-hidden="true"></i> Sign
                   </button>
-                  <select class="reason-dropdown" onchange="rejectForm(this)" 
-                          aria-label="Select rejection reason for ${student.first_name} ${student.last_name}">
-                  <option value="">Reject Reason</option>
-                    <option value="Incomplete Requirements">Incomplete Requirements</option>
-                    <option value="Academic Issues">Academic Issues</option>
-                    <option value="Disciplinary Issues">Disciplinary Issues</option>
-                    <option value="Other">Other</option>
-                </select>
+                  <button type="button" class="btn-reject" onclick="openRejectDialog(this)" title="Reject this clearance">
+                    <i class="fa-solid fa-xmark"></i> Reject
+                  </button>
                 </div>
               </td>
             `;
@@ -809,12 +1100,14 @@
           data.data.forEach(student => {
             const tr = document.createElement('tr');
             tr.dataset.studentId = student.student_id || student.id || '';
+            tr.dataset.signatoryId = student.signatory_id || '';
             tr.setAttribute('role', 'row');
             tr.innerHTML = `
               <td data-label="Student Name">${student.first_name} ${student.last_name}</td>
               <td data-label="Course">${getCourseDisplay(student)}</td>
               <td data-label="Year Level">${getYearLevelDisplay(student)}</td>
               <td data-label="Status"><span class="status-badge status-signed">Approved</span></td>
+              <td data-label="Reject"><button type="button" class="btn btn-danger btn-sm" onclick="openRejectDialog(this)" title="Reject this clearance"><i class="fa-solid fa-xmark"></i> Reject</button></td>
             `;
             tbody.appendChild(tr);
           });
@@ -822,7 +1115,7 @@
           // Show empty state
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td colspan="4" class="text-center" style="padding: 2rem; color: #6b7280;">
+            <td colspan="5" class="text-center" style="padding: 2rem; color: #6b7280;">
               <i class="fa-solid fa-check-circle" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
               <p>No approved clearances found</p>
             </td>
@@ -893,7 +1186,7 @@
               <td data-label="Status"><span class="status-badge status-rejected">Rejected</span></td>
               <td data-label="Rejection Reason">${student.rejection_reason || 'No reason provided'}</td>
               <td data-label="Remarks">${student.remarks || '—'}</td>
-              <td data-label="Approve"><button type="button" class="btn btn-success btn-sm" onclick="approveFromRejected(this)" title="Student has passed requirements"><i class="fa-solid fa-check"></i> Approve</button></td>
+              <td data-label="Approve"><button type="button" class="btn-approve" onclick="approveFromRejected(this)" title="Student has passed requirements"><i class="fa-solid fa-check"></i> Approve</button></td>
             `;
             tbody.appendChild(tr);
           });
@@ -943,7 +1236,20 @@
       if(elem) elem.classList.add('active');
     }
 
+    function updateTopbarForSection(type) {
+      const titles = {
+        dashboard: 'Property Custodian Dashboard',
+        profile: 'Profile',
+        password: 'Change Password'
+      };
+      const label = titles[type] || titles.dashboard;
+      const el = document.getElementById('topbarPageTitle');
+      if (el) el.textContent = label;
+      document.title = 'iRequest - ' + label;
+    }
+
     function loadContent(type) {
+      updateTopbarForSection(type);
       const container = document.getElementById('mainContent');
       
       // Show loading state for panel navigation

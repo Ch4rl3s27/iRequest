@@ -476,7 +476,8 @@
       var hasUpper = /[A-Z]/.test(pass);
       var hasLower = /[a-z]/.test(pass);
       var hasDigit = /\d/.test(pass);
-      var hasSpecial = /[@#$%&*!]/.test(pass);
+      // Any non-alphanumeric character counts as special
+      var hasSpecial = /[^A-Za-z0-9]/.test(pass);
       var score = [hasLen, hasUpper, hasLower, hasDigit, hasSpecial].filter(Boolean).length;
       if(score <= 2) return 'Weak';
       if(score === 3 || score === 4) return 'Medium';
@@ -492,7 +493,8 @@
       if(!/[A-Z]/.test(pass)) missing.push('uppercase');
       if(!/[a-z]/.test(pass)) missing.push('lowercase');
       if(!/\d/.test(pass)) missing.push('number');
-      if(!/[@#$%&*!]/.test(pass)) missing.push('special character');
+      // Any non-alphanumeric character counts as special
+      if(!/[^A-Za-z0-9]/.test(pass)) missing.push('special character');
       label.textContent = missing.length ? (strength + ' — missing: ' + missing.join(', ')) : strength;
       label.style.color = strength === 'Strong' ? '#00e676' : (strength === 'Medium' ? '#ffdd57' : '#ff6b6b');
     }
@@ -517,7 +519,8 @@
     // Password requirements and match check
     var pwd = document.getElementById('staff_password').value;
     var cpwd = document.getElementById('staff_confirm_password').value;
-    var ok = pwd.length >= 8 && /[A-Z]/.test(pwd) && /[a-z]/.test(pwd) && /\d/.test(pwd) && /[@#$%&*!]/.test(pwd);
+    // Require at least one non-alphanumeric character as "special"
+    var ok = pwd.length >= 8 && /[A-Z]/.test(pwd) && /[a-z]/.test(pwd) && /\d/.test(pwd) && /[^A-Za-z0-9]/.test(pwd);
     if(!ok){
       Swal.fire({ icon:'error', title:'Weak password', text:'Please meet all password requirements.' });
       return;
