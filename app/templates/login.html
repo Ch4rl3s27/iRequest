@@ -283,29 +283,6 @@
     })();
 
     // Fetch users to populate the email suggestions
-    (async function(){
-      try{
-        const res = await fetch('/api/users');
-        const data = await res.json();
-        if(data && (data.ok === true || Array.isArray(data))){
-          const users = Array.isArray(data) ? data : (data.users || []);
-          const list = document.getElementById('usersList');
-          if(list){
-            list.innerHTML = '';
-            users.forEach(u => {
-              const email = u.email || u.username || '';
-              if(!email) return;
-              const opt = document.createElement('option');
-              opt.value = email;
-              opt.label = (u.full_name || u.name || email);
-              list.appendChild(opt);
-            });
-          }
-        }
-      }catch(err){
-        // silent fail; keep login usable
-      }
-    })();
-  </script>
+   
 </body>
 </html>
