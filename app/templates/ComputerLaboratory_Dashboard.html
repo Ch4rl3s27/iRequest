@@ -1826,20 +1826,26 @@ tr.dataset.studentId = student.student_id || student.id || '';
       } catch (e) { Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'Reject failed', confirmButtonText: 'OK' }); }
     }
     function formatActivityDateTime(dateStr) {
-      if (!dateStr) return '-';
-      try {
-        let s = String(dateStr).trim().replace(' ', 'T');
-        if (!/Z|[+-]\d{2}:?\d{2}$/.test(s)) s += 'Z';
-        const d = new Date(s);
-        if (isNaN(d.getTime())) return dateStr;
-        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        const datePart = `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
-        let h = d.getHours(), m = d.getMinutes();
-        const ampm = h >= 12 ? 'pm' : 'am';
-        h = h % 12 || 12;
-        return `${datePart}, ${h}:${String(m).padStart(2,'0')} ${ampm}`;
-      } catch (_) { return dateStr; }
-    }
+  if (!dateStr) return '-';
+
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    }).format(d).replace(',', '');
+
+  } catch (err) {
+    return dateStr;
+  }
+}
     function actionToEnglish(action) {
       if (!action) return '-';
       // Backward compatibility: map legacy Tagalog activity strings to English
