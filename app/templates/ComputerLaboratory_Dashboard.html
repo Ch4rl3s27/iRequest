@@ -1,0 +1,2715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>iRequest - Computer Laboratory Dashboard</title>
+  <link rel="icon" href="/static/assets/iRlogo.png" type="image/x-icon">
+
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Font Awesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- Professional SweetAlert Styling -->
+  <link rel="stylesheet" href="/static/assets/css/sweetalert-professional.css">
+  <!-- SweetAlert Utilities -->
+  <script src="/static/assets/js/sweetalert-utils.js"></script>
+  <script src="/static/assets/js/loading-utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Custom Computer Laboratory Dashboard CSS -->
+  <link rel="stylesheet" href="/static/assets/css/accounting-dashboard.css?v=2">
+  <link rel="stylesheet" href="/static/assets/css/registrar-professional-clearance-modal.css?v=1">
+
+</head>
+<body>
+  <!-- Skip Link for Accessibility -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- Sidebar Overlay for Mobile -->
+  <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
+
+<div class="container-fluid">
+  <div class="row">
+      <!-- Sidebar Navigation -->
+      <div class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
+        <div class="sidebar-header">
+          <button class="sidebar-hamburger" id="sidebarToggle" aria-label="Toggle sidebar">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          <span class="sidebar-title">Computer Lab Panel</span>
+        </div>
+        
+        <div class="sidebar-nav">
+          <a class="nav-link active" onclick="setActive(this); loadContent('dashboard')" 
+             aria-current="page" tabindex="0">
+            <i class="fa-solid fa-chart-simple" aria-hidden="true"></i> 
+            <span class="link-text">Dashboard</span>
+          </a>
+
+          <a class="nav-link" onclick="setActive(this); loadContent('staff')" tabindex="0">
+            <i class="fa-solid fa-users-cog" aria-hidden="true"></i> 
+            <span class="link-text">Staff Approval</span>
+          </a>
+
+          <a class="nav-link" onclick="setActive(this); loadContent('activity')" tabindex="0">
+            <i class="fa-solid fa-history" aria-hidden="true"></i> 
+            <span class="link-text">Audit trail</span>
+          </a>
+
+          <a class="nav-link" onclick="setActive(this); loadContent('analytics')" tabindex="0">
+            <i class="fa-solid fa-chart-line" aria-hidden="true"></i> 
+            <span class="link-text">Usage analytics</span>
+          </a>
+
+          <a class="nav-link" onclick="setActive(this); loadContent('profile')" tabindex="0">
+            <i class="fa-solid fa-id-badge" aria-hidden="true"></i> 
+            <span class="link-text">Profile</span>
+          </a>
+
+          <a class="nav-link" onclick="setActive(this); loadContent('password')" tabindex="0">
+            <i class="fa-solid fa-lock" aria-hidden="true"></i> 
+            <span class="link-text">Change Password</span>
+          </a>
+          </div>
+        
+        <div class="logout">
+          <a onclick="logout()" aria-label="Logout from system">
+            <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> 
+            <span class="link-text">Logout</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Main Content Area -->
+      <main class="main-content" id="main-content" role="main">
+      <!-- Topbar -->
+        <header class="topbar" role="banner">
+          <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle navigation menu" aria-expanded="false">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          <h1 class="topbar-title" id="topbarPageTitle">Computer Laboratory Dashboard</h1>
+          <div class="user-info" role="complementary" aria-label="User information">
+            <i class="fa-solid fa-circle-user" aria-hidden="true"></i> 
+            <span id="staffName">Computer Lab Staff</span>
+      </div>
+        </header>
+
+        <!-- Dynamic content mount -->
+        <div id="mainContent" role="region" aria-label="Dashboard content"></div>
+    </main>
+  </div>
+</div>
+
+  <!-- Dashboard Template (Pending / Approved / Rejected + search + counters) -->
+<template id="dashboardTemplate">
+  <div id="dashboardContent">
+      <!-- Statistics Cards -->
+      <section class="stats-grid" aria-label="Clearance statistics">
+        <article class="stat-card" data-type="pending" onclick="showTable('pending')" role="button" tabindex="0" aria-label="View pending clearances">
+          <div class="stat-card-header">
+            <div class="stat-card-icon">
+              <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>
+          </div>
+            <h3 class="stat-card-title">Pending Clearances</h3>
+        </div>
+          <p class="stat-card-value" id="pendingCount" aria-label="Number of pending clearances">0</p>
+        </article>
+
+        <article class="stat-card" data-type="approved" onclick="showTable('approved')" role="button" tabindex="0" aria-label="View approved clearances">
+          <div class="stat-card-header">
+            <div class="stat-card-icon">
+              <i class="fa-solid fa-check" aria-hidden="true"></i>
+      </div>
+            <h3 class="stat-card-title">Approved Clearances</h3>
+          </div>
+          <p class="stat-card-value" id="approvedCount" aria-label="Number of approved clearances">0</p>
+        </article>
+
+        <article class="stat-card" data-type="rejected" onclick="showTable('rejected')" role="button" tabindex="0" aria-label="View rejected clearances">
+          <div class="stat-card-header">
+            <div class="stat-card-icon">
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </div>
+            <h3 class="stat-card-title">Rejected Clearances</h3>
+      </div>
+          <p class="stat-card-value" id="rejectedCount" aria-label="Number of rejected clearances">0</p>
+        </article>
+      </section>
+
+      <!-- Search Container -->
+      <div id="searchContainer" class="search-container" role="search" aria-label="Search clearances">
+        <label for="searchInput" class="form-label">Search Students</label>
+        <input id="searchInput" class="search-input" placeholder="Search by student name, course, or year level..." 
+               aria-label="Search clearances" autocomplete="off">
+    </div>
+
+      <!-- Data Tables Container -->
+      <div id="tablesContainer" role="region" aria-label="Clearance data tables">
+        <!-- Pending Clearances Table -->
+        <section id="pendingTable" class="data-table-container" aria-labelledby="pendingTableTitle">
+          <div class="table-header">
+            <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i>
+            <h2 id="pendingTableTitle">Pending Clearances (Computer Laboratory)</h2>
+    </div>
+          <div class="table-responsive">
+            <table class="table table-mobile-cards" role="table" aria-label="Pending clearances">
+              <thead>
+                <tr role="row">
+                  <th scope="col">Student Name</th>
+                  <th scope="col">Course</th>
+                  <th scope="col">Year Level</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Document Type</th>
+                  <th scope="col">Actions</th>
+              </tr>
+            </thead>
+              <tbody id="pendingList" role="rowgroup"></tbody>
+          </table>
+        </div>
+        </section>
+
+        <!-- Approved Clearances Table -->
+        <section id="approvedTable" class="data-table-container d-none" aria-labelledby="approvedTableTitle">
+          <div class="table-header">
+            <i class="fa-solid fa-check" aria-hidden="true"></i>
+            <h2 id="approvedTableTitle">Approved Clearances (Computer Laboratory)</h2>
+      </div>
+          <div class="table-responsive">
+            <table class="table table-mobile-cards" role="table" aria-label="Approved clearances">
+              <thead>
+                <tr role="row">
+                  <th scope="col">Student Name</th>
+                  <th scope="col">Course</th>
+                  <th scope="col">Year Level</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Reject</th>
+              </tr>
+            </thead>
+              <tbody id="approvedList" role="rowgroup"></tbody>
+          </table>
+        </div>
+        </section>
+
+        <!-- Rejected Clearances Table -->
+        <section id="rejectedTable" class="data-table-container d-none" aria-labelledby="rejectedTableTitle">
+          <div class="table-header">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            <h2 id="rejectedTableTitle">Rejected Clearances (Computer Laboratory)</h2>
+      </div>
+          <div class="table-responsive">
+            <table class="table table-mobile-cards" role="table" aria-label="Rejected clearances">
+              <thead>
+                <tr role="row">
+                  <th scope="col">Student Name</th>
+                  <th scope="col">Course</th>
+                  <th scope="col">Year Level</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Rejection Reason</th>
+                  <th scope="col">Remarks</th>
+                  <th scope="col">Approve</th>
+                </tr>
+              </thead>
+              <tbody id="rejectedList" role="rowgroup"></tbody>
+          </table>
+        </div>
+        </section>
+      </div> <!-- /tablesContainer -->
+
+    </div> <!-- /dashboardContent -->
+</template>
+
+<!-- Approval Modal -->
+  <div class="modal fade" id="signModal" tabindex="-1" aria-labelledby="signModalTitle" aria-hidden="true" role="dialog">
+  <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+      <div class="modal-header">
+          <h5 class="modal-title" id="signModalTitle">
+            <i class="fa-solid fa-check-circle" aria-hidden="true"></i> 
+            Clearance Approval
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" 
+                  aria-label="Close approval modal" onclick="onModalCloseCleanup()"></button>
+      </div>
+        <div class="modal-body">
+          <div class="alert alert-info">
+            <i class="fa-solid fa-info-circle" aria-hidden="true"></i>
+          <strong>Approval Process Information:</strong><br>
+          By approving this clearance, you are confirming that the student has met all requirements for your department. This action will:
+            <ul class="mt-2 mb-0">
+            <li>Mark the clearance as approved in your department</li>
+            <li>Update the student's clearance status</li>
+            <li>Allow the clearance to proceed to the next stage</li>
+          </ul>
+        </div>
+          <p class="text-center"><strong>Are you sure you want to approve this student's clearance?</strong></p>
+          <div class="text-center">
+            <button class="btn btn-success btn-lg" onclick="approveClearance()" 
+                    aria-label="Confirm approval of student clearance">
+              <i class="fa-solid fa-check" aria-hidden="true"></i> 
+              Approve Clearance
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Professional Clearance Details Modal (same design as Registrar) -->
+<div class="modal fade" id="clViewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content professional-modal">
+      <div class="modal-header professional-header">
+        <div class="d-flex align-items-center">
+          <div class="header-icon-container">
+            <div class="header-icon-bg">
+              <i class="fa-solid fa-file-shield"></i>
+            </div>
+            <div class="header-content">
+              <h4 class="modal-title">Clearance Details</h4>
+              <p class="modal-subtitle">Student Clearance Information & Status</p>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="btn-close professional-close" data-bs-dismiss="modal" aria-label="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body professional-body">
+        <div class="info-card professional-card">
+          <div class="card-header-professional">
+            <div class="header-accent-line"></div>
+            <div class="d-flex align-items-center">
+              <div class="card-icon-container"><i class="fa-solid fa-user-graduate"></i></div>
+              <h6 class="card-title-professional">Student Information</h6>
+            </div>
+          </div>
+          <div class="card-body-professional">
+            <div id="clViewStudentInfo" class="student-info-grid"></div>
+          </div>
+        </div>
+
+        <div class="info-card professional-card">
+          <div class="card-header-professional">
+            <div class="header-accent-line"></div>
+            <div class="d-flex align-items-center">
+              <div class="card-icon-container"><i class="fa-solid fa-file-lines"></i></div>
+              <h6 class="card-title-professional">Document Information</h6>
+            </div>
+          </div>
+          <div class="card-body-professional">
+            <div id="clViewInfo" class="info-grid-professional"></div>
+          </div>
+        </div>
+
+        <div class="info-card professional-card">
+          <div class="card-header-professional">
+            <div class="header-accent-line"></div>
+            <div class="d-flex align-items-center">
+              <div class="card-icon-container"><i class="fa-solid fa-clipboard-check"></i></div>
+              <h6 class="card-title-professional">Office Clearance Status</h6>
+            </div>
+          </div>
+          <div class="card-body-professional">
+            <div class="table-container-professional">
+              <table class="professional-table">
+                <thead>
+                  <tr>
+                    <th><div class="th-content"><i class="fa-solid fa-building"></i><span>Office</span></div></th>
+                    <th><div class="th-content"><i class="fa-solid fa-check-circle"></i><span>Status</span></div></th>
+                    <th><div class="th-content"><i class="fa-solid fa-signature"></i><span>Approved By</span></div></th>
+                    <th><div class="th-content"><i class="fa-solid fa-clock"></i><span>Updated</span></div></th>
+                    <th><div class="th-content"><i class="fa-solid fa-comment"></i><span>Reason</span></div></th>
+                    <th><div class="th-content"><i class="fa-solid fa-pen-to-square"></i><span>Remarks</span></div></th>
+                  </tr>
+                </thead>
+                <tbody id="clViewSignatories"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer professional-footer">
+        <button type="button" class="btn-professional btn-secondary-professional" data-bs-dismiss="modal">
+          <i class="fa-solid fa-times"></i><span>Close</span>
+        </button>
+        <button type="button" class="btn-professional btn-primary-professional" onclick="printClearanceDetails()">
+          <i class="fa-solid fa-print"></i><span>Print</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- Bootstrap JS bundle -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+    /* ============================================================
+       Responsive Dashboard JavaScript
+       ============================================================ */
+    let currentRow = null;
+    let isMobile = window.innerWidth < 768;
+    let sidebarOpen = false;
+
+    // Sidebar Toggle Functionality (Matching Student Dashboard)
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const mainContent = document.querySelector('.main-content');
+      const overlay = document.getElementById('sidebarOverlay');
+      
+      if (isMobile) {
+        // Mobile behavior - slide in/out
+        sidebarOpen = !sidebarOpen;
+        sidebar.classList.toggle('open', sidebarOpen);
+        overlay.classList.toggle('show', sidebarOpen);
+      } else {
+        // Desktop behavior - expand/collapse
+        sidebar.classList.toggle('expanded');
+        mainContent.classList.toggle('sidebar-expanded');
+      }
+    }
+
+    // Mobile Detection and Responsive Setup
+    function updateMobileState() {
+      isMobile = window.innerWidth < 768;
+      const sidebar = document.getElementById('sidebar');
+      const mainContent = document.querySelector('.main-content');
+      const mobileToggle = document.getElementById('mobileMenuToggle');
+      
+      if (isMobile) {
+        // Mobile: hide sidebar by default, show mobile toggle
+        sidebar.classList.remove('expanded', 'open');
+        mainContent.classList.remove('sidebar-expanded');
+        mainContent.style.marginLeft = '0';
+        if (mobileToggle) mobileToggle.style.display = 'block';
+      } else {
+        // Desktop: show collapsed sidebar, hide mobile toggle
+        sidebar.classList.remove('open');
+        mainContent.style.marginLeft = '72px';
+        if (mobileToggle) mobileToggle.style.display = 'none';
+      }
+    }
+
+    // Close Sidebar on Mobile
+    function closeSidebar() {
+      if (isMobile && sidebarOpen) {
+        toggleSidebar();
+      }
+    }
+
+    // Touch Gesture Support
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    function handleTouchStart(e) {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }
+
+    function handleTouchEnd(e) {
+      if (!isMobile) return;
+      
+      const touchEndX = e.changedTouches[0].clientX;
+      const touchEndY = e.changedTouches[0].clientY;
+      const deltaX = touchEndX - touchStartX;
+      const deltaY = touchEndY - touchStartY;
+      
+      // Swipe right to open sidebar
+      if (deltaX > 50 && Math.abs(deltaY) < 100 && !sidebarOpen) {
+        toggleSidebar();
+      }
+      // Swipe left to close sidebar
+      else if (deltaX < -50 && Math.abs(deltaY) < 100 && sidebarOpen) {
+        toggleSidebar();
+      }
+    }
+
+    // Keyboard Navigation
+    function handleKeyboardNavigation(e) {
+      if (e.key === 'Escape' && sidebarOpen && isMobile) {
+        closeSidebar();
+      }
+    }
+
+    // Initialize Responsive Features
+    function initResponsiveFeatures() {
+      updateMobileState();
+      
+      // Event Listeners
+      window.addEventListener('resize', updateMobileState);
+      document.addEventListener('touchstart', handleTouchStart, { passive: true });
+      document.addEventListener('touchend', handleTouchEnd, { passive: true });
+      document.addEventListener('keydown', handleKeyboardNavigation);
+      
+      // Sidebar Toggle Button (Hamburger inside sidebar)
+      const sidebarToggle = document.getElementById('sidebarToggle');
+      if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', toggleSidebar);
+      }
+      
+      // Mobile Menu Toggle (Top bar hamburger for mobile)
+      const mobileToggle = document.getElementById('mobileMenuToggle');
+      if (mobileToggle) {
+        mobileToggle.addEventListener('click', toggleSidebar);
+      }
+      
+      // Overlay Click to Close
+      const overlay = document.getElementById('sidebarOverlay');
+      if (overlay) {
+        overlay.addEventListener('click', closeSidebar);
+      }
+      
+      // Sidebar Link Click to Close on Mobile
+      const sidebarLinks = document.querySelectorAll('.sidebar-nav a');
+      sidebarLinks.forEach(link => {
+        link.addEventListener('click', () => {
+          if (isMobile) {
+            setTimeout(closeSidebar, 100);
+          }
+        });
+      });
+    }
+
+    // Helpers to normalize API fields
+    function getCourseDisplay(student) {
+      return (
+        student.course ||
+        student.course_name ||
+        student.program ||
+        student.course_code ||
+        student.course_abbr ||
+        '—'
+      );
+    }
+
+    function getYearLevelDisplay(student) {
+      return (
+        student.year_level_name ||
+        student.year_level ||
+        student.year ||
+        student.level ||
+        '—'
+      );
+    }
+
+    // Registrar-style clearance viewer (same design/behavior)
+    async function openViewClearance(requestId){
+      if(!requestId) return;
+
+      // Show full-screen loading overlay
+      if (window.buttonLoadingManager) {
+        window.buttonLoadingManager.showFullScreenLoading('Loading Clearance Details...');
+      } else if (window.showFullScreenLoading) {
+        window.showFullScreenLoading('Loading Clearance Details...');
+      }
+
+      try {
+        // Add timeout and better error handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+        const res = await fetch(`/api/clearance/request/${Number(requestId)}`, {
+          signal: controller.signal,
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+          if (res.status === 404) throw new Error('Clearance request not found');
+          if (res.status === 500) throw new Error('Server error occurred. Please try again.');
+          throw new Error(`Request failed with status: ${res.status}`);
+        }
+
+        const data = await res.json();
+        if(!data.ok) throw new Error(data.message || 'Failed to load clearance details');
+
+        const req = data.request || {};
+        const sigs = data.signatories || [];
+        const studentInfoEl = document.getElementById('clViewStudentInfo');
+        const infoEl = document.getElementById('clViewInfo');
+        const tbody = document.getElementById('clViewSignatories');
+
+        // Populate Student Information
+        if(studentInfoEl) {
+          const studentName = req.student_name || '—';
+          const course = req.course || '—';
+          const yearLevel = req.year_level || '—';
+          studentInfoEl.innerHTML = `
+            <div class="info-item-professional">
+              <div class="info-label-professional">
+                <i class="fa-solid fa-user"></i>
+                Student Name
+              </div>
+              <div class="info-value-professional">${studentName}</div>
+            </div>
+            <div class="info-item-professional">
+              <div class="info-label-professional">
+                <i class="fa-solid fa-graduation-cap"></i>
+                Course
+              </div>
+              <div class="info-value-professional">${course}</div>
+            </div>
+            <div class="info-item-professional">
+              <div class="info-label-professional">
+                <i class="fa-solid fa-layer-group"></i>
+                Year Level
+              </div>
+              <div class="info-value-professional">${yearLevel}</div>
+            </div>
+          `;
+        }
+
+        // Populate Document Information
+        if(infoEl) {
+          const documents = (req.documents||[]).join(', ') || (req.document_type||'—');
+          const purposes = (req.purpose||[]).join(', ') || '—';
+
+          const overallStatus = req.clearance_status || 'Pending';
+          const statusClass = overallStatus.toLowerCase() === 'completed' ? 'status-approved-professional' :
+                            overallStatus.toLowerCase() === 'approved' ? 'status-approved-professional' : 'status-pending-professional';
+
+          infoEl.innerHTML = `
+            <div class="info-item-professional">
+              <div class="info-label-professional">
+                <i class="fa-solid fa-file-lines"></i>
+                Document Type
+              </div>
+              <div class="info-value-professional">${documents}</div>
+            </div>
+            <div class="info-item-professional">
+              <div class="info-label-professional">
+                <i class="fa-solid fa-bullseye"></i>
+                Purpose
+              </div>
+              <div class="info-value-professional">${purposes}</div>
+            </div>
+            <div class="info-item-professional">
+              <div class="info-label-professional">
+                <i class="fa-solid fa-chart-line"></i>
+                Overall Status
+              </div>
+              <div class="info-value-professional">
+                <span class="status-badge-professional ${statusClass}">
+                  <i class="fa-solid fa-check-circle"></i>${overallStatus}
+                </span>
+              </div>
+            </div>
+          `;
+        }
+
+        if(tbody){
+          tbody.innerHTML = '';
+          (sigs || []).forEach(s => {
+            const statusLower = (s.status||'').toLowerCase();
+            const statusIcon = statusLower === 'approved' ? 'fa-check-circle' : (statusLower === 'pending' ? 'fa-clock' : 'fa-times-circle');
+            const statusClass = statusLower === 'approved' ? 'status-approved-professional' : (statusLower === 'rejected' ? 'status-rejected-professional' : 'status-pending-professional');
+            const officeIconClass = getOfficeIconClass(s.office||'');
+            const officeIcon = getOfficeIcon(s.office||'');
+            const updated = s.updated_at || s.signed_at || '-';
+            const reason = s.rejection_reason || '-';
+            const remarks = s.remarks || '-';
+            const signedBy = s.signed_by || '-';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>
+                <div class="office-cell-professional">
+                  <div class="office-icon-professional office-icon-${officeIconClass}">
+                    <i class="${officeIcon}"></i>
+                  </div>
+                  <span class="fw-semibold">${s.office}</span>
+                </div>
+              </td>
+              <td>
+                <span class="status-badge-professional ${statusClass}">
+                  <i class="fa-solid ${statusIcon}"></i>${s.status}
+                </span>
+              </td>
+              <td class="text-muted">${signedBy}</td>
+              <td class="text-muted"><small>${updated}</small></td>
+              <td class="reason-remarks-cell"><div class="reason-remarks-inner">${reason}</div></td>
+              <td class="reason-remarks-cell"><div class="reason-remarks-inner">${remarks}</div></td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+
+        const mEl = document.getElementById('clViewModal');
+        const bs = new bootstrap.Modal(mEl);
+        bs.show();
+      } catch(err){
+        console.error('view clearance error', err);
+        let errorMessage = 'Unable to load clearance details';
+        let errorTitle = 'Error';
+        if (err.name === 'AbortError') {
+          errorTitle = 'Request Timeout';
+          errorMessage = 'The request took too long to complete. Please check your internet connection and try again.';
+        } else if ((err.message||'').includes('Failed to fetch')) {
+          errorTitle = 'Connection Error';
+          errorMessage = 'Unable to connect to the server. Please check your internet connection and try again.';
+        } else if ((err.message||'').includes('Server error')) {
+          errorTitle = 'Server Error';
+          errorMessage = 'A server error occurred. Please try again in a few moments.';
+        } else if ((err.message||'').includes('not found')) {
+          errorTitle = 'Not Found';
+          errorMessage = 'The requested clearance could not be found.';
+        } else {
+          errorMessage = err.message || 'An unexpected error occurred. Please try again.';
+        }
+
+        Swal.fire({
+          icon: 'error',
+          title: errorTitle,
+          text: errorMessage,
+          confirmButtonText: 'Try Again',
+          showCancelButton: true,
+          cancelButtonText: 'Cancel'
+        }).then((result) => { if (result.isConfirmed) openViewClearance(requestId); });
+      } finally {
+        if (window.buttonLoadingManager) window.buttonLoadingManager.hideFullScreenLoading();
+        else if (window.hideFullScreenLoading) window.hideFullScreenLoading();
+      }
+    }
+
+    // Helper functions for office icons (same as Registrar)
+    function getOfficeIconClass(office) {
+      const officeLower = String(office || '').toLowerCase();
+      if (officeLower.includes('computer') || officeLower.includes('lab')) return 'computer-lab';
+      if (officeLower.includes('guidance')) return 'guidance';
+      if (officeLower.includes('student') && officeLower.includes('affairs')) return 'student-affairs';
+      if (officeLower.includes('library')) return 'library';
+      if (officeLower.includes('dean')) return 'dean';
+      if (officeLower.includes('accounting')) return 'accounting';
+      if (officeLower.includes('registrar')) return 'registrar';
+      return 'computer-lab';
+    }
+
+    function getOfficeIcon(office) {
+      const officeLower = String(office || '').toLowerCase();
+      if (officeLower.includes('computer') || officeLower.includes('lab')) return 'fa-solid fa-desktop';
+      if (officeLower.includes('guidance')) return 'fa-solid fa-heart';
+      if (officeLower.includes('student') && officeLower.includes('affairs')) return 'fa-solid fa-users';
+      if (officeLower.includes('library')) return 'fa-solid fa-book';
+      if (officeLower.includes('dean')) return 'fa-solid fa-user-tie';
+      if (officeLower.includes('accounting')) return 'fa-solid fa-calculator';
+      if (officeLower.includes('registrar')) return 'fa-solid fa-file-alt';
+      return 'fa-solid fa-building';
+    }
+
+    function printClearanceDetails(html) {
+      const modalEl = document.getElementById('clViewModal');
+      const content = modalEl ? modalEl.querySelector('.professional-body') : null;
+      if (!content) return;
+
+      const win = window.open('', '_blank');
+      if (!win) return;
+
+      win.document.open();
+      win.document.write(`
+        <!doctype html>
+        <html>
+          <head>
+            <meta charset="utf-8"/>
+            <meta name="viewport" content="width=device-width,initial-scale=1"/>
+            <title>Clearance Details</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+            <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+            <link rel="stylesheet" href="/static/assets/css/accounting-dashboard.css?v=2">
+            <link rel="stylesheet" href="/static/assets/css/clearance-details-modal.css?v=1">
+            <style>
+              body { padding: 16px; background: #fff; }
+              .professional-modal { box-shadow: none; }
+              .professional-header, .professional-footer { display: none; }
+              .table-container-professional { max-height: none; }
+            </style>
+          </head>
+          <body>
+            <div class="professional-modal">
+              ${html || content.innerHTML}
+            </div>
+            <script>
+              window.onload = () => { setTimeout(() => window.print(), 150); };
+            <\/script>
+          </body>
+        </html>
+      `);
+      win.document.close();
+    }
+
+    /* ============================================================
+       Open modal (also disable reject select for that row while signing)
+       ============================================================ */
+    function openSignModal(btn) {
+  currentRow = btn.closest('tr');
+
+      // disable its reject select (if present) to avoid race
+      const sel = currentRow.querySelector('.reason-dropdown');
+      if(sel) {
+        sel.dataset.disabledBeforeSign = "1";
+        sel.disabled = true;
+      }
+
+      // show bootstrap modal
+      const modalEl = document.getElementById('signModal');
+      const bsModal = new bootstrap.Modal(modalEl);
+      bsModal.show();
+}
+
+    /* ============================================================
+       Simple approval: move row to approved (like Registrar)
+       ============================================================ */
+    async function approveClearance() {
+  if(!currentRow) return;
+
+  const signatoryId = currentRow.dataset.signatoryId || '';
+
+  // Show loading
+  Swal.fire({
+    title: 'Approving Clearance...',
+    text: 'Please wait while we process your approval',
+    allowOutsideClick: false,
+    showConfirmButton: false,
+    didOpen: () => {
+      Swal.showLoading();
+    }
+  });
+
+  try {
+    // Call the approval API
+    const res = await fetch('/api/signatories/approve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signatory_id: Number(signatoryId) })
+    });
+    
+    const result = await res.json();
+    
+    if (result.ok) {
+      // Build approved row
+      const approvedList = document.getElementById('approvedList');
+      const newRow = document.createElement('tr');
+      newRow.dataset.studentId = currentRow.dataset.studentId || '';
+      newRow.setAttribute('role', 'row');
+      newRow.innerHTML = `
+        <td>${currentRow.cells[0].textContent}</td>
+        <td>${currentRow.cells[1].textContent}</td>
+            <td>${currentRow.cells[2].textContent}</td>
+        <td class="status-signed">Approved</td>
+      `;
+      approvedList.appendChild(newRow);
+
+      // Remove original pending row
+      currentRow.remove();
+      currentRow = null;
+
+          // Update counts and refresh
+      updateCounters();
+          try { loadApprovedClearances(); } catch (e) {}
+
+          // Switch view to approved
+          showTable('approved');
+
+      // Show success message
+          // Close the details modal first so it doesn't stay behind the alert
+          const modalEl = document.getElementById('signModal');
+          const bsModal = bootstrap.Modal.getInstance(modalEl);
+          if (bsModal) bsModal.hide();
+      Swal.fire({
+        icon: 'success',
+        title: 'Clearance Approved!',
+        text: 'Student clearance has been approved.',
+        confirmButtonText: 'OK'
+      });
+    } else {
+      throw new Error(result.message || 'Approval failed');
+    }
+  } catch (err) {
+    console.error('Approval failed:', err);
+    Swal.fire({
+      icon: 'error',
+      title: 'Approval Failed',
+      text: 'Failed to approve clearance. Please try again.',
+      confirmButtonText: 'OK'
+    });
+  }
+}
+
+    /** Approve from Rejected list: student has passed requirements */
+    async function approveFromRejected(btn) {
+      const row = btn.closest('tr');
+      const signatoryId = row.dataset.signatoryId || '';
+      if (!signatoryId) {
+        if (window.Swal) Swal.fire({ icon: 'error', title: 'Error', text: 'Cannot approve: missing signatory id.' });
+        return;
+      }
+      const { value: confirmed } = await Swal.fire({
+        title: 'Approve Clearance?',
+        html: 'Student has passed requirements. Approve this clearance?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Approve',
+        cancelButtonText: 'Cancel'
+      });
+      if (!confirmed) return;
+      Swal.fire({ title: 'Approving...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+      try {
+        const res = await fetch('/api/signatories/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ signatory_id: Number(signatoryId) })
+        });
+        const result = await res.json();
+        if (result.ok) {
+          row.remove();
+          updateCounters();
+          try { loadApprovedClearances(); } catch (e) {}
+          Swal.fire({ icon: 'success', title: 'Approved', text: 'Clearance approved.', confirmButtonText: 'OK' });
+        } else {
+          throw new Error(result.message || 'Approval failed');
+        }
+      } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'Failed to approve.' });
+      }
+    }
+
+    /* Cleanup if modal closed without saving: re-enable select if was disabled */
+    function onModalCloseCleanup() {
+      if(currentRow) {
+        const sel = currentRow.querySelector('.reason-dropdown');
+        if(sel && sel.dataset.disabledBeforeSign) {
+          sel.disabled = false;
+          delete sel.dataset.disabledBeforeSign;
+        }
+        currentRow = null;
+      }
+    }
+
+    /* Reject via dropdown: reason selected then prompt for required remarks */
+    async function rejectForm(select) {
+      const reason = select.value;
+      if (!reason) return;
+      const row = select.closest('tr');
+      const signatoryId = row.dataset.signatoryId || '';
+      if (!signatoryId) return;
+
+      const { value: remarks } = await Swal.fire({
+        title: 'Remarks Required',
+        html: `
+          <p class="text-start mb-2"><strong>Reason:</strong> ${reason}</p>
+          <label class="swal2-input-label text-start d-block mb-1">Remarks (required)</label>
+          <textarea id="swal-remarks-reject" class="swal2-textarea" placeholder="e.g. manuscript, missing form, etc." style="min-height:80px; resize:vertical; width:100%;"></textarea>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Submit Rejection',
+        cancelButtonText: 'Cancel',
+        preConfirm: () => {
+          const r = (document.getElementById('swal-remarks-reject') || {}).value.trim();
+          if (!r) {
+            Swal.showValidationMessage('Please enter remarks (e.g. what is missing)');
+            return false;
+          }
+          return r;
+        }
+      });
+
+      if (remarks === undefined) {
+        select.value = '';
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/signatories/reject', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ signatory_id: Number(signatoryId), reason, remarks })
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.message || 'Reject failed');
+      } catch (e) {
+        if (window.Swal) Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'Failed to reject' });
+        select.value = '';
+        return;
+      }
+
+      row.remove();
+      updateCounters();
+      await loadRejectedClearances();
+      showTable('rejected');
+      if (window.Swal) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Clearance Rejected',
+          text: `Reason: ${reason}. Remarks: ${remarks}`,
+          confirmButtonText: 'OK'
+        });
+      }
+    }
+
+    // Reject via button: choose reason + remarks (required)
+    async function openRejectDialog(buttonEl) {
+      const row = buttonEl.closest('tr');
+      const signatoryId = row && (row.dataset.signatoryId || '');
+      if (!signatoryId) return;
+
+      const { value } = await Swal.fire({
+        title: 'Reject Clearance',
+        icon: 'warning',
+        html: `
+          <div class="text-start">
+            <label class="swal2-input-label d-block mb-1">Reason</label>
+            <select id="swal-reject-reason" class="swal2-select" style="width:100%">
+              <option value="" selected disabled>Select a reason</option>
+              <option value="Incomplete Requirements">Incomplete Requirements</option>
+              <option value="Academic Issues">Academic Issues</option>
+              <option value="Disciplinary Issues">Disciplinary Issues</option>
+              <option value="Other">Other</option>
+            </select>
+            <label class="swal2-input-label d-block mt-3 mb-1">Remarks (required)</label>
+            <textarea id="swal-reject-remarks" class="swal2-textarea" placeholder="e.g. missing form, incomplete requirements, etc." style="min-height:80px; resize:vertical; width:100%;"></textarea>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Submit Rejection',
+        cancelButtonText: 'Cancel',
+        preConfirm: () => {
+          const reason = (document.getElementById('swal-reject-reason') || {}).value || '';
+          const remarks = ((document.getElementById('swal-reject-remarks') || {}).value || '').trim();
+          if (!reason) {
+            Swal.showValidationMessage('Please select a reason.');
+            return false;
+          }
+          if (!remarks) {
+            Swal.showValidationMessage('Please enter remarks (e.g. what is missing).');
+            return false;
+          }
+          return { reason, remarks };
+        }
+      });
+
+      if (!value) return;
+
+      try {
+        const res = await fetch('/api/signatories/reject', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ signatory_id: Number(signatoryId), reason: value.reason, remarks: value.remarks })
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.message || 'Reject failed');
+      } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'Failed to reject' });
+        return;
+      }
+
+      row.remove();
+      updateCounters();
+      await loadRejectedClearances();
+      showTable('rejected');
+      Swal.fire({
+        icon: 'warning',
+        title: 'Clearance Rejected',
+        text: `Reason: ${value.reason}. Remarks: ${value.remarks}`,
+        confirmButtonText: 'OK'
+      });
+    }
+
+    /* ============================================================
+       Counters / showTable / search
+       ============================================================ */
+    function updateCounters() {
+      // Count only actual data rows (not empty state rows)
+      const pendingRows = document.querySelectorAll('#pendingList tr[data-student-id]').length;
+      const approvedRows = document.querySelectorAll('#approvedList tr[data-student-id]').length;
+      const rejectedRows = document.querySelectorAll('#rejectedList tr[data-student-id]').length;
+      
+      console.log('Updating counters:', { pendingRows, approvedRows, rejectedRows });
+      
+      document.getElementById('pendingCount').textContent = pendingRows;
+      document.getElementById('approvedCount').textContent = approvedRows;
+      document.getElementById('rejectedCount').textContent = rejectedRows;
+    }
+
+    function showTable(type) {
+      // Show loading state
+      if (window.showFullScreenLoading) {
+        window.showFullScreenLoading(`Loading ${type} clearances...`);
+      }
+      
+      // hide all
+      document.getElementById('pendingTable').classList.add('d-none');
+      document.getElementById('approvedTable').classList.add('d-none');
+      document.getElementById('rejectedTable').classList.add('d-none');
+
+      // show search
+      document.getElementById('searchContainer').classList.remove('d-none');
+
+      // remove active
+      document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+
+      if(type === 'pending') {
+        document.getElementById('pendingTable').classList.remove('d-none');
+        document.querySelector(".stat-card[data-type='pending']").classList.add('active');
+        loadPendingClearances();
+      } else if(type === 'approved') {
+        document.getElementById('approvedTable').classList.remove('d-none');
+        document.querySelector(".stat-card[data-type='approved']").classList.add('active');
+        loadApprovedClearances();
+      } else if(type === 'rejected') {
+        document.getElementById('rejectedTable').classList.remove('d-none');
+        document.querySelector(".stat-card[data-type='rejected']").classList.add('active');
+        loadRejectedClearances();
+      }
+    }
+
+    // search input behavior (delegated)
+    document.addEventListener('keyup', function(e) {
+      if(e.target && e.target.id === 'searchInput') {
+        const q = e.target.value.toLowerCase();
+        const tbody = document.querySelector('#tablesContainer .data-table-container:not(.d-none) tbody');
+        if(!tbody) return;
+        Array.from(tbody.children).forEach(r => {
+          r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  }
+});
+
+    /* ============================================================
+       Sidebar active & dynamic page loads (profile / password)
+       ============================================================ */
+    function setActive(elem) {
+      document.querySelectorAll('.sidebar-nav .nav-link').forEach(l => l.classList.remove('active'));
+      if(elem) elem.classList.add('active');
+    }
+
+    function updateTopbarForSection(type) {
+      const titles = {
+        dashboard: 'Computer Laboratory Dashboard',
+        staff: 'Staff Approval',
+        activity: 'Audit trail',
+        analytics: 'Usage analytics',
+        profile: 'Profile',
+        password: 'Change Password'
+      };
+      const label = titles[type] || titles.dashboard;
+      const el = document.getElementById('topbarPageTitle');
+      if (el) el.textContent = label;
+      document.title = 'iRequest - ' + label;
+    }
+
+    function loadContent(type) {
+      updateTopbarForSection(type);
+      const container = document.getElementById('mainContent');
+      try {
+        if (typeof destroyAnalyticsCharts === 'function') destroyAnalyticsCharts();
+      } catch (_) {}
+
+      // Show loading state for panel navigation
+      if (window.showFullScreenLoading) {
+        window.showFullScreenLoading(`Loading ${type} page...`);
+      }
+
+      if(type === 'dashboard') {
+        const template = document.getElementById('dashboardTemplate').content.cloneNode(true);
+        container.innerHTML = '';
+    container.appendChild(template);
+        showTable('pending');
+        updateCounters();
+        
+        // Hide loading after dashboard is loaded
+        if (window.hideFullScreenLoading) {
+          window.hideFullScreenLoading();
+        }
+      }
+
+      if(type === 'staff') {
+        container.innerHTML = `
+          <div class="staff-approval-section">
+            <section class="stats-grid staff-stats-grid" aria-label="Staff approval statistics">
+              <article class="stat-card" data-type="pending" data-staff-tab="pending" onclick="showStaffTab('pending')" role="button" tabindex="0">
+                <div class="stat-card-header">
+                  <div class="stat-card-icon">
+                    <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>
+                  </div>
+                  <h3 class="stat-card-title">Pending</h3>
+                </div>
+                <p class="stat-card-value" id="staffPendingCount" aria-label="Pending count">0</p>
+              </article>
+              <article class="stat-card" data-type="approved" data-staff-tab="approved" onclick="showStaffTab('approved')" role="button" tabindex="0">
+                <div class="stat-card-header">
+                  <div class="stat-card-icon">
+                    <i class="fa-solid fa-check" aria-hidden="true"></i>
+                  </div>
+                  <h3 class="stat-card-title">Approved</h3>
+                </div>
+                <p class="stat-card-value" id="staffApprovedCount" aria-label="Approved count">0</p>
+              </article>
+              <article class="stat-card" data-type="rejected" data-staff-tab="rejected" onclick="showStaffTab('rejected')" role="button" tabindex="0">
+                <div class="stat-card-header">
+                  <div class="stat-card-icon">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                  </div>
+                  <h3 class="stat-card-title">Rejected</h3>
+                </div>
+                <p class="stat-card-value" id="staffRejectedCount" aria-label="Rejected count">0</p>
+              </article>
+              <article class="stat-card" data-type="deactivated" data-staff-tab="deactivated" onclick="showStaffTab('deactivated')" role="button" tabindex="0">
+                <div class="stat-card-header">
+                  <div class="stat-card-icon">
+                    <i class="fa-solid fa-user-slash" aria-hidden="true"></i>
+                  </div>
+                  <h3 class="stat-card-title">Deactivated</h3>
+                </div>
+                <p class="stat-card-value" id="staffDeactivatedCount" aria-label="Deactivated count">0</p>
+              </article>
+            </section>
+            <div class="search-container staff-search" role="search">
+              <label for="staffSearchInput" class="form-label">Search Staff</label>
+              <input id="staffSearchInput" class="search-input" placeholder="Search by name, department, or position..." aria-label="Search staff" autocomplete="off">
+            </div>
+            <div id="staffTablesContainer" role="region">
+              <section id="staffPendingTable" class="data-table-container" aria-labelledby="staffPendingTitle">
+                <div class="table-header">
+                  <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>
+                  <h2 id="staffPendingTitle">Pending Staff Approvals</h2>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-mobile-cards" role="table">
+                    <thead><tr><th>Name</th><th>Department</th><th>Position</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody id="staffApprovalsBody"></tbody>
+                  </table>
+                </div>
+              </section>
+              <section id="staffApprovedTable" class="data-table-container d-none" aria-labelledby="staffApprovedTitle">
+                <div class="table-header table-header-success">
+                  <i class="fa-solid fa-check-circle" aria-hidden="true"></i>
+                  <h2 id="staffApprovedTitle">Approved Staff</h2>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-mobile-cards" role="table">
+                    <thead><tr><th>Name</th><th>Department</th><th>Position</th><th>Status</th><th>Approved By</th><th>Date</th><th>Action</th></tr></thead>
+                    <tbody id="staffApprovedBody"></tbody>
+                  </table>
+                </div>
+              </section>
+              <section id="staffRejectedTable" class="data-table-container d-none" aria-labelledby="staffRejectedTitle">
+                <div class="table-header table-header-danger">
+                  <i class="fa-solid fa-times-circle" aria-hidden="true"></i>
+                  <h2 id="staffRejectedTitle">Rejected Staff</h2>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-mobile-cards" role="table">
+                    <thead><tr><th>Name</th><th>Department</th><th>Position</th><th>Status</th><th>Rejected By</th><th>Reason</th><th>Date</th><th>Action</th></tr></thead>
+                    <tbody id="staffRejectedBody"></tbody>
+                  </table>
+                </div>
+              </section>
+              <section id="staffDeactivatedTable" class="data-table-container d-none" aria-labelledby="staffDeactivatedTitle">
+                <div class="table-header table-header-deactivated">
+                  <i class="fa-solid fa-user-slash" aria-hidden="true"></i>
+                  <h2 id="staffDeactivatedTitle">Deactivated Staff (Resigned / Inactive)</h2>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-mobile-cards" role="table">
+                    <thead><tr><th>Name</th><th>Department</th><th>Position</th><th>Status</th><th>Deactivated By</th><th>Date</th></tr></thead>
+                    <tbody id="staffDeactivatedBody"></tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+          </div>
+        `;
+        refreshStaffCounts();
+        showStaffTab('pending');
+        document.getElementById('staffSearchInput').addEventListener('keyup', function() {
+          const q = this.value.toLowerCase();
+          const visible = document.querySelector('#staffTablesContainer .data-table-container:not(.d-none) tbody');
+          if (visible) Array.from(visible.children).forEach(tr => { tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none'; });
+        });
+        if (window.hideFullScreenLoading) window.hideFullScreenLoading();
+        return;
+      }
+
+      if(type === 'activity') {
+        container.innerHTML = `
+          <div class="card shadow-sm">
+            <div class="card-header bg-secondary text-white">
+              <h5 class="mb-0"><i class="fa-solid fa-history"></i> User Activity Monitoring</h5>
+              <small>Period uses the <strong>Philippines</strong> calendar date (PHT). Default is <strong>today</strong>.</small>
+            </div>
+            <div class="card-body p-0">
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 px-3 py-2 border-bottom bg-light">
+                <div class="d-flex flex-wrap align-items-center gap-2 gap-md-3">
+                  <div class="d-flex align-items-center gap-2">
+                    <label for="auditTrailPeriod" class="mb-0 small text-muted text-nowrap">Period</label>
+                    <select id="auditTrailPeriod" class="form-select form-select-sm" style="min-width: 11rem; max-width: 16rem;" aria-label="Filter activity by time period">
+                      <option value="today" selected>Today</option>
+                      <option value="recent">All</option>
+                      <option value="yesterday">Yesterday</option>
+                      <option value="two_days_ago">2 days ago</option>
+                      <option value="last_7">Last 7 days</option>
+                      <option value="this_month">This month</option>
+                    </select>
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <label for="auditTrailRoleFilter" class="mb-0 small text-muted text-nowrap">Role</label>
+                    <select id="auditTrailRoleFilter" class="form-select form-select-sm" style="max-width: 14rem;" aria-label="Filter activity by user role">
+                      <option value="all">All roles</option>
+                      <option value="student">Students</option>
+                      <option value="staff">Staff &amp; Admin</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="d-flex align-items-center gap-2 ms-auto">
+                  <button type="button" class="btn btn-outline-primary btn-sm" id="auditTrailExportCsv" title="Download the rows below as CSV (respects Period; Role filter applied)">
+                    <i class="fa-solid fa-file-csv" aria-hidden="true"></i> Export CSV
+                  </button>
+                  <span id="auditTrailLogCount" class="small text-muted text-nowrap" aria-live="polite"></span>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                  <thead class="table-light"><tr><th>Date &amp; Time</th><th>User</th><th>Role</th><th>Action</th></tr></thead>
+                  <tbody id="auditTrailLogBody"><tr><td colspan="4" class="text-center py-4">Loading...</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        `;
+        fetchAuditTrailLog();
+        if (window.hideFullScreenLoading) window.hideFullScreenLoading();
+        return;
+      }
+
+      if(type === 'analytics') {
+        const r = defaultAnalyticsDateRange();
+        container.innerHTML = `
+          <div class="lab-analytics-page">
+            <header class="mb-3 pb-3 border-bottom">
+              <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                <div class="flex-grow-1" style="min-width: 220px;">
+                  <h2 class="h4 fw-bold text-dark mb-1">Usage analytics</h2>
+                  <p class="small text-muted mb-0">Overview of system activity (Philippines dates). Full event list &amp; CSV: open <strong>Audit trail</strong> in the sidebar.</p>
+                </div>
+                <div class="d-flex flex-wrap align-items-end gap-2 rounded-3 border bg-light px-3 py-2">
+                  <div>
+                    <label class="form-label small mb-0 text-secondary" for="analyticsDateStart">From</label>
+                    <input type="date" id="analyticsDateStart" class="form-control form-control-sm" value="${r.start}" aria-label="Start date">
+                  </div>
+                  <div>
+                    <label class="form-label small mb-0 text-secondary" for="analyticsDateEnd">To</label>
+                    <input type="date" id="analyticsDateEnd" class="form-control form-control-sm" value="${r.end}" aria-label="End date">
+                  </div>
+                  <div class="d-flex gap-1 align-items-end pb-1">
+                    <button type="button" class="btn btn-primary btn-sm" id="analyticsApplyRange" title="Refresh charts and totals"><i class="fa-solid fa-rotate"></i> Apply</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="analyticsResetRange" title="Use last 30 days">Last 30 days</button>
+                  </div>
+                </div>
+              </div>
+              <p class="small text-muted mt-2 mb-0" id="analyticsPeriodHint"><span class="text-body-secondary">Default:</span> today (Philippines). Change dates above, then Apply.</p>
+            </header>
+
+            <section class="mb-4" aria-label="Summary totals">
+              <h3 class="h6 text-secondary text-uppercase small fw-semibold mb-2">Summary</h3>
+              <section class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));">
+                <article class="stat-card border shadow-sm"><div class="stat-card-header"><h3 class="stat-card-title">All events</h3></div><p class="stat-card-value" id="analyticsStatTotal">—</p><p class="small text-muted mb-0 px-2 pb-2">Combined</p></article>
+                <article class="stat-card border shadow-sm"><div class="stat-card-header"><h3 class="stat-card-title">Students</h3></div><p class="stat-card-value" id="analyticsStatStudent">—</p><p class="small text-muted mb-0 px-2 pb-2">Student</p></article>
+                <article class="stat-card border shadow-sm"><div class="stat-card-header"><h3 class="stat-card-title">Staff</h3></div><p class="stat-card-value" id="analyticsStatStaff">—</p><p class="small text-muted mb-0 px-2 pb-2">Staff</p></article>
+                <article class="stat-card border shadow-sm"><div class="stat-card-header"><h3 class="stat-card-title">Admin</h3></div><p class="stat-card-value" id="analyticsStatAdmin">—</p><p class="small text-muted mb-0 px-2 pb-2">Admin</p></article>
+              </section>
+            </section>
+
+            <section class="mb-4" aria-label="Charts">
+              <h3 class="h6 text-secondary text-uppercase small fw-semibold mb-2">Activity trends</h3>
+              <p class="small text-muted mb-3">Daily volume and peak hours (Philippines time).</p>
+              <div class="row g-3">
+                <div class="col-lg-7">
+                  <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                      <div class="fw-semibold">Events per day</div>
+                      <div class="small text-muted mb-2">Count per calendar day in the selected range.</div>
+                      <div style="height: 260px; position: relative;"><canvas id="analyticsChartDay" aria-label="Events per calendar day"></canvas></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-5">
+                  <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                      <div class="fw-semibold">Events by hour (PHT)</div>
+                      <div class="small text-muted mb-2">When users are most active during the day.</div>
+                      <div style="height: 260px; position: relative;"><canvas id="analyticsChartHour" aria-label="Events by hour Philippines time"></canvas></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="pb-2" aria-label="Rankings">
+              <h3 class="h6 text-secondary text-uppercase small fw-semibold mb-2">Highlights</h3>
+              <p class="small text-muted mb-3">Most common actions and busiest accounts.</p>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <div class="card border-0 shadow-sm h-100 overflow-hidden">
+                    <div class="card-header py-2 bg-white border-bottom small fw-semibold">Top actions</div>
+                    <div class="table-responsive">
+                      <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light"><tr><th>Action</th><th class="text-end">Count</th></tr></thead>
+                        <tbody id="analyticsTopActionsBody"><tr><td colspan="2" class="text-center text-muted py-3">—</td></tr></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="card border-0 shadow-sm h-100 overflow-hidden">
+                    <div class="card-header py-2 bg-white border-bottom small fw-semibold">Most active users</div>
+                    <div class="table-responsive">
+                      <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light"><tr><th>User</th><th class="text-end">Events</th></tr></thead>
+                        <tbody id="analyticsTopUsersBody"><tr><td colspan="2" class="text-center text-muted py-3">—</td></tr></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        `;
+        bindAnalyticsControls();
+        loadAnalyticsPage();
+        if (window.hideFullScreenLoading) window.hideFullScreenLoading();
+        return;
+      }
+
+      if(type === 'profile') {
+        // Load staff profile with real data
+    loadStaffProfile();
+  }
+
+      if(type === 'password') {
+    container.innerHTML = `
+      <div class="card shadow-sm p-4">
+        <h5><i class="fa-solid fa-lock"></i> Change Password</h5>
+            <form id="passwordForm" class="mt-3">
+          <div class="mb-3">
+                <label class="form-label">Current Password</label>
+                <input id="currentPassword" type="password" class="form-control" required />
+          </div>
+          <div class="mb-3">
+                <label class="form-label">New Password</label>
+                <input id="newPassword" type="password" class="form-control" required minlength="6" />
+            <div class="form-text">Password must be at least 6 characters long</div>
+          </div>
+          <div class="mb-3">
+                <label class="form-label">Confirm New Password</label>
+                <input id="confirmPassword" type="password" class="form-control" required />
+          </div>
+              <button class="btn btn-primary" type="submit">Update Password</button>
+        </form>
+      </div>
+    `;
+    
+    // Add form submission handler
+    setTimeout(() => {
+      const form = document.getElementById('passwordForm');
+      if(form) {
+        form.addEventListener('submit', handlePasswordChange);
+      }
+    }, 100);
+        
+        // Hide loading after password form is loaded
+        if (window.hideFullScreenLoading) {
+          window.hideFullScreenLoading();
+        }
+  }
+}
+
+// Handle password change
+async function handlePasswordChange(e) {
+  e.preventDefault();
+  
+  const currentPassword = document.getElementById('currentPassword').value;
+  const newPassword = document.getElementById('newPassword').value;
+  const confirmPassword = document.getElementById('confirmPassword').value;
+  
+  // Client-side validation
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    Swal.fire('Error', 'All fields are required!', 'error');
+    return;
+  }
+  
+  if (newPassword !== confirmPassword) {
+    Swal.fire('Error', 'New Password and Confirm Password do not match!', 'error');
+    return;
+  }
+  
+  if (newPassword.length < 6) {
+    Swal.fire('Error', 'New password must be at least 6 characters long!', 'error');
+    return;
+  }
+  
+  // Show loading
+  Swal.fire({
+    title: 'Updating Password...',
+    text: 'Please wait while we update your password',
+    allowOutsideClick: false,
+    showConfirmButton: false,
+    didOpen: () => {
+      Swal.showLoading();
+    }
+  });
+  
+  try {
+    const response = await fetch('/api/staff/change-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        current_password: currentPassword,
+        new_password: newPassword,
+        confirm_password: confirmPassword
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.ok) {
+      Swal.fire({
+        icon: 'success',
+        title: 'Password Updated!',
+        text: 'Your password has been successfully updated.',
+        confirmButtonText: 'OK'
+      }).then(() => {
+        // Clear form
+        document.getElementById('currentPassword').value = '';
+        document.getElementById('newPassword').value = '';
+        document.getElementById('confirmPassword').value = '';
+      });
+    } else {
+      Swal.fire({
+        icon: 'error',
+        title: 'Password Update Failed',
+        text: data.message || 'An error occurred while updating your password.',
+        confirmButtonText: 'Try Again'
+      });
+    }
+  } catch (error) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Network Error',
+      text: 'Unable to connect to server. Your internet connection may be slow or unstable. Please check your internet and try again.',
+      confirmButtonText: 'OK'
+    });
+  }
+}
+
+    /* ============================================================
+       Load clearances based on department (Computer Laboratory)
+       ============================================================ */
+    async function fetchSignatoryList(url) {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+      let data = null;
+      const ct = response.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        try {
+          data = await response.json();
+        } catch (e) {
+          throw new Error('The server returned an invalid response.');
+        }
+      }
+      if (!response.ok) {
+        const detail = (data && (data.message || data.error)) || `Server error (${response.status}).`;
+        throw new Error(detail);
+      }
+      if (data && data.ok === false && (data.message || data.error)) {
+        throw new Error(data.message || data.error);
+      }
+      return data;
+    }
+
+    function clearanceListErrorMessage(err) {
+      const m = String(err && err.message ? err.message : '');
+      const looksNetwork =
+        err instanceof TypeError ||
+        (err && err.name === 'AbortError') ||
+        /failed to fetch|networkerror|load failed|network request failed/i.test(m);
+      if (looksNetwork) {
+        return 'Unable to reach the server. Please check your internet connection and try again.';
+      }
+      return m || 'Something went wrong while loading data.';
+    }
+
+    async function loadPendingClearances() {
+  // Show full-screen loading
+  if (window.showFullScreenLoading) {
+    window.showFullScreenLoading('Loading pending clearances...');
+  }
+  
+      try {
+        const data = await fetchSignatoryList('/api/signatories/pending');
+        
+    const tbody = document.getElementById('pendingList');
+    tbody.innerHTML = '';
+        
+        if (data.ok && data.data && data.data.length > 0) {
+          data.data.forEach(student => {
+        const tr = document.createElement('tr');
+            tr.dataset.studentId = student.student_id || student.id || '';
+            tr.dataset.signatoryId = student.signatory_id || '';
+            tr.setAttribute('role', 'row');
+        tr.innerHTML = `
+              <td data-label="Student Name">${student.first_name} ${student.last_name}</td>
+              <td data-label="Course">${getCourseDisplay(student)}</td>
+              <td data-label="Year Level">${getYearLevelDisplay(student)}</td>
+              <td data-label="Status"><span class="status-badge status-pending">Pending</span></td>
+              <td data-label="Document Type">${student.document || student.document_name || student.document_type || '—'}</td>
+              <td data-label="Actions">
+                <div class="action-buttons">
+                  <button class="btn-view" onclick="openViewClearance(${student.request_id})"
+                          aria-label="View clearance details for ${student.first_name} ${student.last_name}">
+                    <i class="fa-solid fa-eye" aria-hidden="true"></i> View
+                  </button>
+                  <button class="btn-sign" onclick="openSignModal(this)" 
+                          aria-label="Approve clearance for ${student.first_name} ${student.last_name}">
+                    <i class="fa-solid fa-check" aria-hidden="true"></i> Sign
+                  </button>
+                  <button type="button" class="btn-reject" onclick="openRejectDialog(this)" title="Reject this clearance">
+                    <i class="fa-solid fa-xmark"></i> Reject
+                  </button>
+                </div>
+              </td>
+            `;
+        tbody.appendChild(tr);
+      });
+        } else {
+          // Show empty state
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td colspan="7" class="text-center" style="padding: 2rem; color: #6b7280;">
+              <i class="fa-solid fa-inbox" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+              <p>No pending clearances found</p>
+            </td>
+          `;
+          tbody.appendChild(tr);
+    }
+    updateCounters();
+      } catch (error) {
+        console.error('Error loading pending clearances:', error);
+        
+        // Show error message
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error Loading Data',
+            text: clearanceListErrorMessage(error),
+            confirmButtonText: 'Retry',
+            showCancelButton: true,
+            cancelButtonText: 'Cancel'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              loadPendingClearances();
+            }
+          });
+        }
+        
+        // Don't add sample data - show empty state instead
+      } finally {
+    // Hide full-screen loading
+    if (window.hideFullScreenLoading) {
+      window.hideFullScreenLoading();
+    }
+  }
+}
+
+    async function loadApprovedClearances() {
+  // Show full-screen loading
+  if (window.showFullScreenLoading) {
+    window.showFullScreenLoading('Loading approved clearances...');
+  }
+  
+      try {
+        const data = await fetchSignatoryList('/api/signatories/approved');
+        
+    const tbody = document.getElementById('approvedList');
+    tbody.innerHTML = '';
+        
+        if (data.ok && data.data && data.data.length > 0) {
+          data.data.forEach(student => {
+        const tr = document.createElement('tr');
+            tr.dataset.studentId = student.student_id || student.id || '';
+            tr.dataset.signatoryId = student.signatory_id || '';
+            tr.setAttribute('role', 'row');
+        tr.innerHTML = `
+              <td data-label="Student Name">${student.first_name} ${student.last_name}</td>
+              <td data-label="Course">${getCourseDisplay(student)}</td>
+              <td data-label="Year Level">${getYearLevelDisplay(student)}</td>
+              <td data-label="Status"><span class="status-badge status-signed">Approved</span></td>
+              <td data-label="Reject"><button type="button" class="btn btn-danger btn-sm" onclick="openRejectDialog(this)" title="Reject this clearance"><i class="fa-solid fa-xmark"></i> Reject</button></td>
+            `;
+        tbody.appendChild(tr);
+      });
+        } else {
+          // Show empty state
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td colspan="5" class="text-center" style="padding: 2rem; color: #6b7280;">
+              <i class="fa-solid fa-check-circle" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+              <p>No approved clearances found</p>
+            </td>
+          `;
+          tbody.appendChild(tr);
+    }
+    updateCounters();
+      } catch (error) {
+        console.error('Error loading approved clearances:', error);
+        
+        // Show error message
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error Loading Data',
+            text: clearanceListErrorMessage(error),
+            confirmButtonText: 'Retry',
+            showCancelButton: true,
+            cancelButtonText: 'Cancel'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              loadApprovedClearances();
+            }
+          });
+        }
+      } finally {
+    // Hide full-screen loading
+    if (window.hideFullScreenLoading) {
+      window.hideFullScreenLoading();
+    }
+  }
+}
+
+    async function loadRejectedClearances() {
+  // Show full-screen loading
+  if (window.showFullScreenLoading) {
+    window.showFullScreenLoading('Loading rejected clearances...');
+  }
+  
+      try {
+        const data = await fetchSignatoryList('/api/signatories/rejected');
+        
+    const tbody = document.getElementById('rejectedList');
+    tbody.innerHTML = '';
+        
+        if (data.ok && data.data && data.data.length > 0) {
+          data.data.forEach(student => {
+        const tr = document.createElement('tr');
+tr.dataset.studentId = student.student_id || student.id || '';
+            tr.dataset.signatoryId = student.signatory_id || '';
+            tr.setAttribute('role', 'row');
+            tr.innerHTML = `
+              <td data-label="Student Name">${student.first_name} ${student.last_name}</td>
+              <td data-label="Course">${getCourseDisplay(student)}</td>
+              <td data-label="Year Level">${getYearLevelDisplay(student)}</td>
+              <td data-label="Status"><span class="status-badge status-rejected">Rejected</span></td>
+              <td data-label="Rejection Reason">${student.rejection_reason || 'No reason provided'}</td>
+              <td data-label="Remarks">${student.remarks || '—'}</td>
+              <td data-label="Approve"><button type="button" class="btn-approve" onclick="approveFromRejected(this)" title="Student has passed requirements"><i class="fa-solid fa-check"></i> Approve</button></td>
+            `;
+            tbody.appendChild(tr);
+          });
+        } else {
+          // Show empty state
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td colspan="7" class="text-center" style="padding: 2rem; color: #6b7280;">
+              <i class="fa-solid fa-times-circle" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+              <p>No rejected clearances found</p>
+            </td>
+          `;
+          tbody.appendChild(tr);
+    }
+    updateCounters();
+      } catch (error) {
+        console.error('Error loading rejected clearances:', error);
+        
+        // Show error message
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error Loading Data',
+            text: clearanceListErrorMessage(error),
+            confirmButtonText: 'Retry',
+            showCancelButton: true,
+            cancelButtonText: 'Cancel'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              loadRejectedClearances();
+            }
+          });
+        }
+      } finally {
+    // Hide full-screen loading
+    if (window.hideFullScreenLoading) {
+      window.hideFullScreenLoading();
+    }
+  }
+}
+
+    function isLabAdmin() { return true; }
+    async function safeFetchJson(url, opts) {
+      const r = await fetch(url, opts || {});
+      const ct = r.headers.get('content-type') || '';
+      if (ct.includes('application/json')) return { ok: true, json: await r.json(), status: r.status };
+      return { ok: false, text: await r.text(), status: r.status };
+    }
+    function showStaffTab(which) {
+      ['staffPendingTable','staffApprovedTable','staffRejectedTable','staffDeactivatedTable'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('d-none', id !== 'staff' + which.charAt(0).toUpperCase() + which.slice(1) + 'Table');
+      });
+      document.querySelectorAll('.staff-stats-grid .stat-card').forEach(c => {
+        c.classList.toggle('active', c.dataset.staffTab === which);
+      });
+      const searchEl = document.querySelector('.staff-search');
+      if (searchEl) searchEl.style.display = 'block';
+      if (which === 'pending') fetchStaffApprovals();
+      else if (which === 'approved') fetchStaffApproved();
+      else if (which === 'rejected') fetchStaffRejected();
+      else if (which === 'deactivated') fetchStaffDeactivated();
+    }
+    async function refreshStaffCounts() {
+      try {
+        const r = await safeFetchJson('/api/admin/staff/counts');
+        if (r.ok && r.json?.ok) {
+          const c = r.json.data || {};
+          const p = document.getElementById('staffPendingCount');
+          const a = document.getElementById('staffApprovedCount');
+          const rj = document.getElementById('staffRejectedCount');
+          const d = document.getElementById('staffDeactivatedCount');
+          if (p) p.textContent = c.Pending ?? 0;
+          if (a) a.textContent = c.Approved ?? 0;
+          if (rj) rj.textContent = c.Rejected ?? 0;
+          if (d) d.textContent = c.Deactivated ?? 0;
+        }
+      } catch (e) { console.error(e); }
+    }
+    async function fetchStaffApprovals() {
+      const tbody = document.getElementById('staffApprovalsBody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center">Loading...</td></tr>';
+      try {
+        const r = await safeFetchJson('/api/admin/staff?status=Pending');
+        if (!r.ok || !r.json?.ok) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Failed to load</td></tr>'; return; }
+        const data = r.json.data || [];
+        if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No pending approvals</td></tr>'; return; }
+        tbody.innerHTML = data.map(row => `
+          <tr>
+            <td>${row.first_name} ${row.last_name}</td>
+            <td>${row.department || '-'}</td>
+            <td>${row.position || row.department || '-'}</td>
+            <td><span class="status-badge status-pending">${row.status}</span></td>
+            <td>
+              <div class="action-buttons">
+                <button class="btn-sign" onclick="doApproveStaff(${row.id})"><i class="fa-solid fa-check"></i> Approve</button>
+                <select class="reason-dropdown" onchange="if(this.value)doRejectStaff(${row.id},this.value);this.value=''">
+                  <option value="">Reject...</option>
+                  <option value="Incomplete Requirements">Incomplete Requirements</option>
+                  <option value="Invalid Information">Invalid Information</option>
+                  <option value="Duplicate Account">Duplicate Account</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+      } catch (e) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error loading</td></tr>'; }
+    }
+    async function fetchStaffApproved() {
+      const tbody = document.getElementById('staffApprovedBody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center">Loading...</td></tr>';
+      try {
+        const r = await safeFetchJson('/api/admin/staff?status=Approved');
+        if (!r.ok || !r.json?.ok) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Failed to load</td></tr>'; return; }
+        const data = r.json.data || [];
+        if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No approved staff</td></tr>'; return; }
+        tbody.innerHTML = data.map(row => `
+          <tr>
+            <td>${row.first_name} ${row.last_name}</td>
+            <td>${row.department || '-'}</td>
+            <td>${row.position || row.department || '-'}</td>
+            <td><span class="status-badge status-signed">${row.status}</span></td>
+            <td>${row.approved_by || '-'}</td>
+            <td>${row.approved_date ? new Date(row.approved_date).toLocaleDateString() : (row.created_at ? new Date(row.created_at).toLocaleDateString() : '-')}</td>
+            <td>
+              <button class="btn-deactivate" onclick="doDeactivateStaff(${row.id})" title="Deactivate (e.g. resigned)">
+                <i class="fa-solid fa-user-slash"></i> Deactivate
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (e) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error loading</td></tr>'; }
+    }
+    async function fetchStaffRejected() {
+      const tbody = document.getElementById('staffRejectedBody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center">Loading...</td></tr>';
+      try {
+        const r = await safeFetchJson('/api/admin/staff?status=Rejected');
+        if (!r.ok || !r.json?.ok) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Failed to load</td></tr>'; return; }
+        const data = r.json.data || [];
+        if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No rejected staff</td></tr>'; return; }
+        tbody.innerHTML = data.map(row => `
+          <tr>
+            <td>${row.first_name} ${row.last_name}</td>
+            <td>${row.department || '-'}</td>
+            <td>${row.position || row.department || '-'}</td>
+            <td><span class="status-badge status-rejected">${row.status}</span></td>
+            <td>${row.approved_by || '-'}</td>
+            <td>${row.rejection_reason || '-'}</td>
+            <td>${(row.rejected_date || row.created_at) ? new Date(row.rejected_date || row.created_at).toLocaleDateString() : '-'}</td>
+            <td>
+              <button type="button" class="btn-approve" onclick="doApproveStaff(${row.id})" title="Approve this staff">
+                <i class="fa-solid fa-check"></i> Approve
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (e) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Error loading</td></tr>'; }
+    }
+    async function fetchStaffDeactivated() {
+      const tbody = document.getElementById('staffDeactivatedBody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center">Loading...</td></tr>';
+      try {
+        const r = await safeFetchJson('/api/admin/staff?status=Deactivated');
+        if (!r.ok || !r.json?.ok) { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Failed to load</td></tr>'; return; }
+        const data = r.json.data || [];
+        if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No deactivated staff</td></tr>'; return; }
+        tbody.innerHTML = data.map(row => {
+          const dateVal = row.deactivated_at || row.created_at;
+          return `
+          <tr>
+            <td>${row.first_name} ${row.last_name}</td>
+            <td>${row.department || '-'}</td>
+            <td>${row.position || row.department || '-'}</td>
+            <td><span class="status-badge status-deactivated">${row.status}</span></td>
+            <td>${row.deactivated_by || row.approved_by || '-'}</td>
+            <td>${dateVal ? new Date(dateVal).toLocaleDateString() : '-'}</td>
+          </tr>
+        `}).join('');
+      } catch (e) { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error loading</td></tr>'; }
+    }
+    async function doDeactivateStaff(id) {
+      const { value: confirmed } = await Swal.fire({
+        title: 'Deactivate Staff?',
+        html: 'This staff has resigned or is no longer active. Deactivate this account?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Deactivate',
+        cancelButtonText: 'Cancel'
+      });
+      if (!confirmed) return;
+      Swal.fire({ title: 'Deactivating...', allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
+      try {
+        const r = await safeFetchJson('/admin/staff/deactivate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, deactivator: document.getElementById('staffName')?.textContent || 'Computer Lab' }) });
+        if (!r.ok || !r.json?.ok) throw new Error(r.json?.message || r.text || 'Deactivate failed');
+        Swal.fire({ icon: 'success', title: 'Deactivated', text: 'Staff has been deactivated.', confirmButtonText: 'OK' });
+        await refreshStaffCounts();
+        fetchStaffApproved();
+        fetchStaffDeactivated();
+      } catch (e) { Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'Deactivate failed', confirmButtonText: 'OK' }); }
+    }
+    async function doApproveStaff(id) {
+      Swal.fire({ title: 'Approving...', allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
+      try {
+        const r = await safeFetchJson('/admin/staff/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, approver: document.getElementById('staffName')?.textContent || 'Computer Lab' }) });
+        if (!r.ok || !r.json?.ok) throw new Error(r.json?.message || r.text || 'Approve failed');
+        Swal.fire({ icon: 'success', title: 'Success', text: 'Staff approved!', confirmButtonText: 'OK' });
+        await refreshStaffCounts();
+        fetchStaffApprovals();
+        fetchStaffApproved();
+        fetchStaffRejected();
+      } catch (e) { Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'Approve failed', confirmButtonText: 'OK' }); }
+    }
+    async function doRejectStaff(id, reason) {
+      if (!reason) return;
+      Swal.fire({ title: 'Rejecting...', allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
+      try {
+        const r = await safeFetchJson('/admin/staff/reject', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, reason, approver: document.getElementById('staffName')?.textContent || 'Computer Lab' }) });
+        if (!r.ok || !r.json?.ok) throw new Error(r.json?.message || r.text || 'Reject failed');
+        Swal.fire({ icon: 'warning', title: 'Rejected', text: 'Staff rejected.', confirmButtonText: 'OK' });
+        await refreshStaffCounts(); fetchStaffApprovals();
+      } catch (e) { Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'Reject failed', confirmButtonText: 'OK' }); }
+    }
+    function formatActivityDateTime(dateStr) {
+  if (!dateStr) return '-';
+
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    }).format(d).replace(',', '');
+
+  } catch (err) {
+    return dateStr;
+  }
+}
+    function actionToEnglish(action) {
+      if (!action) return '-';
+      // Backward compatibility: map legacy Tagalog activity strings to English
+      const map = {
+        'Nag-log in sa system': 'Logged in',
+        'Nag-log out sa system': 'Logged out',
+        'In-approve ang staff': 'Approved staff',
+        'Ni-reject ang staff': 'Rejected staff',
+        'Nag-submit ng clearance request': 'Submitted clearance',
+        'Logged in to the system': 'Logged in',
+        'Logged out of the system': 'Logged out'
+      };
+      return map[action] || action;
+    }
+    window._auditTrailLogCache = [];
+
+    function escapeHtml(s) {
+      if (s == null || s === '') return '';
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    /* ----- Simple Audit trail (User Activity Monitoring) ----- */
+    /** Calendar YYYY-MM-DD in Asia/Manila (Philippines) for an instant. */
+    function ymdInPhilippines(date) {
+      return new Date(date).toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+    }
+
+    /** Add signed calendar days to a Philippines YMD (no DST in PH). */
+    function addDaysPhilippinesYMD(ymd, deltaDays) {
+      const t = new Date(ymd + 'T12:00:00+08:00');
+      t.setUTCDate(t.getUTCDate() + deltaDays);
+      return ymdInPhilippines(t);
+    }
+
+    /** Returns { start, end } as YYYY-MM-DD for API (matches server PH day buckets), or null for “recent” mode. */
+    function getAuditTrailPeriodRange(preset) {
+      if (!preset || preset === 'recent') return null;
+      const todayPh = ymdInPhilippines(new Date());
+      if (preset === 'today') {
+        return { start: todayPh, end: todayPh };
+      }
+      if (preset === 'yesterday') {
+        const s = addDaysPhilippinesYMD(todayPh, -1);
+        return { start: s, end: s };
+      }
+      if (preset === 'two_days_ago') {
+        const s = addDaysPhilippinesYMD(todayPh, -2);
+        return { start: s, end: s };
+      }
+      if (preset === 'last_7') {
+        return { start: addDaysPhilippinesYMD(todayPh, -6), end: todayPh };
+      }
+      if (preset === 'this_month') {
+        const y = Number(todayPh.slice(0, 4));
+        const m = Number(todayPh.slice(5, 7));
+        const start = y + '-' + String(m).padStart(2, '0') + '-01';
+        return { start: start, end: todayPh };
+      }
+      return null;
+    }
+
+    function filterAuditTrailRowsByRole(rows, filterVal) {
+      if (!filterVal || filterVal === 'all') return rows.slice();
+      return rows.filter(row => {
+        const t = (row.user_type || '').toLowerCase();
+        if (filterVal === 'student') return t === 'student';
+        if (filterVal === 'staff') return t === 'staff' || t === 'admin';
+        return true;
+      });
+    }
+
+    function renderAuditTrailLogRows() {
+      const tbody = document.getElementById('auditTrailLogBody');
+      const countEl = document.getElementById('auditTrailLogCount');
+      if (!tbody) return;
+      const raw = window._auditTrailLogCache || [];
+      const sel = document.getElementById('auditTrailRoleFilter');
+      const filterVal = sel ? sel.value : 'all';
+      const data = filterAuditTrailRowsByRole(raw, filterVal);
+      if (raw.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No activity yet</td></tr>';
+        if (countEl) countEl.textContent = '';
+        return;
+      }
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No entries for this filter</td></tr>';
+        if (countEl) countEl.textContent = '0 of ' + raw.length;
+        return;
+      }
+      if (countEl) countEl.textContent = data.length === raw.length ? '(' + data.length + ')' : '(' + data.length + ' of ' + raw.length + ')';
+      tbody.innerHTML = data.map(row => {
+        const typeLabel = row.user_type === 'admin' ? 'Admin' : row.user_type === 'staff' ? 'Staff' : 'Student';
+        const typeBadge = row.user_type === 'admin' ? 'bg-primary' : row.user_type === 'staff' ? 'bg-info' : 'bg-success';
+        const name = (row.user_display_name && String(row.user_display_name).trim()) ? row.user_display_name : '—';
+        const email = row.user_identifier || '—';
+        return `<tr><td class="text-nowrap">${formatActivityDateTime(row.created_at)}</td><td><div>${escapeHtml(name)}</div><small class="text-muted">${escapeHtml(email)}</small></td><td><span class="badge ${typeBadge}">${typeLabel}</span></td><td>${escapeHtml(actionToEnglish(row.action))}</td></tr>`;
+      }).join('');
+    }
+
+    function auditTrailExportCsv() {
+      const raw = window._auditTrailLogCache || [];
+      const roleSel = document.getElementById('auditTrailRoleFilter');
+      const filterVal = roleSel ? roleSel.value : 'all';
+      const rows = filterAuditTrailRowsByRole(raw, filterVal);
+      if (!rows.length) {
+        Swal.fire({ icon: 'info', title: 'Nothing to export', text: 'No rows match the current Period and Role. Adjust filters or wait for data to load.', confirmButtonText: 'OK' });
+        return;
+      }
+      const hdr = ['DateTime', 'User name', 'Email / ID', 'Role', 'Action', 'Details'];
+      const lines = [hdr.join(',')];
+      rows.forEach(row => {
+        const role = row.user_type === 'admin' ? 'Admin' : row.user_type === 'staff' ? 'Staff' : 'Student';
+        const vals = [
+          row.created_at || '',
+          row.user_display_name || '',
+          row.user_identifier || '',
+          role,
+          actionToEnglish(row.action || ''),
+          (row.details || '').replace(/\r?\n/g, ' ')
+        ].map(v => {
+          const s = String(v);
+          if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+          return s;
+        });
+        lines.push(vals.join(','));
+      });
+      const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      const periodSel = document.getElementById('auditTrailPeriod');
+      const preset = periodSel ? periodSel.value : 'recent';
+      const range = getAuditTrailPeriodRange(preset);
+      let fname = 'irequest-audit-trail';
+      if (preset === 'recent') fname += '-recent';
+      else if (range && range.start && range.end) fname += '_' + preset + '_' + range.start + '_to_' + range.end;
+      else fname += '-export';
+      a.href = URL.createObjectURL(blob);
+      a.download = fname + '.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    async function fetchAuditTrailLog() {
+      const tbody = document.getElementById('auditTrailLogBody');
+      if (!tbody) return;
+      window._auditTrailLogCache = [];
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center">Loading...</td></tr>';
+      const countEl = document.getElementById('auditTrailLogCount');
+      if (countEl) countEl.textContent = '';
+      const roleSel = document.getElementById('auditTrailRoleFilter');
+      if (roleSel && !roleSel.dataset.auditBound) {
+        roleSel.dataset.auditBound = '1';
+        roleSel.addEventListener('change', renderAuditTrailLogRows);
+      }
+      const periodSel = document.getElementById('auditTrailPeriod');
+      if (periodSel && !periodSel.dataset.auditBound) {
+        periodSel.dataset.auditBound = '1';
+        periodSel.addEventListener('change', fetchAuditTrailLog);
+      }
+      const expBtn = document.getElementById('auditTrailExportCsv');
+      if (expBtn && !expBtn.dataset.auditBound) {
+        expBtn.dataset.auditBound = '1';
+        expBtn.addEventListener('click', auditTrailExportCsv);
+      }
+      try {
+        const preset = periodSel ? periodSel.value : 'recent';
+        const range = getAuditTrailPeriodRange(preset);
+        const params = new URLSearchParams();
+        if (range) {
+          params.set('start', range.start);
+          params.set('end', range.end);
+          params.set('limit', '2000');
+        } else {
+          params.set('limit', '500');
+        }
+        const r = await safeFetchJson('/api/admin/activity-log?' + params.toString());
+        if (!r.ok || !r.json?.ok) {
+          tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">' + escapeHtml(r.json?.message || 'Failed to load') + '</td></tr>';
+          return;
+        }
+        window._auditTrailLogCache = r.json.data || [];
+        renderAuditTrailLogRows();
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error loading</td></tr>';
+      }
+    }
+
+    /* ----- Analytics (summary, charts, rankings only — detail list is on Audit trail) ----- */
+    function defaultAnalyticsDateRange() {
+      const todayPh = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+      return { start: todayPh, end: todayPh };
+    }
+
+    function last30DaysAnalyticsRange() {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - 29);
+      const fmt = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      return { start: fmt(start), end: fmt(end) };
+    }
+
+    function getAnalyticsSummaryParams() {
+      const startEl = document.getElementById('analyticsDateStart');
+      const endEl = document.getElementById('analyticsDateEnd');
+      const params = new URLSearchParams();
+      if (startEl && startEl.value) params.set('start', startEl.value);
+      if (endEl && endEl.value) params.set('end', endEl.value);
+      return params.toString();
+    }
+
+    function destroyAnalyticsCharts() {
+      try {
+        if (window._analyticsDayChart) { window._analyticsDayChart.destroy(); window._analyticsDayChart = null; }
+        if (window._analyticsHourChart) { window._analyticsHourChart.destroy(); window._analyticsHourChart = null; }
+      } catch (_) {}
+    }
+
+    function renderAnalyticsCharts(summary) {
+      destroyAnalyticsCharts();
+      const dayCanvas = document.getElementById('analyticsChartDay');
+      const hourCanvas = document.getElementById('analyticsChartHour');
+      if (!dayCanvas || !hourCanvas || typeof Chart === 'undefined') return;
+
+      const byDay = summary.by_day || [];
+      const dayLabels = byDay.map(x => x.date);
+      const dayData = byDay.map(x => x.count);
+      const byHour = summary.by_hour || [];
+      const hourLabels = byHour.map(x => String(x.hour).padStart(2, '0') + ':00');
+      const hourData = byHour.map(x => x.count);
+
+      const gridColor = 'rgba(0,0,0,0.06)';
+      const primary = 'rgba(13, 110, 253, 0.85)';
+
+      window._analyticsDayChart = new Chart(dayCanvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: dayLabels,
+          datasets: [{ label: 'Events', data: dayData, borderColor: primary, backgroundColor: 'rgba(13, 110, 253, 0.12)', fill: true, tension: 0.25 }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: gridColor }, ticks: { maxRotation: 45, minRotation: 0 } },
+            y: { beginAtZero: true, grid: { color: gridColor }, ticks: { precision: 0 } }
+          }
+        }
+      });
+
+      window._analyticsHourChart = new Chart(hourCanvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: hourLabels,
+          datasets: [{ label: 'Events', data: hourData, backgroundColor: primary }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false }, ticks: { maxTicksLimit: 12 } },
+            y: { beginAtZero: true, grid: { color: gridColor }, ticks: { precision: 0 } }
+          }
+        }
+      });
+    }
+
+    function renderAnalyticsSummaryTables(summary) {
+      const ta = document.getElementById('analyticsTopActionsBody');
+      const tu = document.getElementById('analyticsTopUsersBody');
+      const topA = summary.top_actions || [];
+      const topU = summary.top_users || [];
+      if (ta) {
+        ta.innerHTML = topA.length ? topA.map(x =>
+          `<tr><td>${escapeHtml(actionToEnglish(x.action))}</td><td class="text-end">${x.count}</td></tr>`
+        ).join('') : '<tr><td colspan="2" class="text-center text-muted py-2">No data</td></tr>';
+      }
+      if (tu) {
+        tu.innerHTML = topU.length ? topU.map(x => {
+          const label = (x.user_display_name && String(x.user_display_name).trim()) ? x.user_display_name : (x.user_identifier || '—');
+          const sub = (x.user_display_name && x.user_identifier) ? `<div class="small text-muted">${escapeHtml(x.user_identifier)}</div>` : '';
+          return `<tr><td><div>${escapeHtml(label)}</div>${sub}</td><td class="text-end">${x.count}</td></tr>`;
+        }).join('') : '<tr><td colspan="2" class="text-center text-muted py-2">No data</td></tr>';
+      }
+    }
+
+    function updateAnalyticsStatCards(summary) {
+      const t = document.getElementById('analyticsStatTotal');
+      const s = document.getElementById('analyticsStatStudent');
+      const st = document.getElementById('analyticsStatStaff');
+      const a = document.getElementById('analyticsStatAdmin');
+      const br = summary.by_role || {};
+      if (t) t.textContent = String(summary.total != null ? summary.total : '—');
+      if (s) s.textContent = String(br.student != null ? br.student : '—');
+      if (st) st.textContent = String(br.staff != null ? br.staff : '—');
+      if (a) a.textContent = String(br.admin != null ? br.admin : '—');
+    }
+
+    async function fetchAnalyticsSummary() {
+      const qs = getAnalyticsSummaryParams();
+      const url = '/api/admin/activity-log/summary' + (qs ? '?' + qs : '');
+      const r = await safeFetchJson(url);
+      if (!r.ok || !r.json?.ok) throw new Error(r.json?.message || 'Summary failed');
+      return r.json;
+    }
+
+    async function loadAnalyticsPage() {
+      try {
+        const summary = await fetchAnalyticsSummary();
+        updateAnalyticsStatCards(summary);
+        renderAnalyticsCharts(summary);
+        renderAnalyticsSummaryTables(summary);
+      } catch (e) {
+        const t = document.getElementById('analyticsStatTotal');
+        if (t) t.textContent = '—';
+        console.error(e);
+      }
+    }
+
+    function bindAnalyticsControls() {
+      const apply = document.getElementById('analyticsApplyRange');
+      const reset = document.getElementById('analyticsResetRange');
+      if (apply && !apply.dataset.bound) {
+        apply.dataset.bound = '1';
+        apply.addEventListener('click', () => loadAnalyticsPage());
+      }
+      if (reset && !reset.dataset.bound) {
+        reset.dataset.bound = '1';
+        reset.addEventListener('click', () => {
+          const dr = last30DaysAnalyticsRange();
+          const s = document.getElementById('analyticsDateStart');
+          const e = document.getElementById('analyticsDateEnd');
+          if (s) s.value = dr.start;
+          if (e) e.value = dr.end;
+          loadAnalyticsPage();
+        });
+      }
+    }
+
+    // Reject via button: choose reason + remarks (required)
+    async function openRejectDialog(buttonEl) {
+      const row = buttonEl.closest('tr');
+      const signatoryId = row && (row.dataset.signatoryId || '');
+      if (!signatoryId) return;
+
+      const { value } = await Swal.fire({
+        title: 'Reject Clearance',
+        icon: 'warning',
+        html: `
+          <div class="text-start">
+            <label class="swal2-input-label d-block mb-1">Reason</label>
+            <select id="swal-reject-reason" class="swal2-select" style="width:100%">
+              <option value="" selected disabled>Select a reason</option>
+              <option value="Incomplete Requirements">Incomplete Requirements</option>
+              <option value="Academic Issues">Academic Issues</option>
+              <option value="Disciplinary Issues">Disciplinary Issues</option>
+              <option value="Other">Other</option>
+            </select>
+            <label class="swal2-input-label d-block mt-3 mb-1">Remarks (required)</label>
+            <textarea id="swal-reject-remarks" class="swal2-textarea" placeholder="e.g. missing form, incomplete requirements, etc." style="min-height:80px; resize:vertical; width:100%;"></textarea>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Submit Rejection',
+        cancelButtonText: 'Cancel',
+        preConfirm: () => {
+          const reason = (document.getElementById('swal-reject-reason') || {}).value || '';
+          const remarks = ((document.getElementById('swal-reject-remarks') || {}).value || '').trim();
+          if (!reason) {
+            Swal.showValidationMessage('Please select a reason.');
+            return false;
+          }
+          if (!remarks) {
+            Swal.showValidationMessage('Please enter remarks (e.g. what is missing).');
+            return false;
+          }
+          return { reason, remarks };
+        }
+      });
+
+      if (!value) return;
+
+      try {
+        const res = await fetch('/api/signatories/reject', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ signatory_id: Number(signatoryId), reason: value.reason, remarks: value.remarks })
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.message || 'Reject failed');
+      } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'Failed to reject' });
+        return;
+      }
+
+      row.remove();
+      updateCounters();
+      await loadRejectedClearances();
+      showTable('rejected');
+      Swal.fire({
+        icon: 'warning',
+        title: 'Clearance Rejected',
+        text: `Reason: ${value.reason}. Remarks: ${value.remarks}`,
+        confirmButtonText: 'OK'
+      });
+    }
+
+    function logout() {
+      Swal.fire({
+        title: 'Logout',
+        text: 'Are you sure you want to logout?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Logout',
+        cancelButtonText: 'Cancel'
+      }).then(async (result) => {
+        if (!result.isConfirmed) return;
+        try {
+          await fetch('/api/logout', { method: 'POST' });
+        } catch (_) {}
+        Swal.fire({
+          title: 'Logged Out',
+          text: 'You have been successfully logged out.',
+          icon: 'success',
+          confirmButtonText: 'OK'
+        }).then(() => { window.location.href = 'login.html'; });
+      });
+    }
+
+    // Load Staff information from database
+    async function loadStaffInfo() {
+      try {
+        // Show loading state
+        if (window.showFullScreenLoading) {
+          window.showFullScreenLoading('Loading staff information...');
+        }
+        
+        const response = await fetch('/api/staff/me');
+        const data = await response.json();
+        
+        if (data.ok && data.staff_info) {
+          const staff = data.staff_info;
+          const nameEl = document.getElementById('staffName');
+          if (nameEl) nameEl.textContent = staff.full_name || staff.first_name + ' ' + staff.last_name;
+          return staff;
+        }
+      } catch (error) {
+        console.error('Error loading staff info:', error);
+        // Show error message
+        if (window.Swal) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Failed to load staff information. Please refresh the page.',
+            confirmButtonText: 'OK'
+          });
+        }
+      } finally {
+        // Hide loading state
+        if (window.hideFullScreenLoading) {
+          window.hideFullScreenLoading();
+        }
+      }
+      return null;
+    }
+
+    // Load Staff profile with real data - Professional Design
+    async function loadStaffProfile() {
+  const container = document.getElementById('mainContent');
+      
+      try {
+        const staff = await loadStaffInfo();
+        
+        if (staff) {
+          // Format dates
+          const formatDate = (dateString) => {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            });
+          };
+
+          // Format full name
+          const fullName = `${staff.first_name || ''} ${staff.middle_name || ''} ${staff.last_name || ''} ${staff.suffix || ''}`.replace(/\s+/g, ' ').trim();
+
+      container.innerHTML = `
+            <!-- Professional Profile Header -->
+            <div class="profile-header">
+              <div class="profile-avatar">
+                <div class="avatar-circle">
+                  <i class="fa-solid fa-user"></i>
+          </div>
+                <div class="profile-status">
+                  <span class="status-indicator active"></span>
+                  <span class="status-text">Active</span>
+          </div>
+              </div>
+              <div class="profile-info">
+                <h2 class="profile-name">${fullName}</h2>
+                ${staff.department ? `
+                <p class="profile-title">${staff.department}</p>
+                ` : ''}
+                ${staff.email ? `
+                <p class="profile-email">
+                  <i class="fa-solid fa-envelope"></i>
+                  ${staff.email}
+                </p>
+                ` : ''}
+                ${staff.created_at ? `
+                <p class="profile-joined">
+                  <i class="fa-solid fa-calendar"></i>
+                  Member since ${formatDate(staff.created_at)}
+                </p>
+                ` : ''}
+              </div>
+            </div>
+
+            <!-- Professional Profile Cards -->
+            <div class="profile-cards-grid">
+              <!-- Personal Information Card -->
+              <div class="profile-card">
+                <div class="card-header">
+                  <div class="card-icon personal">
+                    <i class="fa-solid fa-user"></i>
+                  </div>
+                  <h3>Personal Information</h3>
+                </div>
+                <div class="card-content">
+                  <div class="info-grid">
+                    ${staff.first_name ? `
+                    <div class="info-item">
+                      <label>First Name</label>
+                      <span>${staff.first_name}</span>
+                    </div>
+                    ` : ''}
+                    ${staff.last_name ? `
+                    <div class="info-item">
+                      <label>Last Name</label>
+                      <span>${staff.last_name}</span>
+                    </div>
+                    ` : ''}
+                    ${staff.middle_name ? `
+                    <div class="info-item">
+                      <label>Middle Name</label>
+                      <span>${staff.middle_name}</span>
+                    </div>
+                    ` : ''}
+                    ${staff.suffix ? `
+                    <div class="info-item">
+                      <label>Suffix</label>
+                      <span>${staff.suffix}</span>
+                    </div>
+                    ` : ''}
+                    ${staff.gender ? `
+                    <div class="info-item">
+                      <label>Gender</label>
+                      <span>${staff.gender}</span>
+                    </div>
+                    ` : ''}
+                    ${staff.date_of_birth ? `
+                    <div class="info-item">
+                      <label>Date of Birth</label>
+                      <span>${formatDate(staff.date_of_birth)}</span>
+                    </div>
+                    ` : ''}
+                    ${staff.department ? `
+                    <div class="info-item">
+                      <label>Department</label>
+                      <span>${staff.department}</span>
+                    </div>
+                    ` : ''}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Contact Information Card -->
+              <div class="profile-card">
+                <div class="card-header">
+                  <div class="card-icon contact">
+                    <i class="fa-solid fa-phone"></i>
+                  </div>
+                  <h3>Contact Information</h3>
+                </div>
+                <div class="card-content">
+                  <div class="info-grid">
+                    ${staff.email ? `
+                    <div class="info-item full-width">
+                      <label>Email Address</label>
+                      <span class="email-link">
+                        <i class="fa-solid fa-envelope"></i>
+                        ${staff.email}
+                      </span>
+                    </div>
+                    ` : ''}
+                    ${staff.contact_no ? `
+                    <div class="info-item">
+                      <label>Contact Number</label>
+                      <span>
+                        <i class="fa-solid fa-phone"></i>
+                        ${staff.contact_no}
+                      </span>
+                    </div>
+                    ` : ''}
+                    ${staff.alternative_contact ? `
+                    <div class="info-item">
+                      <label>Alternative Contact</label>
+                      <span>
+                        <i class="fa-solid fa-mobile"></i>
+                        ${staff.alternative_contact}
+                      </span>
+                    </div>
+                    ` : ''}
+                    ${staff.address ? `
+                    <div class="info-item full-width">
+                      <label>Address</label>
+                      <span class="address-text">
+                        <i class="fa-solid fa-map-marker-alt"></i>
+                        ${staff.address}
+                      </span>
+                    </div>
+                    ` : ''}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Profile Actions -->
+            <div class="profile-actions">
+              <div class="action-buttons">
+                <button class="btn btn-primary" onclick="loadContent('password')">
+                  <i class="fa-solid fa-key"></i> Change Password
+                </button>
+              </div>
+            </div>
+
+            <!-- Information Notice -->
+            <div class="profile-notice">
+              <div class="notice-content">
+                <i class="fa-solid fa-info-circle"></i>
+                <div>
+                  <strong>Profile Information Notice:</strong>
+                  <p>Your profile information is read-only and managed by the system administrator. To update your information, please contact your HR department or system administrator.</p>
+                </div>
+              </div>
+            </div>
+          `;
+        } else {
+          container.innerHTML = `
+            <div class="profile-error">
+              <div class="error-icon">
+                <i class="fa-solid fa-exclamation-triangle"></i>
+              </div>
+              <h3>Unable to Load Profile</h3>
+              <p>We couldn't load your profile information. This might be due to a network issue or server problem.</p>
+              <button class="btn btn-primary" onclick="loadStaffProfile()">
+                <i class="fa-solid fa-refresh"></i> Try Again
+              </button>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+        container.innerHTML = `
+          <div class="profile-error">
+            <div class="error-icon">
+              <i class="fa-solid fa-times-circle"></i>
+            </div>
+            <h3>Error Loading Profile</h3>
+            <p>An error occurred while loading your profile information. Please refresh the page and try again.</p>
+            <button class="btn btn-primary" onclick="loadStaffProfile()">
+              <i class="fa-solid fa-refresh"></i> Retry
+            </button>
+          </div>
+        `;
+      } finally {
+        // Hide loading after profile is loaded
+        if (window.hideFullScreenLoading) {
+          window.hideFullScreenLoading();
+        }
+      }
+    }
+
+    // On page load, show dashboard
+    window.onload = function() {
+      // Initialize responsive features first
+      initResponsiveFeatures();
+      
+      // Load dashboard content
+      loadContent('dashboard');
+      loadStaffInfo(); // Load staff name in topbar
+      
+      // Force reset counters to 0 immediately
+      setTimeout(() => {
+        document.getElementById('pendingCount').textContent = '0';
+        document.getElementById('approvedCount').textContent = '0';
+        document.getElementById('rejectedCount').textContent = '0';
+      }, 100);
+      
+      // Auto-load all data to populate counters
+      loadPendingClearances();
+      loadApprovedClearances();
+      loadRejectedClearances();
+      
+      // Ensure settings collapsed initially
+      const settings = document.getElementById('settingsMenu');
+      if(settings) settings.classList.remove('show');
+
+      // Listen modal hidden event to cleanup (covers clicking outside or close)
+      const modalEl = document.getElementById('signModal');
+      modalEl.addEventListener('hidden.bs.modal', function() {
+        onModalCloseCleanup();
+      });
+      
+      // Initialize search functionality
+      const searchInput = document.getElementById('searchInput');
+      if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+          const query = e.target.value.toLowerCase();
+          const activeTable = document.querySelector('#tablesContainer .data-table-container:not(.d-none) tbody');
+          if (activeTable) {
+            const rows = activeTable.querySelectorAll('tr[role="row"]');
+            rows.forEach(row => {
+              const text = row.textContent.toLowerCase();
+              row.style.display = text.includes(query) ? '' : 'none';
+            });
+          }
+        });
+      }
+    };
+  </script>
+</body>
+</html>
