@@ -72,7 +72,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
 from email.utils import formataddr
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import os
 try:  
   from zoneinfo import ZoneInfo
@@ -1195,6 +1195,215 @@ def log_user_activity(mysql_conn, user_type: str, user_identifier: str, user_dis
 def _admin_or_computer_lab_session_ok() -> bool:
   dept = (session.get('staff_department') or '').strip().lower()
   return bool(session.get('admin_name')) or dept in ('admin', 'computer laboratory')
+
+
+def _normalize_registrar_analytics_preset(request):
+  """Map query params to preset id and optional ym (YYYY-MM). Defaults to last_12m."""
+  preset = (request.args.get('preset') or '').strip().lower()
+  ym = (request.args.get('ym') or '').strip()
+  range_param = (request.args.get('range') or '').strip()
+  year_param = (request.args.get('year') or '').strip().lower()
+  if not preset:
+    if year_param == 'this':
+      preset = 'year_this'
+    elif year_param == 'last':
+      preset = 'year_last'
+    elif range_param == '6':
+      preset = 'last_6m'
+    elif range_param == '12':
+      preset = 'last_12m'
+    else:
+      preset = 'last_12m'
+  aliases = {
+    '12': 'last_12m', '6': 'last_6m',
+    'year=this': 'year_this', 'year=last': 'year_last',
+  }
+  preset = aliases.get(preset, preset)
+  return preset, ym
+
+
+def _registrar_analytics_status_parts(raw_status: str):
+  """
+  Build extra WHERE fragments for registrar analytics when filtering by request status.
+  Returns (dr_plain_sql, dr_params, dr_alias_sql, dr_alias_params, cr_sql, cr_params, include_clearance).
+  dr_plain: for FROM document_requests (no table alias).
+  dr_alias: for FROM document_requests dr ...
+  """
+  s = (raw_status or "").strip().lower()
+  if not s or s in ("all", "*"):
+    return ("", (), "", (), "", (), True)
+
+  if s == "fulfilled":
+    ph = "%s,%s,%s"
+    drp = " AND status IN (" + ph + ")"
+    dvals = ("Completed", "Released", "Unclaimed")
+    dra = " AND dr.status IN (" + ph + ")"
+    crp = " AND cr.fulfillment_status IN (%s,%s,%s)"
+    crv = ("Approved", "Completed", "Released")
+    return (drp, dvals, dra, dvals, crp, crv, True)
+
+  if s == "unclaimed":
+    return (
+      " AND status = %s",
+      ("Unclaimed",),
+      " AND dr.status = %s",
+      ("Unclaimed",),
+      "",
+      (),
+      False,
+    )
+
+  canon = {
+    "pending": "Pending",
+    "processing": "Processing",
+    "completed": "Completed",
+    "released": "Released",
+    "rejected": "Rejected",
+  }.get(s)
+  if not canon:
+    return ("", (), "", (), "", (), True)
+
+  cr_fs = {
+    "Pending": "Pending",
+    "Processing": "Processing",
+    "Completed": "Completed",
+    "Released": "Released",
+    "Rejected": "Rejected",
+  }.get(canon)
+  if not cr_fs:
+    return ("", (), "", (), "", (), True)
+
+  drp = " AND status = %s"
+  dp = (canon,)
+  cra = " AND cr.fulfillment_status = %s"
+  cv = (cr_fs,)
+  return (drp, dp, " AND dr.status = %s", dp, cra, cv, True)
+
+
+def _registrar_analytics_document_clause(doc_raw: str):
+  """Optional filter by document type name (exact match). Used with document_requests.document_type and clearance JSON arrays."""
+  d = (doc_raw or "").strip()
+  if not d or d.lower() in ("all", "*"):
+    return {
+      "dr_plain": "",
+      "dr_plain_params": (),
+      "dr_alias_extra_sql": "",
+      "dr_alias_extra_params": (),
+      "cr_extra_sql": "",
+      "cr_extra_sql_alias": "",
+      "cr_extra_params": (),
+      "norm": None,
+    }
+  norm = d
+  return {
+    "dr_plain": " AND document_type = %s",
+    "dr_plain_params": (norm,),
+    "dr_alias_extra_sql": " AND dr.document_type = %s",
+    "dr_alias_extra_params": (norm,),
+    "cr_extra_sql": (
+      " AND JSON_SEARCH(CAST(documents AS JSON), 'one', %s, NULL, '$[*]') IS NOT NULL"
+    ),
+    "cr_extra_sql_alias": (
+      " AND JSON_SEARCH(CAST(cr.documents AS JSON), 'one', %s, NULL, '$[*]') IS NOT NULL"
+    ),
+    "cr_extra_params": (norm,),
+    "norm": norm,
+  }
+
+
+def _registrar_analytics_date_bounds(cur, preset: str, ym: str):
+  """
+  Return (start_dt, end_dt, from_label, to_label) for filtering created_at.
+  end_dt is exclusive (created_at < end_dt).
+  """
+  today = date.today()
+  tomorrow = datetime.combine(today + timedelta(days=1), datetime.min.time())
+
+  if preset == 'month':
+    if not ym or not re.match(r'^(\d{4})-(\d{2})$', ym):
+      raise ValueError('Select a month or pass ym=YYYY-MM (e.g. ym=2025-01).')
+    y, mo = int(ym[:4]), int(ym[5:7])
+    if mo < 1 or mo > 12:
+      raise ValueError('Invalid month in ym.')
+    start_d = date(y, mo, 1)
+    end_d = date(y + 1, 1, 1) if mo == 12 else date(y, mo + 1, 1)
+    start_dt = datetime.combine(start_d, datetime.min.time())
+    end_dt = datetime.combine(end_d, datetime.min.time())
+    label = start_d.strftime('%B %Y')
+    return start_dt, end_dt, label, label
+
+  if preset == 'this_month':
+    start_d = date(today.year, today.month, 1)
+    end_d = date(today.year + 1, 1, 1) if today.month == 12 else date(today.year, today.month + 1, 1)
+    start_dt = datetime.combine(start_d, datetime.min.time())
+    end_dt = datetime.combine(end_d, datetime.min.time())
+    fl = start_d.strftime('%B %Y')
+    return start_dt, end_dt, fl, fl
+
+  if preset == 'last_month':
+    first_this = date(today.year, today.month, 1)
+    last_prev = first_this - timedelta(days=1)
+    start_d = date(last_prev.year, last_prev.month, 1)
+    start_dt = datetime.combine(start_d, datetime.min.time())
+    end_dt = datetime.combine(first_this, datetime.min.time())
+    fl = start_d.strftime('%B %Y')
+    return start_dt, end_dt, fl, fl
+
+  if preset in ('last_2m', 'last2m'):
+    cur.execute("SELECT DATE_SUB(CURRENT_DATE(), INTERVAL %s MONTH) AS d", (2,))
+    row = cur.fetchone()
+    d = row['d']
+    if hasattr(d, 'date'):
+      d = d.date()
+    elif isinstance(d, datetime):
+      d = d.date()
+    start_dt = datetime.combine(d, datetime.min.time())
+    return start_dt, tomorrow, d.strftime('%d %b %Y'), today.strftime('%d %b %Y')
+
+  if preset == 'last_6m':
+    cur.execute("SELECT DATE_SUB(CURRENT_DATE(), INTERVAL %s MONTH) AS d", (6,))
+    row = cur.fetchone()
+    d = row['d']
+    if hasattr(d, 'date'):
+      d = d.date()
+    elif isinstance(d, datetime):
+      d = d.date()
+    start_dt = datetime.combine(d, datetime.min.time())
+    return start_dt, tomorrow, d.strftime('%d %b %Y'), today.strftime('%d %b %Y')
+
+  if preset in ('last_12m', 'last12m'):
+    cur.execute("SELECT DATE_SUB(CURRENT_DATE(), INTERVAL %s MONTH) AS d", (12,))
+    row = cur.fetchone()
+    d = row['d']
+    if hasattr(d, 'date'):
+      d = d.date()
+    elif isinstance(d, datetime):
+      d = d.date()
+    start_dt = datetime.combine(d, datetime.min.time())
+    return start_dt, tomorrow, d.strftime('%d %b %Y'), today.strftime('%d %b %Y')
+
+  if preset == 'year_this':
+    start_dt = datetime.combine(date(today.year, 1, 1), datetime.min.time())
+    fl = date(today.year, 1, 1).strftime('%b %Y')
+    tl = today.strftime('%b %Y')
+    return start_dt, tomorrow, fl, tl
+
+  if preset == 'year_last':
+    y = today.year - 1
+    start_dt = datetime.combine(date(y, 1, 1), datetime.min.time())
+    end_dt = datetime.combine(date(today.year, 1, 1), datetime.min.time())
+    return start_dt, end_dt, f'Jan {y}', f'Dec {y}'
+
+  # Unknown → last 12 months
+  cur.execute("SELECT DATE_SUB(CURRENT_DATE(), INTERVAL %s MONTH) AS d", (12,))
+  row = cur.fetchone()
+  d = row['d']
+  if hasattr(d, 'date'):
+    d = d.date()
+  elif isinstance(d, datetime):
+    d = d.date()
+  start_dt = datetime.combine(d, datetime.min.time())
+  return start_dt, tomorrow, d.strftime('%d %b %Y'), today.strftime('%d %b %Y')
 
 
 def create_app() -> Flask:
@@ -7463,57 +7672,90 @@ def create_app() -> Flask:
     except Exception as err:
       return jsonify({"ok": False, "message": f"Error: {err}"}), 500
 
+  @app.route('/api/registrar/analytics/document-types')
+  def api_registrar_analytics_document_types():
+    """All document names that appear in requests: direct document_requests + items in clearance_requests.documents JSON."""
+    try:
+      import json
+      cur, conn = mysql.cursor()
+      names = set()
+      cur.execute(
+        """
+        SELECT DISTINCT TRIM(document_type) AS t FROM document_requests
+        WHERE document_type IS NOT NULL AND TRIM(document_type) != ''
+        """
+      )
+      for r in (cur.fetchall() or []):
+        if r.get('t'):
+          names.add(str(r['t']).strip())
+
+      cur.execute(
+        """
+        SELECT documents FROM clearance_requests
+        WHERE documents IS NOT NULL AND TRIM(documents) != ''
+        """
+      )
+      for row in (cur.fetchall() or []):
+        raw = row.get('documents')
+        if raw is None:
+          continue
+        if isinstance(raw, (bytes, bytearray)):
+          raw = raw.decode('utf-8', errors='replace')
+        try:
+          parsed = json.loads(raw)
+          if isinstance(parsed, list):
+            for x in parsed:
+              if x is not None and str(x).strip():
+                names.add(str(x).strip())
+          elif isinstance(parsed, str) and parsed.strip():
+            names.add(parsed.strip())
+        except (json.JSONDecodeError, TypeError, ValueError):
+          s = str(raw).strip()
+          if s:
+            names.add(s)
+
+      sorted_names = sorted(names, key=lambda s: s.lower())
+      cur.close()
+      conn.close()
+      return jsonify({'ok': True, 'document_types': sorted_names})
+    except Exception as err:
+      return jsonify({'ok': False, 'message': str(err)}), 500
+
   @app.route('/api/registrar/analytics')
   def api_registrar_analytics():
-    """Get analytics data grouped by month and document type.
-    Query params: range=6|12 (months), year=this|last. Default: last 12 months.
-    Returns: months, datasets, by_course (sorted by total desc), by_status, date_range_label, this_month vs last_month.
+    """Registrar analytics: document/clearance request counts by period.
+    Query params:
+      preset: this_month | last_month | last_2m | last_6m | last_12m | year_this | year_last | month
+      ym: required when preset=month (YYYY-MM, e.g. 2025-01).
+      status: optional — all | pending | processing | completed | released | unclaimed | rejected | fulfilled
+        When set, charts and counts include only matching document_requests (and clearance rows with
+        matching fulfillment_status, except Unclaimed = document requests only).
+      document (or document_type): optional — exact document name; limits to that document type
+        (document_requests.document_type and clearance requests whose JSON documents array contains it).
+      Legacy: range=6|12, year=this|last (mapped to presets).
     """
     try:
       cur, conn = mysql.cursor()
-      range_param = (request.args.get('range') or '12').strip()
-      year_param = (request.args.get('year') or '').strip().lower()
+      preset, ym = _normalize_registrar_analytics_preset(request)
+      try:
+        start_dt, end_dt, from_label, to_label = _registrar_analytics_date_bounds(cur, preset, ym)
+      except ValueError as ve:
+        cur.close()
+        conn.close()
+        return jsonify({"ok": False, "message": str(ve)}), 400
 
-      # Build date filter and labels
-      if year_param == 'this':
-        date_from = "DATE_FORMAT(CURRENT_DATE(), '%Y-01-01')"
-        date_to = "CURRENT_DATE()"
-        cur.execute("SELECT DATE_FORMAT(CURRENT_DATE(), '%Y-01-01') AS dfrom, CURRENT_DATE() AS dto")
-        row = cur.fetchone()
-        from_label = row['dfrom'].strftime('%b %Y') if hasattr(row['dfrom'], 'strftime') else str(row['dfrom'])[:7]
-        to_label = row['dto'].strftime('%b %Y') if hasattr(row['dto'], 'strftime') else str(row['dto'])[:7]
-      elif year_param == 'last':
-        date_from = "DATE_FORMAT(DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR), '%Y-01-01')"
-        date_to = "DATE_SUB(DATE_FORMAT(CURRENT_DATE(), '%Y-01-01'), INTERVAL 1 DAY)"
-        cur.execute("SELECT DATE_FORMAT(DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR), '%Y-01-01') AS dfrom, DATE_SUB(DATE_FORMAT(CURRENT_DATE(), '%Y-01-01'), INTERVAL 1 DAY) AS dto")
-        row = cur.fetchone()
-        from_label = row['dfrom'].strftime('%b %Y') if hasattr(row['dfrom'], 'strftime') else str(row['dfrom'])[:7]
-        to_label = row['dto'].strftime('%b %Y') if hasattr(row['dto'], 'strftime') else str(row['dto'])[:7]
-      else:
-        months_int = 6 if range_param == '6' else 12
-        date_from = "DATE_SUB(CURRENT_DATE(), INTERVAL %s MONTH)" % months_int
-        date_to = "CURRENT_DATE()"
-        cur.execute("SELECT DATE_SUB(CURRENT_DATE(), INTERVAL %s MONTH) AS dfrom, CURRENT_DATE() AS dto", (months_int,))
-        row = cur.fetchone()
-        from_label = row['dfrom'].strftime('%b %Y') if hasattr(row['dfrom'], 'strftime') else str(row['dfrom'])[:7]
-        to_label = row['dto'].strftime('%b %Y') if hasattr(row['dto'], 'strftime') else str(row['dto'])[:7]
+      interval_sql = "created_at >= %s AND created_at < %s"
+      interval_params = (start_dt, end_dt)
+      interval_sql_cr = "cr.created_at >= %s AND cr.created_at < %s"
+      interval_sql_dr = "dr.created_at >= %s AND dr.created_at < %s"
 
-      # Build interval filter for all queries
-      if year_param == 'this':
-        interval_sql = "created_at >= DATE_FORMAT(CURRENT_DATE(), '%%Y-01-01')"
-        interval_params = ()
-      elif year_param == 'last':
-        interval_sql = "created_at >= DATE_FORMAT(DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR), '%%Y-01-01') AND created_at < DATE_FORMAT(CURRENT_DATE(), '%%Y-01-01')"
-        interval_params = ()
-      else:
-        months_int = 6 if range_param == '6' else 12
-        interval_sql = "created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL %s MONTH)"
-        interval_params = (months_int,)
-
-      # When used inside JOIN queries, "created_at" can be ambiguous (e.g., both tables have the column).
-      # Keep the unqualified version for single-table queries, and use qualified variants for aliased tables.
-      interval_sql_cr = interval_sql.replace("created_at", "cr.created_at")
-      interval_sql_dr = interval_sql.replace("created_at", "dr.created_at")
+      status_raw = (request.args.get('status') or '').strip()
+      dsp, dpp, dsa, dap, csp, cpp, inc_cr = _registrar_analytics_status_parts(status_raw)
+      cr_where_suffix = (csp if inc_cr else " AND 1=0")
+      cr_params = interval_params + (cpp if (inc_cr and csp) else ())
+      doc_raw = (request.args.get('document') or request.args.get('document_type') or '').strip()
+      ddoc = _registrar_analytics_document_clause(doc_raw)
+      cr_params = cr_params + ddoc['cr_extra_params']
 
       # Get document requests from document_requests table
       cur.execute("""
@@ -7523,12 +7765,12 @@ def create_app() -> Flask:
           document_type,
           COUNT(*) as count
         FROM document_requests
-        WHERE """ + interval_sql + """
+        WHERE """ + interval_sql + dsp + ddoc['dr_plain'] + """
           AND document_type IS NOT NULL
           AND document_type != ''
         GROUP BY DATE_FORMAT(created_at, '%%Y-%%m'), DATE_FORMAT(created_at, '%%b %%Y'), document_type
         ORDER BY month ASC, count DESC
-      """, interval_params)
+      """, interval_params + dpp + ddoc['dr_plain_params'])
       
       document_requests_data = cur.fetchall()
       
@@ -7539,10 +7781,10 @@ def create_app() -> Flask:
           DATE_FORMAT(created_at, '%%b %%Y') as month_label,
           documents
         FROM clearance_requests
-        WHERE """ + interval_sql + """
+        WHERE """ + interval_sql + cr_where_suffix + ddoc['cr_extra_sql'] + """
           AND documents IS NOT NULL
           AND documents != ''
-      """, interval_params)
+      """, cr_params)
       
       clearance_requests_data = cur.fetchall()
       
@@ -7597,12 +7839,16 @@ def create_app() -> Flask:
               document_list = [documents_json]
         
         # Count each document type from documents JSON only
+        doc_norm = ddoc.get('norm')
         for doc_type in document_list:
           if doc_type and doc_type.strip():
+            dt = doc_type.strip()
+            if doc_norm and dt != doc_norm:
+              continue
             monthly_totals[month] += 1
-            if doc_type not in data_by_month[month]['documents']:
-              data_by_month[month]['documents'][doc_type] = 0
-            data_by_month[month]['documents'][doc_type] += 1
+            if dt not in data_by_month[month]['documents']:
+              data_by_month[month]['documents'][dt] = 0
+            data_by_month[month]['documents'][dt] += 1
       
       # Calculate percentages and format data
       months = []
@@ -7666,9 +7912,9 @@ def create_app() -> Flask:
                cr.documents
         FROM clearance_requests cr
         JOIN students s ON s.id = cr.student_id
-        WHERE """ + interval_sql_cr + """
+        WHERE """ + interval_sql_cr + cr_where_suffix + ddoc['cr_extra_sql_alias'] + """
           AND cr.documents IS NOT NULL AND cr.documents != ''
-      """, interval_params)
+      """, cr_params)
       course_doc_counts = {}
       course_info = {}
       for row in (cur.fetchall() or []):
@@ -7690,6 +7936,8 @@ def create_app() -> Flask:
         for doc_type in doc_list:
           if doc_type and str(doc_type).strip():
             doc_type = str(doc_type).strip()
+            if ddoc.get('norm') and doc_type != ddoc['norm']:
+              continue
             if course not in course_doc_counts:
               course_doc_counts[course] = {}
             course_doc_counts[course][doc_type] = course_doc_counts[course].get(doc_type, 0) + 1
@@ -7701,11 +7949,11 @@ def create_app() -> Flask:
                COUNT(*) AS cnt
         FROM document_requests dr
         JOIN students s ON s.id = dr.student_id
-        WHERE """ + interval_sql_dr + """
+        WHERE """ + interval_sql_dr + dsa + ddoc['dr_alias_extra_sql'] + """
           AND dr.clearance_request_id IS NULL
           AND dr.document_type IS NOT NULL AND dr.document_type != ''
         GROUP BY 1, 4
-      """, interval_params)
+      """, interval_params + dap + ddoc['dr_alias_extra_params'])
       for row in (cur.fetchall() or []):
         course = row['course'] or 'Unknown'
         if course not in course_info:
@@ -7740,28 +7988,30 @@ def create_app() -> Flask:
         })
       by_course.sort(key=lambda x: x['total'], reverse=True)
 
-      # Requests by status (document_requests in same period)
+      # Requests by status (document_requests in same period; respects status + document filter)
       cur.execute("""
         SELECT status, COUNT(*) AS cnt
         FROM document_requests
-        WHERE """ + interval_sql + """
+        WHERE """ + interval_sql + dsp + ddoc['dr_plain'] + """
         GROUP BY status
-      """, interval_params)
+      """, interval_params + dpp + ddoc['dr_plain_params'])
       by_status = {'Pending': 0, 'Processing': 0, 'Completed': 0, 'Released': 0, 'Unclaimed': 0, 'Rejected': 0}
       for row in (cur.fetchall() or []):
         s = (row['status'] or '').strip()
         if s in by_status:
           by_status[s] = row['cnt']
 
-      # This month vs last month (same "request" count as monthly_totals)
-      from datetime import date, timedelta
-      today = date.today()
-      cur_ym = today.strftime('%Y-%m')
-      last_month_end = today.replace(day=1) - timedelta(days=1)
-      last_ym = last_month_end.strftime('%Y-%m')
-      this_month_count = monthly_totals.get(cur_ym, 0)
-      last_month_count = monthly_totals.get(last_ym, 0)
-      change_percent = round((this_month_count - last_month_count) / last_month_count * 100, 1) if last_month_count else (100 if this_month_count else 0)
+      status_summary = {
+        'rejected': by_status.get('Rejected', 0),
+        'fulfilled': by_status.get('Completed', 0) + by_status.get('Released', 0) + by_status.get('Unclaimed', 0),
+        'in_queue': by_status.get('Pending', 0) + by_status.get('Processing', 0),
+      }
+
+      agg_doc = {}
+      for mk in sorted(data_by_month.keys()):
+        for dt, cnt in data_by_month[mk]['documents'].items():
+          agg_doc[dt] = agg_doc.get(dt, 0) + cnt
+      by_document_type = [{'document_type': k, 'count': v} for k, v in sorted(agg_doc.items(), key=lambda x: -x[1])]
 
       cur.close()
       conn.close()
@@ -7776,11 +8026,14 @@ def create_app() -> Flask:
           'monthly_totals_arr': monthly_totals_arr,
           'by_course': by_course,
           'course_document_types': course_document_types,
+          'by_document_type': by_document_type,
           'date_range_label': {'from': from_label, 'to': to_label},
           'by_status': by_status,
-          'this_month': this_month_count,
-          'last_month': last_month_count,
-          'change_percent': change_percent
+          'status_summary': status_summary,
+          'preset': preset,
+          'ym': ym if preset == 'month' else None,
+          'status_filter': (status_raw or 'all').lower(),
+          'document_filter': (ddoc['norm'] or 'all'),
         }
       })
     except Exception as err:

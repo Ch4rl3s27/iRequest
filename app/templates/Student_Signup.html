@@ -31,12 +31,11 @@
     <div class="card-body">
       <h3 class="signup-title">Student Signup Form</h3>
       <form id="studentSignupForm" action="{{ (base_path or '') }}/student/signup" method="POST">
-        <!-- Student Number - Fill this FIRST (with autocomplete) -->
-        <div class="mb-3 position-relative">
+        <!-- Student Number - enter full 0000-0000; name fields fill after verification -->
+        <div class="mb-3">
           <label for="studentNo" class="form-label">Student No. (0000-0000)</label>
           <input type="text" class="form-control" id="studentNo" name="student_no" pattern="\d{4}-\d{4}" required autocomplete="off" inputmode="numeric" maxlength="9">
-          <div id="studentNoSearching" style="display:none; font-size:0.85rem; color:#6c757d; margin-top:4px;"><span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> <span id="studentNoSearchingText">Searching...</span></div>
-          <div id="studentNoDropdown" class="list-group position-absolute w-100 border rounded shadow-sm" style="top: 100%; z-index: 1000; max-height: 200px; overflow-y: auto; display: none;"></div>
+          <div id="studentNoSearching" style="display:none; font-size:0.85rem; color:#6c757d; margin-top:4px;"><span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> <span id="studentNoSearchingText">Verifying...</span></div>
         </div>
 
         <!-- Name (auto-filled from registry, readonly) -->
@@ -437,17 +436,15 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-  // Student Number lookup with autocomplete - options appear while typing
+  // Student Number: no suggestions while typing — fields fill after full number is verified (lookup API)
   (function(){
     var studentNo = document.getElementById('studentNo');
-    var dropdown = document.getElementById('studentNoDropdown');
     var firstEl = document.getElementById('stu_first_name');
     var middleEl = document.getElementById('stu_middle_name');
     var lastEl = document.getElementById('stu_last_name');
     var noMiddleCb = document.getElementById('stu_no_middlename');
     var lockedSection = document.getElementById('signupLockedSection');
     var submitBtn = document.getElementById('signupSubmitBtn');
-    var searchTimer = null;
 
     function setLocked(locked){
       if(!lockedSection) return;
@@ -479,28 +476,6 @@
       setLocked(false);
     }
 
-    function showDropdown(items){
-      if(!dropdown) return;
-      if(!items || items.length === 0){
-        dropdown.style.display = 'none';
-        dropdown.innerHTML = '';
-        return;
-      }
-      var esc = function(x){ return String(x||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
-      dropdown.innerHTML = items.map(function(s){
-        var label = s.student_no + ' — ' + (s.first_name || '') + ' ' + (s.last_name || '');
-        return '<a href="#" class="list-group-item list-group-item-action" data-sno="'+esc(s.student_no)+'" data-fn="'+esc(s.first_name)+'" data-ln="'+esc(s.last_name)+'" data-mn="'+esc(s.middle_name)+'">'+esc(label)+'</a>';
-      }).join('');
-      dropdown.style.display = 'block';
-    }
-
-    function hideDropdown(){
-      if(dropdown){
-        dropdown.style.display = 'none';
-        dropdown.innerHTML = '';
-      }
-    }
-
     function showSearching(text){
       var el = document.getElementById('studentNoSearching');
       var textEl = document.getElementById('studentNoSearchingText');
@@ -512,30 +487,9 @@
       if(el){ el.style.display = 'none'; }
     }
 
-    function doSearch(){
-      var raw = (studentNo && studentNo.value || '').trim();
-      var digits = raw.replace(/\D/g,'');
-      if(digits.length < 2) {
-        hideDropdown();
-        hideSearching();
-        return;
-      }
-      var q = digits.length >= 4 ? (digits.slice(0,4) + '-' + digits.slice(4)) : digits;
-      showSearching('Searching...');
-      fetch((window.APP_BASE || '') + '/api/student/search?q=' + encodeURIComponent(q))
-        .then(function(r){ return r.json(); })
-        .then(function(data){
-          hideSearching();
-          if(data.ok && data.students) showDropdown(data.students);
-          else hideDropdown();
-        })
-        .catch(function(){ hideSearching(); hideDropdown(); });
-    }
-
     function doLookup(){
       var val = (studentNo && studentNo.value || '').trim();
       if(!/^\d{4}-\d{4}$/.test(val)){
-        hideDropdown();
         hideSearching();
         return;
       }
@@ -552,7 +506,6 @@
         })
         .then(function(data){
           hideSearching();
-          hideDropdown();
           if(data.found){
             applyStudent(data);
           } else {
@@ -569,7 +522,6 @@
         })
         .catch(function(err){
           hideSearching();
-          hideDropdown();
           var msg = 'Unable to verify Student Number. Please try again.';
           if (err && err.serverError && err.message) msg = err.message;
           else if (err && err.message) msg = 'Connection or network error. Make sure the app server is running.';
@@ -597,36 +549,20 @@
             setLocked(true);
           }
         }
-        clearTimeout(searchTimer);
-        searchTimer = setTimeout(doSearch, 120);
       });
 
       studentNo.addEventListener('blur', function(){
         setTimeout(function(){
-          hideDropdown();
           doLookup();
         }, 150);
       });
 
-      studentNo.addEventListener('focus', function(){
-        var val = (this.value || '').trim();
-        if(val && val.length >= 2) doSearch();
-      });
-
-      if(dropdown){
-        dropdown.addEventListener('click', function(e){
+      studentNo.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){
           e.preventDefault();
-          var a = e.target.closest('a[data-sno]');
-          if(!a) return;
-          var sno = a.getAttribute('data-sno');
-          var fn = a.getAttribute('data-fn') || '';
-          var ln = a.getAttribute('data-ln') || '';
-          var mn = a.getAttribute('data-mn') || '';
-          studentNo.value = sno;
-          applyStudent({ student_no: sno, first_name: fn, last_name: ln, middle_name: mn });
-          hideDropdown();
-        });
-      }
+          doLookup();
+        }
+      });
     }
   })();
 

@@ -1931,6 +1931,8 @@
     .analytics-summary-card[data-stat="top-doc"] .summary-icon { background: rgba(168, 85, 247, 0.12); color: #7c3aed; }
     .analytics-summary-card[data-stat="top-course"] .summary-icon { background: rgba(14, 165, 233, 0.12); color: #0ea5e9; }
     .analytics-summary-card[data-stat="month-compare"] .summary-icon { background: rgba(245, 158, 11, 0.12); color: #d97706; }
+    .analytics-summary-card[data-stat="rejected"] .summary-icon { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
+    .analytics-summary-card[data-stat="fulfilled"] .summary-icon { background: rgba(34, 197, 94, 0.12); color: #15803d; }
     .analytics-toolbar .form-select-sm { max-width: 180px; }
     .analytics-by-status .analytics-status-cards { display: flex; flex-wrap: wrap; gap: var(--space-3); }
     .analytics-status-card {
@@ -2588,14 +2590,25 @@
       <header class="analytics-header">
         <h2>Registrar Analytics</h2>
         <p class="analytics-subtitle">Overview of document and clearance requests.</p>
-        <div class="analytics-toolbar mt-3 d-flex flex-wrap align-items-center gap-3">
-          <label class="d-flex align-items-center gap-2 mb-0">
-            <span class="text-secondary small">Date range:</span>
-            <select id="analyticsDateRange" class="form-select form-select-sm" style="width: auto;">
-              <option value="12">Last 12 months</option>
-              <option value="6">Last 6 months</option>
-              <option value="year=this">This year</option>
-              <option value="year=last">Last year</option>
+        <div class="analytics-toolbar mt-3 d-flex flex-wrap align-items-center gap-2 gap-md-3">
+          <label class="d-flex align-items-center gap-2 mb-0 flex-wrap">
+            <span class="text-secondary small">Period:</span>
+            <select id="analyticsPeriodPreset" class="form-select form-select-sm" style="width: auto; min-width: 11rem;">
+              <option value="this_month">This month</option>
+              <option value="last_month">Last month</option>
+              <option value="last_2m">Last 2 months (rolling)</option>
+              <option value="last_6m">Last 6 months</option>
+              <option value="last_12m" selected>Last 12 months</option>
+              <option value="year_this">This year (Jan – today)</option>
+              <option value="year_last">Last calendar year</option>
+              <option value="month">Specific month…</option>
+            </select>
+            <select id="analyticsMonthYm" class="form-select form-select-sm d-none" style="width: auto; min-width: 12rem;" aria-label="Calendar month"></select>
+          </label>
+          <label class="d-flex align-items-center gap-2 mb-0 flex-wrap">
+            <span class="text-secondary small">Requested document:</span>
+            <select id="analyticsDocumentFilter" class="form-select form-select-sm" style="width: auto; min-width: 13rem;" title="List shows every document type that has been requested (standalone requests + clearance bundles). Pick one to filter analytics.">
+              <option value="">All requested documents</option>
             </select>
           </label>
           <span id="analyticsPeriodLabel" class="text-muted small">Data: —</span>
@@ -2603,6 +2616,7 @@
             <i class="fas fa-download me-1"></i> Export by course (CSV)
           </button>
         </div>
+        <p id="analyticsFilterExtraHint" class="small text-muted mt-2 mb-0 d-none"></p>
       </header>
 
       <!-- Loading skeleton -->
@@ -2620,7 +2634,7 @@
       <!-- Empty state (no data) -->
       <div id="analyticsEmptyState" class="analytics-empty-state d-none">
         <i class="fas fa-chart-pie"></i>
-        <p>No request data for the last 12 months.</p>
+        <p id="analyticsEmptyMessage">No data to display.</p>
       </div>
 
       <!-- Summary cards (filled by JS) -->
@@ -2639,11 +2653,58 @@
             <p class="summary-label">Avg per month</p>
           </div>
         </div>
+        <div class="analytics-summary-card" data-stat="rejected">
+          <div class="summary-icon"><i class="fas fa-times-circle"></i></div>
+          <div>
+            <p class="summary-value" id="analyticsRejectedTotal">0</p>
+            <p class="summary-label">Rejected</p>
+          </div>
+        </div>
+        <div class="analytics-summary-card" data-stat="fulfilled">
+          <div class="summary-icon"><i class="fas fa-check-circle"></i></div>
+          <div>
+            <p class="summary-value" id="analyticsFulfilledTotal">0</p>
+            <p class="summary-label">Fulfilled</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Document types in selected period -->
+      <div id="analyticsDocTypeSection" class="analytics-section mb-4 d-none">
+        <div class="card shadow-sm">
+          <div class="card-header bg-light border-bottom">
+            <h6 class="mb-0"><i class="fas fa-folder-open me-2 text-primary"></i>Requests by document type (this period)</h6>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm table-hover mb-0">
+                <thead class="table-light"><tr><th>Document</th><th class="text-end">Count</th></tr></thead>
+                <tbody id="analyticsDocTypeTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Requests by status -->
       <div id="analyticsByStatusSection" class="analytics-by-status mb-4 d-none">
-        <h6 class="text-secondary mb-3">Requests by status (document requests)</h6>
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+          <h6 class="text-secondary mb-0">Requests by status (document requests)</h6>
+          <label class="d-flex align-items-center gap-2 mb-0">
+            <span class="text-secondary small">Show analytics for:</span>
+            <select id="analyticsStatusFilter" class="form-select form-select-sm" style="width: auto; min-width: 12.5rem;" title="Filter charts and totals to this status">
+              <option value="all" selected>All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="processing">Processing</option>
+              <option value="completed">Completed</option>
+              <option value="released">Released</option>
+              <option value="unclaimed">Unclaimed</option>
+              <option value="rejected">Rejected</option>
+              <option value="fulfilled">Fulfilled (Completed + Released + Unclaimed)</option>
+            </select>
+          </label>
+        </div>
+        <p id="analyticsStatusScopeHint" class="small text-muted mb-3">Fulfilled (above) = Completed + Released + Unclaimed. Rejected counts are registrar rejections only.</p>
         <div class="analytics-status-cards">
           <div class="analytics-status-card" data-status="Pending"><span class="status-count" id="analyticsStatusPending">0</span><span class="status-name">Pending</span></div>
           <div class="analytics-status-card" data-status="Processing"><span class="status-count" id="analyticsStatusProcessing">0</span><span class="status-name">Processing</span></div>
@@ -5407,6 +5468,121 @@
     let analyticsCourseChart = null;
     let lastAnalyticsData = null;
 
+    function fillRegistrarAnalyticsMonthOptions() {
+      var sel = document.getElementById('analyticsMonthYm');
+      if (!sel) return;
+      sel.innerHTML = '';
+      var now = new Date();
+      for (var i = 0; i < 48; i++) {
+        var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        var ym = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        var opt = document.createElement('option');
+        opt.value = ym;
+        opt.textContent = d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+        sel.appendChild(opt);
+      }
+    }
+
+    function analyticsToggleMonthSelect() {
+      var preset = document.getElementById('analyticsPeriodPreset');
+      var ym = document.getElementById('analyticsMonthYm');
+      if (!preset || !ym) return;
+      ym.classList.toggle('d-none', preset.value !== 'month');
+    }
+
+    function buildRegistrarAnalyticsUrl() {
+      var presetEl = document.getElementById('analyticsPeriodPreset');
+      var ymEl = document.getElementById('analyticsMonthYm');
+      var stEl = document.getElementById('analyticsStatusFilter');
+      var preset = presetEl ? presetEl.value : 'last_12m';
+      var q = '?preset=' + encodeURIComponent(preset);
+      if (preset === 'month' && ymEl && ymEl.value) {
+        q += '&ym=' + encodeURIComponent(ymEl.value);
+      }
+      if (stEl && stEl.value && stEl.value !== 'all') {
+        q += '&status=' + encodeURIComponent(stEl.value);
+      }
+      var docEl = document.getElementById('analyticsDocumentFilter');
+      if (docEl && String(docEl.value || '').trim()) {
+        q += '&document=' + encodeURIComponent(String(docEl.value).trim());
+      }
+      return '/api/registrar/analytics' + q;
+    }
+
+    async function loadRegistrarAnalyticsDocumentOptions() {
+      var sel = document.getElementById('analyticsDocumentFilter');
+      if (!sel) return;
+      var prev = sel.value;
+      try {
+        var r = await fetch((window.APP_BASE || '') + '/api/registrar/analytics/document-types');
+        var j = await r.json();
+        if (!j.ok || !j.document_types) return;
+        sel.innerHTML = '<option value="">All requested documents</option>';
+        j.document_types.forEach(function(name) {
+          if (!name) return;
+          var opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          sel.appendChild(opt);
+        });
+        if (prev) {
+          var found = false;
+          for (var i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].value === prev) { found = true; break; }
+          }
+          if (found) sel.value = prev;
+        }
+      } catch (e) {
+        console.warn('document-types', e);
+      }
+    }
+
+    function applyAnalyticsStatusScopeHint(filterKey) {
+      var el = document.getElementById('analyticsStatusScopeHint');
+      if (!el) return;
+      var fk = (filterKey || 'all').toLowerCase();
+      if (fk === 'all') {
+        el.textContent = 'Fulfilled (above) = Completed + Released + Unclaimed. Rejected counts are registrar rejections only.';
+        return;
+      }
+      el.textContent = 'Totals and charts below are limited to this status for the selected period. Clearance rows match fulfillment_status; Unclaimed is document requests only.';
+    }
+
+    function applyAnalyticsStatusCardsFilter(filterKey, byStatus) {
+      var fk = (filterKey || 'all').toLowerCase();
+      var all = fk === 'all';
+      var map = { pending: 'Pending', processing: 'Processing', completed: 'Completed', released: 'Released', unclaimed: 'Unclaimed', rejected: 'Rejected' };
+      document.querySelectorAll('#analyticsByStatusSection .analytics-status-card').forEach(function(card) {
+        var st = card.getAttribute('data-status');
+        var n = parseInt((byStatus && byStatus[st] !== undefined) ? byStatus[st] : 0, 10) || 0;
+        if (all) {
+          card.classList.remove('d-none');
+          return;
+        }
+        if (fk === 'fulfilled') {
+          var show = (st === 'Completed' || st === 'Released' || st === 'Unclaimed') && n > 0;
+          card.classList.toggle('d-none', !show);
+          return;
+        }
+        var want = map[fk];
+        card.classList.toggle('d-none', !want || st !== want);
+      });
+    }
+
+    function applyAnalyticsTopSummaryVisibility(filterKey) {
+      var fk = (filterKey || 'all').toLowerCase();
+      var rj = document.querySelector('#analyticsSummaryCards [data-stat="rejected"]');
+      var ff = document.querySelector('#analyticsSummaryCards [data-stat="fulfilled"]');
+      if (!rj || !ff) return;
+      if (fk === 'all') {
+        rj.classList.remove('d-none');
+        ff.classList.remove('d-none');
+        return;
+      }
+      rj.classList.toggle('d-none', fk !== 'rejected');
+      ff.classList.toggle('d-none', fk !== 'fulfilled');
+    }
+
     const COURSE_CHART_COLORS = [
       'rgba(59, 130, 246, 0.85)',   // Blue
       'rgba(34, 197, 94, 0.85)',    // Green
@@ -5444,6 +5620,10 @@
         if (chartsEl) chartsEl.classList.add('d-none');
         var statusSection = document.getElementById('analyticsByStatusSection');
         if (statusSection) statusSection.classList.add('d-none');
+        var docTypeSec = document.getElementById('analyticsDocTypeSection');
+        if (docTypeSec) docTypeSec.classList.add('d-none');
+        var docHint = document.getElementById('analyticsFilterExtraHint');
+        if (docHint) docHint.classList.add('d-none');
       }
       function showData() {
         if (skeletonEl) skeletonEl.classList.add('d-none');
@@ -5458,14 +5638,7 @@
 
         showSkeleton();
 
-        var rangeSel = document.getElementById('analyticsDateRange');
-        var rangeVal = rangeSel ? rangeSel.value : '12';
-        var apiUrl = '/api/registrar/analytics';
-        if (rangeVal === 'year=this' || rangeVal === 'year=last') {
-          apiUrl += '?year=' + (rangeVal === 'year=this' ? 'this' : 'last');
-        } else {
-          apiUrl += '?range=' + (rangeVal === '6' ? '6' : '12');
-        }
+        var apiUrl = buildRegistrarAnalyticsUrl();
 
         const response = await fetch(apiUrl);
         if (!response.ok) {
@@ -5476,7 +5649,8 @@
         if (!data.ok) {
           console.error('Error loading analytics:', data.message || 'Unknown error');
           showEmpty();
-          if (emptyEl) emptyEl.querySelector('p').textContent = data.message || 'Failed to load analytics.';
+          var errP = document.getElementById('analyticsEmptyMessage') || (emptyEl && emptyEl.querySelector('p'));
+          if (errP) errP.textContent = data.message || 'Unable to load analytics.';
           return;
         }
 
@@ -5486,10 +5660,25 @@
         const monthlyTotalsArr = analyticsData.monthly_totals_arr || [];
         const byCourse = analyticsData.by_course || [];
         const courseDocTypes = analyticsData.course_document_types || [];
+        var byStatus = analyticsData.by_status || {};
+        var statusSum = 0;
+        Object.keys(byStatus).forEach(function(k) { statusSum += byStatus[k] || 0; });
 
-        const hasData = months.length > 0 || byCourse.length > 0;
+        const hasData = months.length > 0 || byCourse.length > 0 || (analyticsData.by_document_type || []).length > 0 || statusSum > 0;
         if (!hasData) {
           showEmpty();
+          var docF = analyticsData.document_filter || 'all';
+          var stF = analyticsData.status_filter || 'all';
+          var emptyMsg = document.getElementById('analyticsEmptyMessage') || (emptyEl && emptyEl.querySelector('p'));
+          if (emptyMsg) {
+            if (docF !== 'all') {
+              emptyMsg.textContent = 'No one has requested that document.';
+            } else if (stF !== 'all') {
+              emptyMsg.textContent = 'No requests match the selected status for this period.';
+            } else {
+              emptyMsg.textContent = 'No request data for the selected period.';
+            }
+          }
           return;
         }
 
@@ -5501,11 +5690,26 @@
         document.getElementById('analyticsTotalRequests').textContent = totalRequests.toLocaleString();
         document.getElementById('analyticsAvgPerMonth').textContent = avgPerMonth.toLocaleString();
 
+        var ss = analyticsData.status_summary || {};
+        var rejEl = document.getElementById('analyticsRejectedTotal');
+        var fulEl = document.getElementById('analyticsFulfilledTotal');
+        if (rejEl) rejEl.textContent = (ss.rejected != null ? ss.rejected : (byStatus.Rejected || 0)).toLocaleString();
+        if (fulEl) fulEl.textContent = (ss.fulfilled != null ? ss.fulfilled : 0).toLocaleString();
+
         var dateRangeLabel = analyticsData.date_range_label || {};
         var periodEl = document.getElementById('analyticsPeriodLabel');
         if (periodEl) periodEl.textContent = 'Data: ' + (dateRangeLabel.from || '') + ' – ' + (dateRangeLabel.to || '');
+        var docHint = document.getElementById('analyticsFilterExtraHint');
+        var df = analyticsData.document_filter || 'all';
+        if (docHint) {
+          if (df && df !== 'all') {
+            docHint.textContent = 'Requested document: ' + df + ' (exact match).';
+            docHint.classList.remove('d-none');
+          } else {
+            docHint.classList.add('d-none');
+          }
+        }
 
-        var byStatus = analyticsData.by_status || {};
         var statusIds = { Pending: 'analyticsStatusPending', Processing: 'analyticsStatusProcessing', Completed: 'analyticsStatusCompleted', Released: 'analyticsStatusReleased', Unclaimed: 'analyticsStatusUnclaimed', Rejected: 'analyticsStatusRejected' };
         Object.keys(statusIds).forEach(function(s) {
           var el = document.getElementById(statusIds[s]);
@@ -5514,8 +5718,38 @@
         var statusSection = document.getElementById('analyticsByStatusSection');
         if (statusSection) statusSection.classList.remove('d-none');
 
+        var sf = analyticsData.status_filter || 'all';
+        applyAnalyticsStatusScopeHint(sf);
+        applyAnalyticsStatusCardsFilter(sf, byStatus);
+        applyAnalyticsTopSummaryVisibility(sf);
+
+        var docTypeBody = document.getElementById('analyticsDocTypeTableBody');
+        var docTypeSec = document.getElementById('analyticsDocTypeSection');
+        if (docTypeBody) {
+          docTypeBody.innerHTML = '';
+          var rows = analyticsData.by_document_type || [];
+          rows.forEach(function(r) {
+            var tr = document.createElement('tr');
+            var td1 = document.createElement('td');
+            td1.textContent = r.document_type || '';
+            var td2 = document.createElement('td');
+            td2.className = 'text-end fw-semibold';
+            td2.textContent = (r.count || 0).toLocaleString();
+            tr.appendChild(td1);
+            tr.appendChild(td2);
+            docTypeBody.appendChild(tr);
+          });
+          if (docTypeSec) docTypeSec.classList.toggle('d-none', rows.length === 0);
+        }
+
         lastAnalyticsData = analyticsData;
         showData();
+
+        var hasCharts = months.length > 0 || byCourse.length > 0;
+        if (chartsEl) {
+          if (hasCharts) chartsEl.classList.remove('d-none');
+          else chartsEl.classList.add('d-none');
+        }
 
         // If Chart.js failed to load (e.g., CDN blocked), keep summary visible but explain why charts are missing.
         if (typeof Chart === 'undefined') {
@@ -5695,10 +5929,8 @@
       } catch (error) {
         console.error('Error loading analytics:', error);
         showEmpty();
-        if (emptyEl) {
-          const p = emptyEl.querySelector('p');
-          if (p) p.textContent = 'Failed to load analytics. Please try again.';
-        }
+        var errP = document.getElementById('analyticsEmptyMessage') || (emptyEl && emptyEl.querySelector('p'));
+        if (errP) errP.textContent = 'Unable to load analytics. Please try again.';
       }
     }
 
@@ -5809,12 +6041,19 @@
         container.appendChild(template);
         // Small delay to ensure DOM is ready
         setTimeout(function() {
-          var rangeSel = document.getElementById('analyticsDateRange');
+          fillRegistrarAnalyticsMonthOptions();
+          analyticsToggleMonthSelect();
+          var presetSel = document.getElementById('analyticsPeriodPreset');
+          var ymSel = document.getElementById('analyticsMonthYm');
+          var docSel = document.getElementById('analyticsDocumentFilter');
           var exportBtn = document.getElementById('analyticsExportByCourseBtn');
-          if (rangeSel) rangeSel.addEventListener('change', function() { loadAnalytics(); });
+          if (presetSel) presetSel.addEventListener('change', function() { analyticsToggleMonthSelect(); loadAnalytics(); });
+          if (ymSel) ymSel.addEventListener('change', function() { loadAnalytics(); });
+          if (docSel) docSel.addEventListener('change', function() { loadAnalytics(); });
+          var statusSel = document.getElementById('analyticsStatusFilter');
+          if (statusSel) statusSel.addEventListener('change', function() { loadAnalytics(); });
           if (exportBtn) exportBtn.addEventListener('click', exportAnalyticsByCourseCsv);
-          // Always attempt to load; loadAnalytics() will self-guard if template isn't mounted.
-          loadAnalytics();
+          loadRegistrarAnalyticsDocumentOptions().then(function() { loadAnalytics(); });
         }, 10);
       }
 
